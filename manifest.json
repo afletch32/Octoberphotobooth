@@ -1,0 +1,14 @@
+{
+  "name": "Event Photobooth – Works Oct",
+  "short_name": "Booth Works",
+  "id": "/apps/photobooth-works-oct",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#0f1222",
+  "icons": [
+    { "src": "appicon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "appicon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
