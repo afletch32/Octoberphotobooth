@@ -3031,72 +3031,105 @@ async function updateSelectedTheme() {
   const target = getSelectedThemeTarget();
   if (!key || !target) { alert('Select a theme first.'); return; }
 
-  target.name = DOM.themeName.value || target.name;
-  target.accent = DOM.themeAccent.value || target.accent;
-  target.accent2 = DOM.themeAccent2.value || target.accent2;
-  // Update font if a selection exists (avoid undefined access)
-  if (DOM.themeFontSelect && DOM.themeFontSelect.value) {
-    const fam = DOM.themeFontSelect.value.trim();
-    if (fam) target.font = `'${fam}', cursive`;
-  }
-  target.welcome = target.welcome || {};
-  target.welcome.title = DOM.themeWelcomeTitle.value || target.welcome.title || '';
-  target.welcome.prompt = DOM.themeWelcomePrompt.value || target.welcome.prompt || '';
+  applyThemeBasicsFromEditor(target);
+  const folders = readThemeFolderInputs();
+  await uploadThemeAssetsFromEditor(target);
+  applyThemeFolderSettings(target, folders);
 
-  const backgroundFile = DOM.themeBackground.files[0];
-  const logoFile = DOM.themeLogo.files[0];
-  const overlayFiles = DOM.themeOverlays.files;
-  const templateFiles = DOM.themeTemplates.files;
-  const templatesFolder = DOM.themeTemplatesFolder && DOM.themeTemplatesFolder.value ? DOM.themeTemplatesFolder.value.trim() : '';
-  const overlaysFolder = DOM.themeOverlaysFolder && DOM.themeOverlaysFolder.value ? DOM.themeOverlaysFolder.value.trim() : '';
-
-  const filePromises = [];
-  if (backgroundFile) filePromises.push(uploadAsset(backgroundFile, 'backgrounds').then(url => {
-    if (!url) return;
-    if (Array.isArray(target.backgrounds)) target.backgrounds.push(url);
-    else if (target.background) { target.backgrounds = [target.background, url]; delete target.backgroundIndex; }
-    else target.background = url;
-  }));
-  if (logoFile) filePromises.push(uploadAsset(logoFile, 'logo').then(url => { if (url) target.logo = url; }));
-  if (overlayFiles && overlayFiles.length > 0) {
-    if (!Array.isArray(target.overlays)) target.overlays = [];
-    for (const f of overlayFiles) filePromises.push(uploadAsset(f, 'overlays').then(url => { if (url) target.overlays.push(url); }));
-  }
-  // Store folder path if provided
-  if (typeof overlaysFolder === 'string') {
-    const cleaned = overlaysFolder ? (overlaysFolder.endsWith('/') ? overlaysFolder : overlaysFolder + '/') : '';
-    if (cleaned) target.overlaysFolder = cleaned; else delete target.overlaysFolder;
-  }
-  if (templateFiles && templateFiles.length > 0) {
-    if (!Array.isArray(target.templates)) target.templates = [];
-    for (const f of templateFiles) filePromises.push(uploadAsset(f, 'templates').then(url => { if (url) target.templates.push({ src: url, layout: 'double_column' }); }));
-  }
-  // Store templates folder path if provided
-  if (typeof templatesFolder === 'string') {
-    const cleaned = templatesFolder ? (templatesFolder.endsWith('/') ? templatesFolder : templatesFolder + '/') : '';
-    if (cleaned) target.templatesFolder = cleaned; else delete target.templatesFolder;
-  }
-
-  await Promise.all(filePromises);
-  // Dedupe and strip empty items before persisting
   try { normalizeThemeObject(target); } catch (_e) { }
   saveThemesToStorage();
 
-  // Keep selections in sync and rebuild options
   populateThemeSelector(key);
   if (DOM.eventSelect) DOM.eventSelect.value = key;
   if (DOM.themeEditorSelect) DOM.themeEditorSelect.value = key;
 
-  // Refresh UI and options
   loadTheme(key);
+  clearThemeFileInputs();
+  syncThemeEditorWithActiveTheme();
+  showToast('Theme updated');
+}
 
-  // Clear file inputs and refresh summaries
+function valueFromInput(node) {
+  return node && typeof node.value === 'string' ? node.value.trim() : '';
+}
+
+function applyThemeBasicsFromEditor(target) {
+  target.name = valueFromInput(DOM.themeName) || target.name;
+  target.accent = valueFromInput(DOM.themeAccent) || target.accent;
+  target.accent2 = valueFromInput(DOM.themeAccent2) || target.accent2;
+  const selectedFont = valueFromInput(DOM.themeFontSelect);
+  if (selectedFont) target.font = `'${selectedFont}', cursive`;
+  target.welcome = target.welcome || {};
+  target.welcome.title = valueFromInput(DOM.themeWelcomeTitle) || target.welcome.title || '';
+  target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt) || target.welcome.prompt || '';
+}
+
+function normalizeFolderInput(raw) {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return '';
+  return trimmed.endsWith('/') ? trimmed : trimmed + '/';
+}
+
+function readThemeFolderInputs() {
+  return {
+    overlays: normalizeFolderInput(valueFromInput(DOM.themeOverlaysFolder)),
+    templates: normalizeFolderInput(valueFromInput(DOM.themeTemplatesFolder))
+  };
+}
+
+function applyThemeFolderSettings(target, folders) {
+  if (folders.overlays) target.overlaysFolder = folders.overlays; else delete target.overlaysFolder;
+  if (folders.templates) target.templatesFolder = folders.templates; else delete target.templatesFolder;
+}
+
+function ensureArray(target, prop) {
+  if (!Array.isArray(target[prop])) target[prop] = [];
+}
+
+async function uploadThemeAssetsFromEditor(target) {
+  const tasks = [];
+
+  const backgroundFile = DOM.themeBackground && DOM.themeBackground.files ? DOM.themeBackground.files[0] : null;
+  if (backgroundFile) {
+    tasks.push(uploadAsset(backgroundFile, 'backgrounds').then((url) => {
+      if (!url) return;
+      if (Array.isArray(target.backgrounds)) target.backgrounds.push(url);
+      else if (target.background) { target.backgrounds = [target.background, url]; delete target.backgroundIndex; }
+      else target.background = url;
+    }));
+  }
+
+  const logoFile = DOM.themeLogo && DOM.themeLogo.files ? DOM.themeLogo.files[0] : null;
+  if (logoFile) {
+    tasks.push(uploadAsset(logoFile, 'logo').then((url) => { if (url) target.logo = url; }));
+  }
+
+  const overlayFiles = DOM.themeOverlays && DOM.themeOverlays.files ? Array.from(DOM.themeOverlays.files) : [];
+  if (overlayFiles.length) {
+    ensureArray(target, 'overlays');
+    overlayFiles.forEach((file) => {
+      tasks.push(uploadAsset(file, 'overlays').then((url) => { if (url) target.overlays.push(url); }));
+    });
+  }
+
+  const templateFiles = DOM.themeTemplates && DOM.themeTemplates.files ? Array.from(DOM.themeTemplates.files) : [];
+  if (templateFiles.length) {
+    ensureArray(target, 'templates');
+    templateFiles.forEach((file) => {
+      tasks.push(uploadAsset(file, 'templates').then((url) => {
+        if (url) target.templates.push({ src: url, layout: 'double_column' });
+      }));
+    });
+  }
+
+  await Promise.all(tasks);
+}
+
+function clearThemeFileInputs() {
   if (DOM.themeBackground) DOM.themeBackground.value = '';
   if (DOM.themeLogo) DOM.themeLogo.value = '';
   if (DOM.themeOverlays) DOM.themeOverlays.value = '';
   if (DOM.themeTemplates) DOM.themeTemplates.value = '';
-  syncThemeEditorWithActiveTheme();
-  showToast('Theme updated');
 }
 
 // --- De-duplication helpers ---
