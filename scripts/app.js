@@ -1159,10 +1159,13 @@ function renderCurrentAssets(theme) {
 }
 
 function goAdmin() {
+  hideFinal();
+  if (DOM.welcomeScreen) DOM.welcomeScreen.classList.add('faded');
   DOM.boothScreen.classList.add('hidden');
   DOM.adminScreen.classList.remove('hidden');
   document.body.classList.add('admin-open');
   document.documentElement.classList.add('admin-open');
+  setBoothControlsVisible(true);
 }
 function setMode(m) {
   mode = m;
