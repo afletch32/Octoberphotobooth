@@ -632,8 +632,8 @@ async function sendTestEmail() {
 
 // --- Cloudinary Settings (UI + storage) ---
 // Defaults (optional):
-const CLOUDINARY_CLOUD_NAME = '';
-const CLOUDINARY_UPLOAD_PRESET = '';
+const CLOUDINARY_CLOUD_NAME = 'afletch32';
+const CLOUDINARY_UPLOAD_PRESET = 'photobooth_unsigned';
 const CLOUDINARY_FOLDER_BASE_DEFAULT = 'photobooth/events';
 
 function loadCloudinarySettings() {
