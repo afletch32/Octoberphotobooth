@@ -26,8 +26,11 @@ let themes = {
         accent: "#3f51b5",
         accent2: "#ffffff",
         font: "'Comic Neue', cursive",
-        background: "assets/general/basic/backgrounds/",
-        backgroundFolder: "assets/general/basic/backgrounds/",
+        background: "assets/general/basic/backgrounds/basic-background-1.png",
+        backgrounds: [
+          "assets/general/basic/backgrounds/basic-background-1.png",
+          "assets/general/basic/backgrounds/sparkles.png"
+        ],
         logo: "",
         overlaysFolder: "assets/general/basic/overlays/",
         templatesFolder: "assets/general/basic/templates/",
@@ -43,7 +46,7 @@ let themes = {
         accent: "pink",
         accent2: "white",
         font: "'Comic Neue', cursive",
-        background: "assets/general/birthday/backgrounds/",
+        background: "assets/general/birthday/backgrounds/birthday-background-1.png",
         backgroundFolder: "assets/general/birthday/backgrounds/",
         backgrounds: ["assets/general/birthday/backgrounds/birthday-background-1.png"],
         logo: "",
