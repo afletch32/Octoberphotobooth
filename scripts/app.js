@@ -2659,39 +2659,73 @@ function mergePlainObject(baseObj, overrideObj) {
   return out;
 }
 
+const stringOrEmpty = (val) => typeof val === 'string' ? val.trim() : '';
+const arrayFromMaybeList = (list) => Array.isArray(list) ? list.filter(Boolean) : [];
+const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
+
 function applyThemeFallbacks(baseLeaf, merged, storedLeaf) {
   if (!baseLeaf || typeof baseLeaf !== 'object' || !merged || typeof merged !== 'object') return;
-  const baseBackgrounds = Array.isArray(baseLeaf.backgrounds) ? baseLeaf.backgrounds.filter(Boolean) : [];
-  const mergedBackgrounds = Array.isArray(merged.backgrounds) ? merged.backgrounds.filter(Boolean) : [];
-  const baseBackground = (baseLeaf.background || '').trim();
-  const mergedBackground = (merged.background || '').trim();
-  const storedBackgrounds = storedLeaf && storedLeaf.backgrounds;
-  const storedBackground = storedLeaf && storedLeaf.background;
-  const storedBackgroundsArr = Array.isArray(storedBackgrounds)
-    ? storedBackgrounds.filter(Boolean)
-    : [];
-  const storedBackgroundStr = (typeof storedBackground === 'string') ? storedBackground.trim() : '';
-  const storedAllowsFallback = !storedLeaf
-    || (storedBackgroundsArr.length === 0 && !storedBackgroundStr);
-  if ((baseBackgrounds.length || baseBackground) && (!mergedBackgrounds.length && !mergedBackground) && storedAllowsFallback) {
-    if (baseBackgrounds.length) merged.backgrounds = baseBackgrounds.slice();
-    if (baseBackground) merged.background = baseLeaf.background;
-    if (typeof baseLeaf.backgroundIndex === 'number') merged.backgroundIndex = baseLeaf.backgroundIndex;
+  applyBackgroundFallback(baseLeaf, merged, storedLeaf);
+  applyTemplatesFallback(baseLeaf, merged, storedLeaf);
+  applyOverlaysFallback(baseLeaf, merged, storedLeaf);
+  applyArrayFallback(baseLeaf, merged, 'overlaysRemoved');
+  applyArrayFallback(baseLeaf, merged, 'templatesRemoved');
+  mergeWelcomeAndMeta(baseLeaf, merged);
+}
+
+function applyBackgroundFallback(baseLeaf, merged, storedLeaf) {
+  const baseList = arrayFromMaybeList(baseLeaf.backgrounds);
+  const baseSingle = stringOrEmpty(baseLeaf.background);
+  const mergedList = arrayFromMaybeList(merged.backgrounds);
+  const mergedSingle = stringOrEmpty(merged.background);
+  const storedList = arrayFromMaybeList(storedLeaf && storedLeaf.backgrounds);
+  const storedSingle = stringOrEmpty(storedLeaf && storedLeaf.background);
+  const storedAllowsFallback = !storedLeaf || (!storedList.length && !storedSingle);
+
+  if (!storedAllowsFallback) return;
+  if (!baseList.length && !baseSingle) return;
+  if (mergedList.length || mergedSingle) return;
+
+  if (baseList.length) merged.backgrounds = baseList.slice();
+  if (baseSingle) merged.background = baseLeaf.background;
+  if (typeof baseLeaf.backgroundIndex === 'number') {
+    merged.backgroundIndex = baseLeaf.backgroundIndex;
   }
-  const storedTemplatesFolder = storedLeaf && typeof storedLeaf.templatesFolder === 'string' && storedLeaf.templatesFolder.trim();
-  const storedTemplatesArray = storedLeaf && Array.isArray(storedLeaf.templates);
-  if (baseLeaf.templatesFolder && !merged.templatesFolder && !storedTemplatesFolder) merged.templatesFolder = baseLeaf.templatesFolder;
-  if (Array.isArray(baseLeaf.templates) && baseLeaf.templates.length && (!Array.isArray(merged.templates) || !merged.templates.length) && !storedTemplatesArray) {
-    merged.templates = baseLeaf.templates.map(t => mergePlainObject(t, {}));
+}
+
+function applyTemplatesFallback(baseLeaf, merged, storedLeaf) {
+  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.templatesFolder);
+  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.templates);
+  if (baseLeaf.templatesFolder && !merged.templatesFolder && !storedFolder) {
+    merged.templatesFolder = baseLeaf.templatesFolder;
   }
-  const storedOverlaysFolder = storedLeaf && typeof storedLeaf.overlaysFolder === 'string' && storedLeaf.overlaysFolder.trim();
-  const storedOverlaysArray = storedLeaf && Array.isArray(storedLeaf.overlays);
-  if (baseLeaf.overlaysFolder && !merged.overlaysFolder && !storedOverlaysFolder) merged.overlaysFolder = baseLeaf.overlaysFolder;
-  if (Array.isArray(baseLeaf.overlays) && baseLeaf.overlays.length && (!Array.isArray(merged.overlays) || !merged.overlays.length) && !storedOverlaysArray) {
-    merged.overlays = baseLeaf.overlays.slice();
+  const baseTemplates = Array.isArray(baseLeaf.templates) ? baseLeaf.templates : null;
+  const mergedTemplates = Array.isArray(merged.templates) ? merged.templates : null;
+  if (baseTemplates && baseTemplates.length && (!mergedTemplates || mergedTemplates.length === 0) && !storedArrayExists) {
+    merged.templates = baseTemplates.map((tpl) => mergePlainObject(tpl, {}));
   }
-  if (Array.isArray(baseLeaf.overlaysRemoved) && !Array.isArray(merged.overlaysRemoved)) merged.overlaysRemoved = baseLeaf.overlaysRemoved.slice();
-  if (Array.isArray(baseLeaf.templatesRemoved) && !Array.isArray(merged.templatesRemoved)) merged.templatesRemoved = baseLeaf.templatesRemoved.slice();
+}
+
+function applyOverlaysFallback(baseLeaf, merged, storedLeaf) {
+  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.overlaysFolder);
+  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.overlays);
+  if (baseLeaf.overlaysFolder && !merged.overlaysFolder && !storedFolder) {
+    merged.overlaysFolder = baseLeaf.overlaysFolder;
+  }
+  const baseOverlays = Array.isArray(baseLeaf.overlays) ? baseLeaf.overlays : null;
+  const mergedOverlays = Array.isArray(merged.overlays) ? merged.overlays : null;
+  if (baseOverlays && baseOverlays.length && (!mergedOverlays || mergedOverlays.length === 0) && !storedArrayExists) {
+    merged.overlays = baseOverlays.slice();
+  }
+}
+
+function applyArrayFallback(baseLeaf, merged, prop) {
+  if (Array.isArray(baseLeaf[prop]) && !Array.isArray(merged[prop])) {
+    merged[prop] = baseLeaf[prop].slice();
+  }
+}
+
+function mergeWelcomeAndMeta(baseLeaf, merged) {
   if (baseLeaf.welcome) merged.welcome = mergePlainObject(baseLeaf.welcome, merged.welcome);
   if (baseLeaf.accent && !merged.accent) merged.accent = baseLeaf.accent;
   if (baseLeaf.accent2 && !merged.accent2) merged.accent2 = baseLeaf.accent2;
