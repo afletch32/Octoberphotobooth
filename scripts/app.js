@@ -902,59 +902,68 @@ function updateThemeEditorSummary() {
   const eventKey = DOM.eventSelect && DOM.eventSelect.value;
   const eventTheme = getThemeByKey(eventKey);
   if (DOM.themeEditorActive) {
-    if (eventTheme && eventTheme.name) DOM.themeEditorActive.textContent = eventTheme.name;
-    else if (eventKey) DOM.themeEditorActive.textContent = eventKey;
-    else DOM.themeEditorActive.textContent = 'None selected';
+    DOM.themeEditorActive.textContent = describeActiveTheme(eventTheme, eventKey);
   }
   if (DOM.themeEditorEditing) {
-    let label = 'Editing: ';
-    const isCreate = DOM.themeModeCreate && DOM.themeModeCreate.checked;
-    if (isCreate) {
-      const name = DOM.themeName ? DOM.themeName.value.trim() : '';
-      label += name ? `New theme "${name}"` : 'New theme';
-    } else {
-      const editorKey = DOM.themeEditorSelect && DOM.themeEditorSelect.value;
-      if (editorKey) {
-        const editorTheme = getThemeByKey(editorKey);
-        const draftName = DOM.themeName ? DOM.themeName.value.trim() : '';
-        if (draftName) label += draftName;
-        else if (editorTheme && editorTheme.name) label += editorTheme.name;
-        else label += editorKey;
-      } else {
-        label += 'Choose a theme';
-      }
-    }
-    DOM.themeEditorEditing.textContent = label;
+    DOM.themeEditorEditing.textContent = describeEditingState();
   }
+}
+
+function describeActiveTheme(theme, key) {
+  if (theme && theme.name) return theme.name;
+  if (key) return key;
+  return 'None selected';
+}
+
+function describeEditingState() {
+  const isCreate = DOM.themeModeCreate && DOM.themeModeCreate.checked;
+  if (isCreate) {
+    const name = valueFromInput(DOM.themeName);
+    return name ? `Editing: New theme \"${name}\"` : 'Editing: New theme';
+  }
+  const editorKey = DOM.themeEditorSelect && DOM.themeEditorSelect.value;
+  if (!editorKey) return 'Editing: Choose a theme';
+  const editorTheme = getThemeByKey(editorKey);
+  const draftName = valueFromInput(DOM.themeName);
+  const displayName = draftName || (editorTheme && editorTheme.name) || editorKey;
+  return `Editing: ${displayName}`;
 }
 
 function syncThemeEditorWithActiveTheme() {
   if (!activeTheme) return;
-  if (DOM.themeName) DOM.themeName.value = activeTheme.name || '';
-  const fam = primaryFontFamily(activeTheme.font || '');
-  if (DOM.themeFontSelect) populateFontSelect(fam);
-  if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = (activeTheme.welcome && activeTheme.welcome.title) || '';
-  if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = (activeTheme.welcome && activeTheme.welcome.prompt) || '';
-  // Colors: convert to hex if needed for the color input
-  const accHex = activeTheme.accent && activeTheme.accent.startsWith('#') ? activeTheme.accent : colorToHex(activeTheme.accent || '');
-  const acc2Hex = activeTheme.accent2 && activeTheme.accent2.startsWith('#') ? activeTheme.accent2 : colorToHex(activeTheme.accent2 || '');
-  if (accHex) DOM.themeAccent.value = accHex;
-  if (acc2Hex) DOM.themeAccent2.value = acc2Hex;
-  // Summaries
-  if (DOM.summaryBackground) {
-    const hasBgList = Array.isArray(activeTheme.backgrounds) && activeTheme.backgrounds.length > 0;
-    const hasTmp = Array.isArray(activeTheme.backgroundsTmp) && activeTheme.backgroundsTmp.length > 0;
-    const hasBg = !!activeTheme.background || hasBgList || hasTmp;
-    DOM.summaryBackground.textContent = hasBg ? 'Current background: set' : 'Current background: none';
-  }
-  if (DOM.summaryLogo) DOM.summaryLogo.textContent = activeTheme.logo ? 'Current logo: set' : 'Current logo: none';
-  if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = `Existing overlays: ${(activeTheme.overlays || []).length}`;
-  if (DOM.themeOverlaysFolder) DOM.themeOverlaysFolder.value = activeTheme.overlaysFolder || '';
-  if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = `Templates: ${getTemplateList(activeTheme).length}`;
-  if (DOM.themeTemplatesFolder) DOM.themeTemplatesFolder.value = activeTheme.templatesFolder || '';
-  // Visual previews
+  applyThemeEditorBasics(activeTheme);
+  applyThemeEditorColors(activeTheme);
+  updateThemeEditorSummaries(activeTheme);
   renderCurrentAssets(activeTheme);
   updateThemeEditorSummary();
+}
+
+function applyThemeEditorBasics(theme) {
+  if (DOM.themeName) DOM.themeName.value = theme.name || '';
+  if (DOM.themeFontSelect) populateFontSelect(primaryFontFamily(theme.font || ''));
+  if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = (theme.welcome && theme.welcome.title) || '';
+  if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = (theme.welcome && theme.welcome.prompt) || '';
+  if (DOM.themeOverlaysFolder) DOM.themeOverlaysFolder.value = theme.overlaysFolder || '';
+  if (DOM.themeTemplatesFolder) DOM.themeTemplatesFolder.value = theme.templatesFolder || '';
+}
+
+function applyThemeEditorColors(theme) {
+  const primary = theme.accent && theme.accent.startsWith('#') ? theme.accent : colorToHex(theme.accent || '');
+  const secondary = theme.accent2 && theme.accent2.startsWith('#') ? theme.accent2 : colorToHex(theme.accent2 || '');
+  if (primary && DOM.themeAccent) DOM.themeAccent.value = primary;
+  if (secondary && DOM.themeAccent2) DOM.themeAccent2.value = secondary;
+}
+
+function updateThemeEditorSummaries(theme) {
+  if (DOM.summaryBackground) {
+    const hasExplicit = Array.isArray(theme.backgrounds) && theme.backgrounds.length > 0;
+    const hasTemp = Array.isArray(theme.backgroundsTmp) && theme.backgroundsTmp.length > 0;
+    const hasAny = !!theme.background || hasExplicit || hasTemp;
+    DOM.summaryBackground.textContent = hasAny ? 'Current background: set' : 'Current background: none';
+  }
+  if (DOM.summaryLogo) DOM.summaryLogo.textContent = theme.logo ? 'Current logo: set' : 'Current logo: none';
+  if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = `Existing overlays: ${(theme.overlays || []).length}`;
+  if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = `Templates: ${getTemplateList(theme).length}`;
 }
 
 function renderCurrentAssets(theme) {
