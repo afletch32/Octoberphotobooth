@@ -329,22 +329,43 @@ let demoMode = false; // Allows running from file:// without camera
 let captureAspectRatio = null; // Override capture aspect (width/height) when set
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
-const config = {
-  defaultTheme: {
-    name: "Basic",
-    accent: "#d4f2d9",
-    accent2: "#ffffff",
-    welcomeTitle: "Welcome to Basic Booth",
-    welcomePrompt: "Touch to start"
-  },
-  paths: {
-    assets: "./assets",
-    overlays: "./assets/overlays",
-    templates: "./assets/templates",
-    backgrounds: "./assets/backgrounds"
-  }
-};
 function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
+
+function renderMissingThumbnail(container, src) {
+  if (!container) return;
+  container.innerHTML = '';
+  const placeholder = document.createElement('div');
+  placeholder.style.width = '100px';
+  placeholder.style.height = '72px';
+  placeholder.style.display = 'flex';
+  placeholder.style.alignItems = 'center';
+  placeholder.style.justifyContent = 'center';
+  placeholder.style.color = '#aaa';
+  placeholder.style.background = '#151820';
+  placeholder.style.borderRadius = '6px';
+  placeholder.textContent = 'Missing';
+  const caption = document.createElement('div');
+  caption.className = 'asset-badge';
+  caption.textContent = (src || '').split('/').pop();
+  container.appendChild(placeholder);
+  container.appendChild(caption);
+}
+
+function createAssetTile(src, options = {}) {
+  const item = document.createElement('div');
+  item.className = 'asset-item';
+  const img = document.createElement('img');
+  img.src = withBust(src);
+  img.onerror = () => renderMissingThumbnail(item, src);
+  item.appendChild(img);
+  if (options.badge) {
+    const badgeEl = document.createElement('div');
+    badgeEl.className = 'asset-badge';
+    badgeEl.textContent = options.badge;
+    item.appendChild(badgeEl);
+  }
+  return item;
+}
 
 // --- Idle Timeout ---
 let idleTimer;
@@ -949,22 +970,7 @@ function renderCurrentAssets(theme) {
     if (!wrap) return;
     wrap.innerHTML = '';
     if (src) {
-      const item = document.createElement('div');
-      item.className = 'asset-item';
-      const img = document.createElement('img');
-      img.src = withBust(src);
-      img.onerror = () => {
-        // Show a placeholder tile instead of hiding
-        item.innerHTML = '';
-        const ph = document.createElement('div');
-        ph.style.width = '100px'; ph.style.height = '72px';
-        ph.style.display = 'flex'; ph.style.alignItems = 'center'; ph.style.justifyContent = 'center';
-        ph.style.color = '#aaa'; ph.style.background = '#151820'; ph.style.borderRadius = '6px';
-        ph.textContent = 'Missing';
-        const cap = document.createElement('div'); cap.className = 'asset-badge'; cap.textContent = src.split('/').pop();
-        item.appendChild(ph); item.appendChild(cap);
-      };
-      item.appendChild(img);
+      const item = createAssetTile(src);
       const btn = document.createElement('button');
       btn.className = 'asset-remove';
       btn.textContent = '×';
@@ -990,31 +996,10 @@ function renderCurrentAssets(theme) {
     (list || []).forEach((entry, idx) => {
       const src = typeof entry === 'string' ? entry : entry.src;
       const fromFolder = typeof entry === 'object' && !!entry.__folder;
-      const badge = typeof entry === 'object' && entry.layout ? entry.layout : '';
-      const item = document.createElement('div');
-      item.className = 'asset-item';
+      const badge = (withBadge && typeof entry === 'object' && entry.layout) ? entry.layout : null;
+      const item = createAssetTile(src, { badge });
       item.draggable = allowReorder && !fromFolder;
       item.dataset.index = idx;
-      const img = document.createElement('img');
-      img.src = withBust(src);
-      img.onerror = () => {
-        // Replace with a placeholder tile and keep it visible for management
-        item.innerHTML = '';
-        const ph = document.createElement('div');
-        ph.style.width = '100px'; ph.style.height = '72px';
-        ph.style.display = 'flex'; ph.style.alignItems = 'center'; ph.style.justifyContent = 'center';
-        ph.style.color = '#aaa'; ph.style.background = '#151820'; ph.style.borderRadius = '6px';
-        ph.textContent = 'Missing';
-        const cap = document.createElement('div'); cap.className = 'asset-badge'; cap.textContent = src.split('/').pop();
-        item.appendChild(ph); item.appendChild(cap);
-      };
-      item.appendChild(img);
-      if (withBadge && badge) {
-        const b = document.createElement('div');
-        b.className = 'asset-badge';
-        b.textContent = badge;
-        item.appendChild(b);
-      }
       const btn = document.createElement('button');
       btn.className = 'asset-remove';
       btn.textContent = '×';
@@ -1073,16 +1058,7 @@ function renderCurrentAssets(theme) {
       bgList.forEach((src, idx) => {
         const item = document.createElement('div'); item.className = 'asset-item';
         if (idx === selectedBg) item.classList.add('selected');
-        const img = document.createElement('img'); img.src = withBust(src); img.onerror = () => {
-          item.innerHTML = '';
-          const ph = document.createElement('div');
-          ph.style.width = '100px'; ph.style.height = '72px';
-          ph.style.display = 'flex'; ph.style.alignItems = 'center'; ph.style.justifyContent = 'center';
-          ph.style.color = '#aaa'; ph.style.background = '#151820'; ph.style.borderRadius = '6px';
-          ph.textContent = 'Missing';
-          const cap = document.createElement('div'); cap.className = 'asset-badge'; cap.textContent = src.split('/').pop();
-          item.appendChild(ph); item.appendChild(cap);
-        };
+        const img = document.createElement('img'); img.src = withBust(src); img.onerror = () => renderMissingThumbnail(item, src);
         item.appendChild(img);
         const useBtn = document.createElement('button');
         useBtn.className = 'asset-use';
