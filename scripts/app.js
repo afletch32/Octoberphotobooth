@@ -775,14 +775,7 @@ function loadTheme(themeKey) {
   document.documentElement.style.setProperty('--font', activeTheme.font || "'Comic Neue', cursive");
   document.body.style.fontFamily = activeTheme.font || 'montserrat, sans-serif';
   // Set immediate background from configured value, then try folder auto-detect asynchronously
-  const bgImmediate = getActiveBackground(activeTheme) || '';
-  // Only set immediately if it's a concrete file, not a folder path
-  if (bgImmediate && !bgImmediate.endsWith('/')) {
-    DOM.boothScreen.style.backgroundImage = `url(${bgImmediate})`;
-  } else {
-    DOM.boothScreen.style.backgroundImage = '';
-  }
-  if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
+  applyThemeBackground(activeTheme);
   // Try to resolve a background from a folder if specified
   // Try folder background (single) + list
   resolveBackgroundFromFolder(activeTheme).then((autoBg) => {
@@ -1166,6 +1159,16 @@ function goAdmin() {
   document.body.classList.add('admin-open');
   document.documentElement.classList.add('admin-open');
   setBoothControlsVisible(true);
+}
+function applyThemeBackground(theme) {
+  if (!theme) return;
+  const bg = getActiveBackground(theme) || '';
+  if (bg && !bg.endsWith('/')) {
+    DOM.boothScreen.style.backgroundImage = `url(${bg})`;
+  } else {
+    DOM.boothScreen.style.backgroundImage = '';
+  }
+  if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
 }
 function setMode(m) {
   mode = m;
@@ -1826,6 +1829,32 @@ async function composeStrip(template, photos) {
       const s = template.slots[i];
       drawImageContain(ctx, photos[i], s.x, s.y, s.w, s.h);
     }
+  }
+  return c.toDataURL('image/png');
+}
+
+// Compose a single photo into a print-safe 4x6 canvas without cropping
+async function finalizeToPrint(photoCanvas, overlaySrc) {
+  const isPortrait = DOM.videoWrap && DOM.videoWrap.classList.contains('view-portrait');
+  const targetW = isPortrait ? 1200 : 1800;
+  const targetH = isPortrait ? 1800 : 1200;
+  const c = document.createElement('canvas');
+  c.width = targetW; c.height = targetH;
+  const ctx = c.getContext('2d');
+  // Background fill
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, targetW, targetH);
+  // Place captured photo with contain (no crop)
+  drawImageContain(ctx, photoCanvas, 0, 0, targetW, targetH);
+  // Optional overlay scaled without cropping
+  if (overlaySrc) {
+    try {
+      const ov = await loadImage(overlaySrc);
+      const overlayToDraw = (SPOT_MASK && SPOT_MASK.enabled)
+        ? createMaskedOverlayCanvas(ov, SPOT_MASK.color, SPOT_MASK.tolerance)
+        : ov;
+      drawImageContain(ctx, overlayToDraw, 0, 0, targetW, targetH);
+    } catch (e) { console.error('Print overlay load failed', e); }
   }
   return c.toDataURL('image/png');
 }
@@ -3218,7 +3247,13 @@ function setBackgroundIndex(index) {
   t.backgrounds = list.slice();
   t.background = t.backgrounds[index] || '';
   t.backgroundIndex = index;
-  saveThemesToStorage(); loadTheme(key); showToast('Background selected');
+  // Refresh live booth background immediately when editing the active theme
+  if (activeTheme === t) {
+    applyThemeBackground(t);
+    renderCurrentAssets(t);
+  }
+  saveThemesToStorage();
+  showToast('Background selected');
 }
 function removeLogo() {
   const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
