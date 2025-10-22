@@ -269,7 +269,13 @@ const DOM = {
   cacheAssetsBtn: document.getElementById('cacheAssetsBtn'),
   forceCameraFileToggle: document.getElementById('forceCameraFileToggle'),
   themeFontSelect: document.getElementById('themeFontSelect'),
-  themeEditorSelect: document.getElementById('themeEditorSelect'),
+  themeEditorModeSelect: document.getElementById('themeEditorModeSelect'),
+  themeCloneSection: document.getElementById('themeCloneSection'),
+  themeCloneName: document.getElementById('themeCloneName'),
+  cloneThemeBtn: document.getElementById('cloneThemeBtn'),
+  addBackgroundBtn: document.getElementById('addBackgroundBtn'),
+  addOverlayBtn: document.getElementById('addOverlayBtn'),
+  addTemplateBtn: document.getElementById('addTemplateBtn'),
   addFontFamily: document.getElementById('addFontFamily'),
   addFontUrl: document.getElementById('addFontUrl'),
   currentFonts: document.getElementById('currentFonts'),
@@ -295,8 +301,14 @@ const DOM = {
   currentAccents: document.getElementById('currentAccents'),
   currentOverlays: document.getElementById('currentOverlays'),
   currentTemplates: document.getElementById('currentTemplates'),
-  themeModeEdit: document.getElementById('themeModeEdit'),
-  themeModeCreate: document.getElementById('themeModeCreate'),
+  createThemeModal: document.getElementById('createThemeModal'),
+  createThemeDropZone: document.getElementById('createThemeDropZone'),
+  createThemeName: document.getElementById('createThemeName'),
+  createThemeSummary: document.getElementById('createThemeSummary'),
+  createThemeBrowseBtn: document.getElementById('createThemeBrowseBtn'),
+  createThemeCancel: document.getElementById('createThemeCancel'),
+  createThemeConfirm: document.getElementById('createThemeConfirm'),
+  createThemeFolderInput: document.getElementById('createThemeFolderInput'),
   btnUpdateTheme: document.getElementById('btnUpdateTheme'),
   btnSaveTheme: document.getElementById('btnSaveTheme'),
   importFile: document.getElementById('importFile'),
@@ -326,6 +338,7 @@ let toastTimer = null;
 let lastShareUrl = null; // Public share URL served by SW
 let demoMode = false; // Allows running from file:// without camera
 let captureAspectRatio = null; // Override capture aspect (width/height) when set
+let createThemeAssets = null; // Temporary storage for create-from-folder workflow
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
 function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
@@ -382,7 +395,7 @@ function init() {
   if (DOM.eventSelect) {
     DOM.eventSelect.addEventListener('change', (e) => {
       loadTheme(e.target.value);
-      if (DOM.themeModeEdit && DOM.themeModeEdit.checked) syncThemeEditorWithActiveTheme();
+      syncThemeEditorWithActiveTheme();
       if (DOM.eventNameInput) {
         DOM.eventNameInput.value = getStoredEventName(e.target.value) || '';
       }
@@ -416,15 +429,34 @@ function init() {
     });
     DOM.finalPreviewContent.addEventListener('click', (e) => e.stopPropagation());
   }
-  if (DOM.themeModeEdit) DOM.themeModeEdit.addEventListener('change', () => setThemeEditorMode('edit'));
-  if (DOM.themeModeCreate) DOM.themeModeCreate.addEventListener('change', () => setThemeEditorMode('create'));
-  if (DOM.themeEditorSelect) DOM.themeEditorSelect.addEventListener('change', (e) => {
-    // Mirror selection to the main event dropdown
-    if (DOM.eventSelect) DOM.eventSelect.value = e.target.value;
-    loadTheme(e.target.value);
-    updateThemeEditorSummary();
-  });
+  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.addEventListener('change', (e) => setThemeEditorMode(e.target.value));
   if (DOM.themeName) DOM.themeName.addEventListener('input', updateThemeEditorSummary);
+  if (DOM.themeCloneName) DOM.themeCloneName.addEventListener('input', updateThemeEditorSummary);
+  if (DOM.createThemeName) DOM.createThemeName.addEventListener('input', updateThemeEditorSummary);
+  if (DOM.cloneThemeBtn) DOM.cloneThemeBtn.addEventListener('click', handleCloneTheme);
+  if (DOM.addBackgroundBtn && DOM.themeBackground) DOM.addBackgroundBtn.addEventListener('click', () => DOM.themeBackground.click());
+  if (DOM.addOverlayBtn && DOM.themeOverlays) DOM.addOverlayBtn.addEventListener('click', () => DOM.themeOverlays.click());
+  if (DOM.addTemplateBtn && DOM.themeTemplates) DOM.addTemplateBtn.addEventListener('click', () => DOM.themeTemplates.click());
+  if (DOM.createThemeDropZone) {
+    DOM.createThemeDropZone.addEventListener('dragover', handleCreateThemeDragOver);
+    DOM.createThemeDropZone.addEventListener('dragleave', handleCreateThemeDragLeave);
+    DOM.createThemeDropZone.addEventListener('drop', handleCreateThemeDrop);
+    DOM.createThemeDropZone.addEventListener('click', () => DOM.createThemeFolderInput?.click());
+  }
+  if (DOM.createThemeBrowseBtn) DOM.createThemeBrowseBtn.addEventListener('click', () => DOM.createThemeFolderInput?.click());
+  if (DOM.createThemeFolderInput) DOM.createThemeFolderInput.addEventListener('change', (e) => {
+    handleCreateThemeFiles(e.target.files);
+    e.target.value = '';
+  });
+  if (DOM.createThemeCancel) DOM.createThemeCancel.addEventListener('click', () => {
+    hideCreateThemeModal();
+    resetCreateThemeModal();
+    if (DOM.themeEditorModeSelect) {
+      DOM.themeEditorModeSelect.value = 'edit';
+      setThemeEditorMode('edit');
+    }
+  });
+  if (DOM.createThemeConfirm) DOM.createThemeConfirm.addEventListener('click', confirmCreateTheme);
   // Offline mode toggle
   if (DOM.offlineModeToggle) {
     DOM.offlineModeToggle.checked = getOfflinePref();
@@ -457,7 +489,7 @@ function init() {
     });
   }
   // Default to Edit mode on load
-  setThemeEditorMode('edit');
+  setThemeEditorMode(DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
   // EmailJS
   loadEmailJsSettings();
   // Pending badge
@@ -712,8 +744,7 @@ function populateThemeSelector(preferredKey) {
     select.selectedIndex = 0;
   }
   const selectedKey = (DOM.eventSelect && DOM.eventSelect.value) || null;
-  // Keep the editor's theme dropdown in sync
-  syncEditorThemeDropdown();
+  updateThemeEditorSummary();
   return selectedKey;
 }
 
@@ -725,37 +756,13 @@ function showToast(message, duration = 2000) {
   toastTimer = setTimeout(() => { t.classList.remove('show'); }, duration);
 }
 
-function syncEditorThemeDropdown() {
-  if (!DOM.themeEditorSelect || !DOM.eventSelect) return;
-  const src = DOM.eventSelect;
-  const dst = DOM.themeEditorSelect;
-  dst.innerHTML = '';
-  for (const child of src.children) {
-    if (child.tagName === 'OPTGROUP') {
-      const og = document.createElement('optgroup');
-      og.label = child.label;
-      for (const opt of child.children) {
-        const o = document.createElement('option');
-        o.value = opt.value; o.text = opt.text; og.appendChild(o);
-      }
-      dst.appendChild(og);
-    } else if (child.tagName === 'OPTION') {
-      const o = document.createElement('option');
-      o.value = child.value; o.text = child.text; dst.appendChild(o);
-    }
-  }
-  // Try to mirror current selection
-  dst.value = src.value;
-  updateThemeEditorSummary();
-}
-
 function setEventSelection(key) {
   if (!DOM.eventSelect || !key) return false;
   const options = Array.from(DOM.eventSelect.options || []);
   const match = options.find(opt => opt.value === key);
   if (!match) return false;
   DOM.eventSelect.value = key;
-  if (DOM.themeEditorSelect) DOM.themeEditorSelect.value = key;
+  updateThemeEditorSummary();
   return true;
 }
 
@@ -916,16 +923,19 @@ function describeActiveTheme(theme, key) {
 }
 
 function describeEditingState() {
-  const isCreate = DOM.themeModeCreate && DOM.themeModeCreate.checked;
-  if (isCreate) {
-    const name = valueFromInput(DOM.themeName);
-    return name ? `Editing: New theme \"${name}\"` : 'Editing: New theme';
+  const mode = DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit';
+  if (mode === 'create') {
+    const name = valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
+    return name ? `Creating: \"${name}\"` : 'Creating: New theme';
   }
-  const editorKey = DOM.themeEditorSelect && DOM.themeEditorSelect.value;
-  if (!editorKey) return 'Editing: Choose a theme';
-  const editorTheme = getThemeByKey(editorKey);
-  const draftName = valueFromInput(DOM.themeName);
-  const displayName = draftName || (editorTheme && editorTheme.name) || editorKey;
+  if (mode === 'clone') {
+    const cloneName = valueFromInput(DOM.themeCloneName);
+    const baseName = (activeTheme && activeTheme.name) || (DOM.eventSelect && DOM.eventSelect.value) || 'theme';
+    return cloneName ? `Cloning to \"${cloneName}\"` : `Cloning ${baseName}`;
+  }
+  const currentKey = DOM.eventSelect && DOM.eventSelect.value;
+  const currentTheme = getThemeByKey(currentKey);
+  const displayName = valueFromInput(DOM.themeName) || (currentTheme && currentTheme.name) || currentKey || 'Choose a theme';
   return `Editing: ${displayName}`;
 }
 
@@ -2475,8 +2485,13 @@ function saveTheme() {
     saveThemesToStorage();
     populateThemeSelector(newKey);
     if (DOM.eventSelect) DOM.eventSelect.value = newKey;
-    if (DOM.themeEditorSelect) DOM.themeEditorSelect.value = newKey;
     loadTheme(newKey);
+    if (DOM.themeEditorModeSelect) {
+      DOM.themeEditorModeSelect.value = 'edit';
+      setThemeEditorMode('edit');
+    } else {
+      setThemeEditorMode('edit');
+    }
     alert(`Theme '${themeName}' saved!`);
   });
 }
@@ -2989,35 +3004,36 @@ function loadFontsFromStorage() {
 }
 
 function setThemeEditorMode(mode) {
-  const isCreate = mode === 'create' || (DOM.themeModeCreate && DOM.themeModeCreate.checked);
-  // Toggle buttons
+  const resolved = mode || (DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
+  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = resolved;
+  const isCreate = resolved === 'create';
+  const isClone = resolved === 'clone';
+
   if (DOM.btnUpdateTheme) DOM.btnUpdateTheme.style.display = isCreate ? 'none' : 'inline-block';
   if (DOM.btnSaveTheme) DOM.btnSaveTheme.style.display = isCreate ? 'inline-block' : 'none';
-  // Toggle existing-theme dropdown
-  const row = document.getElementById('editorSelectRow');
-  if (row) row.style.display = isCreate ? 'none' : 'flex';
-  // Prepare fields
+  if (DOM.themeCloneSection) DOM.themeCloneSection.classList.toggle('hidden', !isClone);
+  if (isClone && DOM.themeCloneName && !valueFromInput(DOM.themeCloneName) && activeTheme && activeTheme.name) {
+    DOM.themeCloneName.value = `${activeTheme.name} Copy`;
+  }
+  if (!isClone && DOM.themeCloneName) DOM.themeCloneName.value = '';
+
   if (isCreate) {
-    // Clear inputs for new theme
+    resetCreateThemeModal();
+    showCreateThemeModal();
     if (DOM.themeName) DOM.themeName.value = '';
     if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = '';
     if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = '';
-    if (DOM.themeBackground) DOM.themeBackground.value = '';
-    if (DOM.themeLogo) DOM.themeLogo.value = '';
-    if (DOM.themeOverlays) DOM.themeOverlays.value = '';
-    if (DOM.themeTemplates) DOM.themeTemplates.value = '';
+    clearThemeFileInputs();
     if (DOM.summaryBackground) DOM.summaryBackground.textContent = '';
     if (DOM.summaryLogo) DOM.summaryLogo.textContent = '';
     if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = '';
     if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = '';
-    // Reset colors and font select
     if (DOM.themeAccent) DOM.themeAccent.value = '#ff0000';
     if (DOM.themeAccent2) DOM.themeAccent2.value = '#ffffff';
     populateFontSelect('Comic Neue');
   } else {
-    // Editing existing: ensure dropdown is in sync and fields reflect the active theme
-    syncEditorThemeDropdown();
-    if (DOM.themeEditorSelect && DOM.eventSelect) DOM.themeEditorSelect.value = DOM.eventSelect.value;
+    hideCreateThemeModal();
+     resetCreateThemeModal();
     syncThemeEditorWithActiveTheme();
   }
   updateThemeEditorSummary();
@@ -3050,10 +3066,8 @@ function populateFontSelect(preselectFamily = '') {
 
 // --- Editing Existing Themes ---
 function getSelectedThemeKey() {
-  // Prefer the Theme Editor selection if present; fallback to main event select
-  const editorKey = (DOM.themeEditorSelect && DOM.themeEditorSelect.value) ? DOM.themeEditorSelect.value : '';
-  const key = editorKey || DOM.eventSelect.value;
-  return key;
+  const eventKey = DOM.eventSelect && DOM.eventSelect.value;
+  return eventKey || '';
 }
 function getSelectedThemeTarget() {
   const key = getSelectedThemeKey();
@@ -3084,8 +3098,6 @@ async function updateSelectedTheme() {
 
   populateThemeSelector(key);
   if (DOM.eventSelect) DOM.eventSelect.value = key;
-  if (DOM.themeEditorSelect) DOM.themeEditorSelect.value = key;
-
   loadTheme(key);
   clearThemeFileInputs();
   syncThemeEditorWithActiveTheme();
@@ -3094,6 +3106,247 @@ async function updateSelectedTheme() {
 
 function valueFromInput(node) {
   return node && typeof node.value === 'string' ? node.value.trim() : '';
+}
+
+function slugifyThemeName(name) {
+  return (name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+function ensureCreateThemeAssets() {
+  if (!createThemeAssets) {
+    createThemeAssets = { backgrounds: [], overlays: [], templates: [], logos: [] };
+  }
+  return createThemeAssets;
+}
+
+function resetCreateThemeAssets() {
+  createThemeAssets = { backgrounds: [], overlays: [], templates: [], logos: [] };
+}
+
+function resetCreateThemeModal() {
+  resetCreateThemeAssets();
+  if (DOM.createThemeName) DOM.createThemeName.value = '';
+  if (DOM.createThemeSummary) DOM.createThemeSummary.textContent = 'Drop a theme folder to begin.';
+  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+  updateThemeEditorSummary();
+}
+
+function showCreateThemeModal() {
+  if (DOM.createThemeModal) DOM.createThemeModal.classList.add('show');
+  updateCreateThemeSummary();
+  if (DOM.createThemeName) DOM.createThemeName.focus();
+}
+
+function hideCreateThemeModal() {
+  if (DOM.createThemeModal) DOM.createThemeModal.classList.remove('show');
+}
+
+function updateCreateThemeSummary() {
+  const summary = DOM.createThemeSummary;
+  if (!summary) return;
+  if (!createThemeAssets) {
+    summary.textContent = 'Drop a theme folder to begin.';
+    updateThemeEditorSummary();
+    return;
+  }
+  const parts = [];
+  const { backgrounds = [], overlays = [], templates = [], logos = [] } = createThemeAssets;
+  if (backgrounds.length) parts.push(`${backgrounds.length} background${backgrounds.length === 1 ? '' : 's'}`);
+  if (overlays.length) parts.push(`${overlays.length} overlay${overlays.length === 1 ? '' : 's'}`);
+  if (templates.length) parts.push(`${templates.length} template${templates.length === 1 ? '' : 's'}`);
+  if (logos.length) parts.push(`${logos.length} logo${logos.length === 1 ? '' : 's'}`);
+  summary.textContent = parts.length ? `Assets ready: ${parts.join(', ')}` : 'No assets detected yet.';
+  updateThemeEditorSummary();
+}
+
+function handleCreateThemeDragOver(event) {
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.add('dragover');
+}
+
+function handleCreateThemeDragLeave(event) {
+  event.preventDefault();
+  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+}
+
+async function handleCreateThemeDrop(event) {
+  event.preventDefault();
+  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+  const files = await extractFilesFromDataTransfer(event.dataTransfer);
+  if (files.length) {
+    handleCreateThemeFiles(files);
+  }
+}
+
+function handleCreateThemeFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  resetCreateThemeAssets();
+  const assets = ensureCreateThemeAssets();
+  files.forEach((file) => {
+    const category = categorizeThemeAsset(file);
+    if (!category) return;
+    assets[category].push(file);
+  });
+  updateCreateThemeSummary();
+}
+
+function categorizeThemeAsset(file) {
+  const rel = (file.webkitRelativePath || file._relativePath || file.name || '').toLowerCase();
+  if (rel.includes('overlay')) return 'overlays';
+  if (rel.includes('template')) return 'templates';
+  if (rel.includes('background')) return 'backgrounds';
+  if (rel.includes('logo')) return 'logos';
+  return null;
+}
+
+async function extractFilesFromDataTransfer(dataTransfer) {
+  const files = [];
+  if (!dataTransfer) return files;
+  if (dataTransfer.items && dataTransfer.items.length) {
+    const items = Array.from(dataTransfer.items).filter((item) => item.kind === 'file');
+    const nested = await Promise.all(items.map(async (item) => {
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry) {
+        return traverseFileEntry(entry).catch(() => []);
+      }
+      const file = item.getAsFile();
+      return file ? [file] : [];
+    }));
+    nested.forEach(list => files.push(...list));
+  } else if (dataTransfer.files && dataTransfer.files.length) {
+    files.push(...Array.from(dataTransfer.files));
+  }
+  return files;
+}
+
+function readAllDirectoryEntries(reader) {
+  return new Promise((resolve) => {
+    const entries = [];
+    const readEntries = () => {
+      reader.readEntries((batch) => {
+        if (!batch.length) {
+          resolve(entries);
+        } else {
+          entries.push(...batch);
+          readEntries();
+        }
+      }, () => resolve(entries));
+    };
+    readEntries();
+  });
+}
+
+async function traverseFileEntry(entry, path = '') {
+  if (entry.isFile) {
+    const file = await new Promise((resolve, reject) => entry.file(resolve, reject)).catch(() => null);
+    if (!file) return [];
+    file._relativePath = path + entry.name;
+    return [file];
+  }
+  if (entry.isDirectory) {
+    const entries = await readAllDirectoryEntries(entry.createReader());
+    const nested = await Promise.all(entries.map((ent) => traverseFileEntry(ent, path + entry.name + '/')));
+    return nested.flat();
+  }
+  return [];
+}
+
+async function confirmCreateTheme() {
+  const name = valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
+  const slug = slugifyThemeName(name);
+  if (!slug) { alert('Enter a valid name for the new theme.'); return; }
+  if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+  const assets = ensureCreateThemeAssets();
+  const hasAny = (assets.backgrounds.length + assets.overlays.length + assets.templates.length + assets.logos.length) > 0;
+  if (!hasAny) {
+    const proceed = confirm('No assets were detected. Create an empty theme?');
+    if (!proceed) return;
+  }
+  const baseTheme = cloneThemeValue(BUILTIN_THEMES.general.themes.basic || {});
+  const newTheme = mergePlainObject(baseTheme, {});
+  newTheme.name = name;
+  newTheme.background = '';
+  newTheme.backgrounds = [];
+  newTheme.overlays = [];
+  newTheme.templates = [];
+  newTheme.logo = '';
+  newTheme.overlaysFolder = '';
+  newTheme.templatesFolder = '';
+  newTheme.welcome = mergePlainObject(baseTheme.welcome || {}, newTheme.welcome || {});
+  newTheme.welcome.title = newTheme.welcome.title || name;
+
+  const tasks = [];
+  assets.backgrounds.forEach((file, index) => {
+    tasks.push(uploadAsset(file, 'backgrounds').then((url) => {
+      if (!url) return;
+      ensureArray(newTheme, 'backgrounds');
+      newTheme.backgrounds.push(url);
+      if (!newTheme.background) newTheme.background = url;
+    }));
+  });
+  assets.overlays.forEach((file) => {
+    tasks.push(uploadAsset(file, 'overlays').then((url) => {
+      if (!url) return;
+      ensureArray(newTheme, 'overlays');
+      newTheme.overlays.push(url);
+    }));
+  });
+  assets.templates.forEach((file) => {
+    tasks.push(uploadAsset(file, 'templates').then((url) => {
+      if (!url) return;
+      ensureArray(newTheme, 'templates');
+      newTheme.templates.push({ src: url, layout: 'double_column' });
+    }));
+  });
+  if (assets.logos.length) {
+    const logoFile = assets.logos[0];
+    tasks.push(uploadAsset(logoFile, 'logo').then((url) => { if (url) newTheme.logo = url; }));
+  }
+
+  try {
+    await Promise.all(tasks);
+    themes[slug] = newTheme;
+    saveThemesToStorage();
+    populateThemeSelector(slug);
+    setEventSelection(slug);
+    loadTheme(slug);
+    if (DOM.themeName) DOM.themeName.value = newTheme.name;
+    if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = 'edit';
+    setThemeEditorMode('edit');
+    hideCreateThemeModal();
+    resetCreateThemeModal();
+    showToast(`Theme "${name}" created`);
+  } catch (err) {
+    console.error('Failed to create theme', err);
+    alert('Could not create theme. See console for details.');
+  }
+}
+
+function handleCloneTheme() {
+  if (!activeTheme) { alert('Select a theme to clone first.'); return; }
+  const name = valueFromInput(DOM.themeCloneName);
+  const slug = slugifyThemeName(name);
+  if (!slug) { alert('Enter a name for the cloned theme.'); return; }
+  if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+  const cloned = cloneThemeValue(activeTheme);
+  cloned.name = name;
+  cloned.welcome = mergePlainObject(activeTheme.welcome || {}, cloned.welcome || {});
+  if (cloned.welcome) cloned.welcome.title = cloned.welcome.title || name;
+  themes[slug] = cloned;
+  saveThemesToStorage();
+  populateThemeSelector(slug);
+  setEventSelection(slug);
+  loadTheme(slug);
+  if (DOM.themeCloneName) DOM.themeCloneName.value = '';
+  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = 'edit';
+  setThemeEditorMode('edit');
+  showToast(`Cloned theme as "${name}"`);
 }
 
 function applyThemeBasicsFromEditor(target) {

@@ -239,20 +239,34 @@
       color: #9aa;
     }
 
-    .theme-editor-mode {
+    .theme-editor-action {
       display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
     }
 
-    .theme-editor-mode label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0;
-      font-size: .95em;
-      color: #ddd;
+    .theme-editor-action label {
+      font-size: .85em;
+      color: #aab;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .theme-editor-action select {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #2d3242;
+      background: #101420;
+      color: #f5f7fb;
+    }
+
+    .theme-editor-section {
+      margin: 16px 0;
+    }
+
+    .theme-editor-section.hidden {
+      display: none;
     }
 
     .theme-editor-group {
@@ -331,6 +345,27 @@
       margin: 10px 0;
     }
 
+    .asset-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .asset-actions button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #2d3242;
+      background: #1a2133;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+
+    .asset-actions button:hover {
+      background: #243049;
+    }
+
     .asset-row>label {
       display: block;
       margin-bottom: 6px;
@@ -398,6 +433,64 @@
 
     .asset-remove:hover {
       background: #c43d3d;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 7, 12, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #0f121d;
+      border: 1px solid #1f2433;
+      border-radius: 14px;
+      width: min(520px, 90vw);
+      padding: 22px;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal-card h3 {
+      margin: 0;
+      color: #f1f5ff;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #2d3242;
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      color: #aab;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(45, 50, 66, 0.4);
+    }
+
+    .drop-zone strong {
+      color: var(--accent2);
     }
 
     .color-item {
@@ -1140,6 +1233,11 @@
         <details class="panel-section" open>
           <summary>Current Assets</summary>
           <div class="section-content">
+            <div class="asset-actions">
+              <button type="button" id="addBackgroundBtn">Add Background</button>
+              <button type="button" id="addOverlayBtn">Add Overlay</button>
+              <button type="button" id="addTemplateBtn">Add Template</button>
+            </div>
             <div id="currentAssets" class="current-assets">
               <div
                 style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
@@ -1187,22 +1285,21 @@
               <span id="themeEditorActive" class="theme-editor-current-name">None selected</span>
               <span id="themeEditorEditing" class="theme-editor-current-sub">Editing: None</span>
             </div>
-            <div class="theme-editor-mode">
-              <label>
-                <input type="radio" name="themeEditorMode" id="themeModeEdit" value="edit" checked>
-                Edit existing
-              </label>
-              <label>
-                <input type="radio" name="themeEditorMode" id="themeModeCreate" value="create">
-                Create new
-              </label>
+            <div class="theme-editor-action">
+              <label for="themeEditorModeSelect">Editor mode</label>
+              <select id="themeEditorModeSelect">
+                <option value="edit">Edit existing theme</option>
+                <option value="clone">Clone this theme</option>
+                <option value="create">Create new theme</option>
+              </select>
             </div>
           </div>
-          <div class="theme-editor-group">
-            <div class="theme-field" id="editorSelectRow">
-              <label for="themeEditorSelect">Existing Theme</label>
-              <select id="themeEditorSelect"></select>
-            </div>
+          <div id="themeCloneSection" class="theme-editor-section hidden">
+            <label for="themeCloneName">Cloned theme name</label>
+            <input type="text" id="themeCloneName" placeholder="e.g., Halloween Copy">
+            <button type="button" id="cloneThemeBtn" class="primary">Clone Theme</button>
+          </div>
+          <div id="themeEditorForm" class="theme-editor-section">
             <div class="theme-field">
               <label for="themeName">Theme Name</label>
               <input type="text" id="themeName" placeholder="My Awesome Theme">
@@ -1262,6 +1359,7 @@
           </div>
           <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleImport()">
           <input type="file" id="importZip" class="hidden" accept=".zip" onchange="handleImportZip()">
+        </div>
 
           <h3 style="margin-top:14px;">Deploy</h3>
           <small style="display:block; color:#aaa; margin-bottom:6px;">Option A (Git projects): create a Cloudflare
@@ -1424,6 +1522,25 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <div id="createThemeModal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Create New Theme</h3>
+      <label for="createThemeName">Theme Name</label>
+      <input type="text" id="createThemeName" placeholder="My New Theme">
+      <div id="createThemeSummary" style="color:#aab; font-size:0.9em;"></div>
+      <div id="createThemeDropZone" class="drop-zone">
+        <strong>Drop your theme folder here</strong>
+        <span>Include folders like <code>backgrounds/</code>, <code>overlays/</code>, <code>templates/</code>.</span>
+        <button type="button" id="createThemeBrowseBtn">Browse…</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="createThemeCancel">Cancel</button>
+        <button type="button" id="createThemeConfirm" class="primary">Create Theme</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="createThemeFolderInput" class="hidden" webkitdirectory multiple>
 
   <script type="module" src="scripts/app.js"></script>
 </body>
