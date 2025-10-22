@@ -391,44 +391,49 @@ function resetIdleTimer() {
   }, IDLE_TIMEOUT_MS);
 }
 
-function init() {
-  if (DOM.eventSelect) {
-    DOM.eventSelect.addEventListener('change', (e) => {
-      loadTheme(e.target.value);
-      syncThemeEditorWithActiveTheme();
-      if (DOM.eventNameInput) {
-        DOM.eventNameInput.value = getStoredEventName(e.target.value) || '';
-      }
-      updateThemeEditorSummary();
-    });
-  } else {
+function setupEventSelector() {
+  if (!DOM.eventSelect) {
     console.warn('Event select dropdown not found; themes will not switch.');
+    return;
   }
+  DOM.eventSelect.addEventListener('change', handleEventSelectChange);
+}
 
-  const startCameraBtn = document.getElementById('startCameraButton');
-  if (startCameraBtn) {
-    startCameraBtn.addEventListener('click', startCamera);
-  } else {
-    console.warn('Start Camera button not found in DOM.');
+function handleEventSelectChange(event) {
+  const key = event.target.value;
+  loadTheme(key);
+  syncThemeEditorWithActiveTheme();
+  if (DOM.eventNameInput) {
+    DOM.eventNameInput.value = getStoredEventName(key) || '';
   }
+  updateThemeEditorSummary();
+}
+
+function setupBoothButtons() {
+  const startCameraBtn = document.getElementById('startCameraButton');
+  if (startCameraBtn) startCameraBtn.addEventListener('click', startCamera);
+  else console.warn('Start Camera button not found in DOM.');
 
   const startBoothBtn = document.getElementById('startBoothButton');
-  if (startBoothBtn) {
-    startBoothBtn.addEventListener('click', startBooth);
-  } else {
-    console.warn('Start Booth button not found in DOM.');
-  }
-  if (DOM.video) {
-    DOM.video.addEventListener('loadedmetadata', updateCaptureAspect);
-  }
-  if (DOM.finalPreview && DOM.finalPreviewContent) {
-    DOM.finalPreview.addEventListener('click', (e) => {
-      if (!DOM.finalPreviewContent.contains(e.target)) {
-        exitFinalPreview();
-      }
-    });
-    DOM.finalPreviewContent.addEventListener('click', (e) => e.stopPropagation());
-  }
+  if (startBoothBtn) startBoothBtn.addEventListener('click', startBooth);
+  else console.warn('Start Booth button not found in DOM.');
+}
+
+function setupVideoListeners() {
+  if (DOM.video) DOM.video.addEventListener('loadedmetadata', updateCaptureAspect);
+}
+
+function setupFinalPreviewListeners() {
+  if (!DOM.finalPreview || !DOM.finalPreviewContent) return;
+  DOM.finalPreview.addEventListener('click', (e) => {
+    if (!DOM.finalPreviewContent.contains(e.target)) {
+      exitFinalPreview();
+    }
+  });
+  DOM.finalPreviewContent.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function setupThemeEditorControls() {
   if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.addEventListener('change', (e) => setThemeEditorMode(e.target.value));
   if (DOM.themeName) DOM.themeName.addEventListener('input', updateThemeEditorSummary);
   if (DOM.themeCloneName) DOM.themeCloneName.addEventListener('input', updateThemeEditorSummary);
@@ -437,6 +442,9 @@ function init() {
   if (DOM.addBackgroundBtn && DOM.themeBackground) DOM.addBackgroundBtn.addEventListener('click', () => DOM.themeBackground.click());
   if (DOM.addOverlayBtn && DOM.themeOverlays) DOM.addOverlayBtn.addEventListener('click', () => DOM.themeOverlays.click());
   if (DOM.addTemplateBtn && DOM.themeTemplates) DOM.addTemplateBtn.addEventListener('click', () => DOM.themeTemplates.click());
+}
+
+function setupCreateThemeModalControls() {
   if (DOM.createThemeDropZone) {
     DOM.createThemeDropZone.addEventListener('dragover', handleCreateThemeDragOver);
     DOM.createThemeDropZone.addEventListener('dragleave', handleCreateThemeDragLeave);
@@ -457,7 +465,9 @@ function init() {
     }
   });
   if (DOM.createThemeConfirm) DOM.createThemeConfirm.addEventListener('click', confirmCreateTheme);
-  // Offline mode toggle
+}
+
+function setupOfflineControls() {
   if (DOM.offlineModeToggle) {
     DOM.offlineModeToggle.checked = getOfflinePref();
     DOM.offlineModeToggle.addEventListener('change', () => {
@@ -466,33 +476,46 @@ function init() {
       showToast(DOM.offlineModeToggle.checked ? 'Offline mode ON' : 'Offline mode OFF');
     });
   }
-  // Force camera on file://
   if (DOM.forceCameraFileToggle) {
     DOM.forceCameraFileToggle.checked = (localStorage.getItem('forceCameraOnFile') === 'true');
     DOM.forceCameraFileToggle.addEventListener('change', () => {
       localStorage.setItem('forceCameraOnFile', DOM.forceCameraFileToggle.checked ? 'true' : 'false');
     });
   }
-  // Update pending UI on network changes
-  window.addEventListener('online', () => { updatePendingUI(); });
-  window.addEventListener('offline', () => { updatePendingUI(); });
+  window.addEventListener('online', () => updatePendingUI());
+  window.addEventListener('offline', () => updatePendingUI());
+}
+
+function setupFolderPickers() {
   if (DOM.themeOverlaysFolderPicker) DOM.themeOverlaysFolderPicker.addEventListener('change', handleOverlayFolderPick);
   if (DOM.themeTemplatesFolderPicker) DOM.themeTemplatesFolderPicker.addEventListener('change', handleTemplateFolderPick);
-  // Load Cloudinary settings into the UI
+}
+
+function setupEventNameInput() {
+  if (!DOM.eventNameInput) return;
+  DOM.eventNameInput.addEventListener('input', () => {
+    const key = DOM.eventSelect && DOM.eventSelect.value;
+    if (!key) return;
+    saveStoredEventName(key, DOM.eventNameInput.value.trim());
+    if (DOM.eventTitle) {
+      DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
+    }
+  });
+}
+
+function init() {
+  setupEventSelector();
+  setupBoothButtons();
+  setupVideoListeners();
+  setupFinalPreviewListeners();
+  setupThemeEditorControls();
+  setupCreateThemeModalControls();
+  setupOfflineControls();
+  setupFolderPickers();
+  setupEventNameInput();
   loadCloudinarySettings();
-  if (DOM.eventNameInput) {
-    DOM.eventNameInput.addEventListener('input', () => {
-      const key = DOM.eventSelect && DOM.eventSelect.value;
-      if (!key) return;
-      saveStoredEventName(key, DOM.eventNameInput.value.trim());
-      if (DOM.eventTitle) DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
-    });
-  }
-  // Default to Edit mode on load
   setThemeEditorMode(DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
-  // EmailJS
   loadEmailJsSettings();
-  // Pending badge
   updatePendingUI();
 }
 
