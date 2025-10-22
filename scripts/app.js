@@ -1406,6 +1406,7 @@ async function startCamera(autoStartBooth = false) {
       // Camera already available; only proceed to booth if requested
       if (autoStartBooth) startBoothFlow();
       showToast('Camera is ready');
+      isStartingCamera = false;
       return;
     }
 
@@ -3951,6 +3952,8 @@ Object.assign(window, {
   exportCurrentEvent,
   exportThemes,
   goAdmin,
+  startBooth,
+  startCamera,
   importThemes,
   handleImport,
   makeAvailableOffline,
