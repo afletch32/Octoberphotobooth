@@ -779,113 +779,127 @@ function resolvePreferredThemeKey(preferredKey) {
   return options.length ? options[0].value : null;
 }
 
-function loadTheme(themeKey) {
-  console.log("Loading theme:", themeKey);
-  if (!themeKey) {
-    console.warn('No theme key provided to loadTheme');
-    return;
-  }
+function resolveThemeByKey(themeKey) {
+  if (!themeKey) return null;
   if (themeKey.includes(':')) {
-    const [seasonKey, holidayKey] = themeKey.split(':');
-    const season = themes[seasonKey];
-    activeTheme = season && ((season.themes && season.themes[holidayKey]) || (season.holidays && season.holidays[holidayKey]));
-  } else {
-    activeTheme = themes[themeKey];
+    const [rootKey, leafKey] = themeKey.split(':');
+    const root = themes[rootKey];
+    if (!root) return null;
+    if (root.themes && root.themes[leafKey]) return root.themes[leafKey];
+    if (root.holidays && root.holidays[leafKey]) return root.holidays[leafKey];
+    return null;
   }
-  if (!activeTheme) {
-    console.error('Theme not found for key:', themeKey);
-    return;
-  }
-  // Apply theme visuals
-  document.documentElement.style.setProperty('--accent', activeTheme.accent || 'orange');
-  document.documentElement.style.setProperty('--accent2', activeTheme.accent2 || 'white');
-  document.documentElement.style.setProperty('--font', activeTheme.font || "'Comic Neue', cursive");
-  document.body.style.fontFamily = activeTheme.font || 'montserrat, sans-serif';
-  // Set immediate background from configured value, then try folder auto-detect asynchronously
-  applyThemeBackground(activeTheme);
-  // Try to resolve a background from a folder if specified
-  // Try folder background (single) + list
-  resolveBackgroundFromFolder(activeTheme).then((autoBg) => {
-    if (autoBg) {
-      DOM.boothScreen.style.backgroundImage = `url(${autoBg})`;
-      if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
-    }
-  }).catch(() => { });
-  resolveBackgroundListFromFolder(activeTheme).then((list) => {
-    if (Array.isArray(list) && list.length > 0) {
-      activeTheme.backgroundsTmp = list;
-      const combined = getBackgroundList(activeTheme);
-      if (!Array.isArray(activeTheme.backgrounds) || activeTheme.backgrounds.length !== combined.length) {
-        activeTheme.backgrounds = combined.slice();
-      }
-      if (combined.length > 0) {
-        if (typeof activeTheme.backgroundIndex !== 'number' || activeTheme.backgroundIndex >= combined.length) {
-          activeTheme.backgroundIndex = 0;
-        }
-        const currentBg = getActiveBackground(activeTheme);
-        if (currentBg) {
-          DOM.boothScreen.style.backgroundImage = `url(${currentBg})`;
-          if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
-        }
-      }
-      // Update previews/grid if on admin screen
-      renderCurrentAssets(activeTheme);
-    }
-  }).catch(() => { });
+  return themes[themeKey] || null;
+}
 
-  // Load overlays from folder (if configured)
-  resolveOverlaysFromFolder(activeTheme).then((list) => {
-    if (Array.isArray(list) && list.length) {
-      activeTheme.overlaysTmp = list;
-      renderCurrentAssets(activeTheme);
-      renderOptions();
-    } else {
-      activeTheme.overlaysTmp = undefined;
-    }
-  }).catch(() => { activeTheme.overlaysTmp = undefined; });
+function applyThemeBasics(theme) {
+  document.documentElement.style.setProperty('--accent', theme.accent || 'orange');
+  document.documentElement.style.setProperty('--accent2', theme.accent2 || 'white');
+  document.documentElement.style.setProperty('--font', theme.font || "'Comic Neue', cursive");
+  document.body.style.fontFamily = theme.font || 'montserrat, sans-serif';
+  applyThemeBackground(theme);
+}
 
-  // Load templates from folder (if configured)
-  resolveTemplatesFromFolder(activeTheme).then((list) => {
-    if (Array.isArray(list) && list.length) {
-      activeTheme.templatesTmp = list;
-      renderCurrentAssets(activeTheme);
-      renderOptions();
-    } else {
-      activeTheme.templatesTmp = undefined;
-    }
-  }).catch(() => { activeTheme.templatesTmp = undefined; });
-  // Event name override
-  const currentKey = (DOM.eventSelect && DOM.eventSelect.value) || themeKey;
-  const storedName = getStoredEventName(currentKey);
-  DOM.eventTitle.textContent = storedName || activeTheme.welcome.title;
-  DOM.logo.src = activeTheme.logo;
-  // Clear any previous overlay selection when switching themes
-  selectedOverlay = null;
-  if (DOM.liveOverlay) DOM.liveOverlay.src = '';
-  if (DOM.eventTitle) DOM.eventTitle.style.fontFamily = activeTheme.font || "'Comic Neue', cursive";
-  if (DOM.welcomeTitle) DOM.welcomeTitle.style.fontFamily = activeTheme.font || "'Comic Neue', cursive";
-  // Sync the font select to the primary family
-  const fam = primaryFontFamily(activeTheme.font || '');
+function refreshFontSelectForTheme(theme) {
+  const fam = primaryFontFamily(theme.font || '');
   if (DOM.themeFontSelect) {
     populateFontSelect(fam);
-    // If not present, try to add and re-populate
-    if (![...DOM.themeFontSelect.options].some(o => o.value.toLowerCase() === fam.toLowerCase())) {
+    if (fam && ![...DOM.themeFontSelect.options].some(o => o.value.toLowerCase() === fam.toLowerCase())) {
       ensureFontLoaded(fam, true);
       populateFontSelect(fam);
     }
   }
-  // Try to ensure this theme's primary font is loaded
-  ensureFontLoadedForFontString(activeTheme.font || "");
-  // If the booth is visible or once visible, ensure options reflect the new theme
-  if (DOM.options) {
-    renderOptions();
-  }
-  // Sync the Theme Editor with current theme values
+  ensureFontLoadedForFontString(theme.font || '');
+}
+
+function refreshBackgroundFromFolder(theme) {
+  resolveBackgroundFromFolder(theme).then((autoBg) => {
+    if (!autoBg) return;
+    DOM.boothScreen.style.backgroundImage = `url(${autoBg})`;
+    if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
+  }).catch(() => { /* ignore */ });
+}
+
+function refreshBackgroundList(theme) {
+  resolveBackgroundListFromFolder(theme).then((list) => {
+    if (!Array.isArray(list) || !list.length) return;
+    theme.backgroundsTmp = list;
+    const combined = getBackgroundList(theme);
+    if (!Array.isArray(theme.backgrounds) || theme.backgrounds.length !== combined.length) {
+      theme.backgrounds = combined.slice();
+    }
+    if (combined.length > 0) {
+      if (typeof theme.backgroundIndex !== 'number' || theme.backgroundIndex >= combined.length) {
+        theme.backgroundIndex = 0;
+      }
+      const currentBg = getActiveBackground(theme);
+      if (currentBg) {
+        DOM.boothScreen.style.backgroundImage = `url(${currentBg})`;
+        if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
+      }
+    }
+    renderCurrentAssets(theme);
+  }).catch(() => { /* ignore */ });
+}
+
+function refreshOverlaysFromFolder(theme) {
+  resolveOverlaysFromFolder(theme).then((list) => {
+    if (Array.isArray(list) && list.length) {
+      theme.overlaysTmp = list;
+      renderCurrentAssets(theme);
+      renderOptions();
+    } else {
+      theme.overlaysTmp = undefined;
+    }
+  }).catch(() => { theme.overlaysTmp = undefined; });
+}
+
+function refreshTemplatesFromFolder(theme) {
+  resolveTemplatesFromFolder(theme).then((list) => {
+    if (Array.isArray(list) && list.length) {
+      theme.templatesTmp = list;
+      renderCurrentAssets(theme);
+      renderOptions();
+    } else {
+      theme.templatesTmp = undefined;
+    }
+  }).catch(() => { theme.templatesTmp = undefined; });
+}
+
+function syncAdminUiWithTheme(themeKey, theme) {
+  const currentKey = themeKey || (DOM.eventSelect && DOM.eventSelect.value) || '';
+  const storedName = getStoredEventName(currentKey);
+  if (DOM.eventTitle) DOM.eventTitle.textContent = storedName || (theme.welcome && theme.welcome.title) || '';
+  if (DOM.logo) DOM.logo.src = theme.logo || '';
+  selectedOverlay = null;
+  if (DOM.liveOverlay) DOM.liveOverlay.src = '';
+  if (DOM.eventTitle) DOM.eventTitle.style.fontFamily = theme.font || "'Comic Neue', cursive";
+  if (DOM.welcomeTitle) DOM.welcomeTitle.style.fontFamily = theme.font || "'Comic Neue', cursive";
+  refreshFontSelectForTheme(theme);
+  if (DOM.options) renderOptions();
   syncThemeEditorWithActiveTheme();
-  // Populate event name input for this selection
-  if (DOM.eventNameInput) {
-    DOM.eventNameInput.value = storedName || '';
+  if (DOM.eventNameInput) DOM.eventNameInput.value = storedName || '';
+}
+
+function loadTheme(themeKey) {
+  console.log('Loading theme:', themeKey);
+  if (!themeKey) {
+    console.warn('No theme key provided to loadTheme');
+    return;
   }
+  const theme = resolveThemeByKey(themeKey);
+  if (!theme) {
+    console.warn('Theme not found for key:', themeKey);
+    return;
+  }
+  activeTheme = theme;
+
+  applyThemeBasics(theme);
+  refreshBackgroundFromFolder(theme);
+  refreshBackgroundList(theme);
+  refreshOverlaysFromFolder(theme);
+  refreshTemplatesFromFolder(theme);
+  syncAdminUiWithTheme(themeKey, theme);
 }
 
 // Convert any CSS color string to hex (#rrggbb); returns '' on failure
