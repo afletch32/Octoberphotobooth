@@ -815,6 +815,25 @@ function resolveThemeByKey(themeKey) {
   return themes[themeKey] || null;
 }
 
+function resolveThemeStorage(key) {
+  if (!key) return { parent: themes, bucket: null, root: null };
+  if (!key.includes(':')) {
+    return { parent: themes, bucket: null, root: key };
+  }
+  const [rootKey, leafKey] = key.split(':');
+  const parent = themes[rootKey];
+  if (!parent || typeof parent !== 'object') {
+    return { parent: themes, bucket: null, root: rootKey };
+  }
+  if (parent.themes && parent.themes[leafKey]) {
+    return { parent, bucket: 'themes', root: rootKey };
+  }
+  if (parent.holidays && parent.holidays[leafKey]) {
+    return { parent, bucket: 'holidays', root: rootKey };
+  }
+  return { parent: themes, bucket: null, root: rootKey };
+}
+
 function applyThemeBasics(theme) {
   document.documentElement.style.setProperty('--accent', theme.accent || 'orange');
   document.documentElement.style.setProperty('--accent2', theme.accent2 || 'white');
@@ -3371,16 +3390,31 @@ function handleCloneTheme() {
   const name = valueFromInput(DOM.themeCloneName);
   const slug = slugifyThemeName(name);
   if (!slug) { alert('Enter a name for the cloned theme.'); return; }
-  if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+  const currentKey = DOM.eventSelect && DOM.eventSelect.value;
+  const location = resolveThemeStorage(currentKey);
   const cloned = cloneThemeValue(activeTheme);
   cloned.name = name;
   cloned.welcome = mergePlainObject(activeTheme.welcome || {}, cloned.welcome || {});
   if (cloned.welcome) cloned.welcome.title = cloned.welcome.title || name;
-  themes[slug] = cloned;
+
+  let newKey = slug;
+  if (location.bucket && location.parent && typeof location.parent === 'object') {
+    if (!location.parent[location.bucket]) location.parent[location.bucket] = {};
+    if (location.parent[location.bucket][slug]) {
+      alert('A theme with that name already exists in this category.');
+      return;
+    }
+    location.parent[location.bucket][slug] = cloned;
+    newKey = `${location.root}:${slug}`;
+  } else {
+    if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+    themes[slug] = cloned;
+  }
+
   saveThemesToStorage();
-  populateThemeSelector(slug);
-  setEventSelection(slug);
-  loadTheme(slug);
+  populateThemeSelector(newKey);
+  setEventSelection(newKey);
+  loadTheme(newKey);
   if (DOM.themeCloneName) DOM.themeCloneName.value = '';
   if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = 'edit';
   setThemeEditorMode('edit');
