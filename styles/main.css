@@ -1,6 +1,8 @@
 :root {
       --accent: rgb(212, 242, 217);
       --accent2: white;
+      --font-heading: 'Comic Neue', cursive;
+      --font-body: 'Comic Neue', cursive;
     }
 
     body,
@@ -8,7 +10,7 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      font-family: var(--font), 'Comic Neue', cursive;
+      font-family: var(--font-body, var(--font, 'Comic Neue', cursive));
       background: #000;
       color: white;
       overflow: hidden;
@@ -332,6 +334,11 @@
       display: flex;
       gap: 8px;
       align-items: center;
+    }
+
+    #currentFont.asset-single {
+      align-items: stretch;
+      flex-direction: column;
     }
 
     .asset-item {
@@ -1031,4 +1038,138 @@
     .mode-btn-icon.strip {
       flex-direction: column;
       gap: 3px;
+    }
+
+    .font-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .font-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .font-row label {
+      font-weight: 600;
+      color: var(--accent2);
+    }
+
+    .font-row select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #232637;
+      background: #10131f;
+      color: #fff;
+    }
+
+    .font-preview {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #232637;
+      background: #161a29;
+      font-size: 1.2em;
+      color: #f6f7ff;
+    }
+
+    .font-heading {
+      font-family: var(--font-heading);
+    }
+
+    .font-body {
+      font-family: var(--font-body);
+    }
+
+    .font-preview small {
+      display: block;
+      font-size: 0.75em;
+      opacity: 0.7;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .font-preview-text {
+      display: block;
+    }
+
+    .font-quick-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 600;
+      color: var(--accent2);
+    }
+
+    .font-quick-toggle {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.85em;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .quick-picks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      max-height: 220px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .quick-picks.expanded {
+      max-height: none;
+      overflow: visible;
+    }
+
+    .quick-pick-card {
+      border-radius: 12px;
+      border: 1px solid #232637;
+      background: #131726;
+      color: #f6f7ff;
+      padding: 12px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .quick-pick-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .quick-pick-card .quick-pick-label {
+      font-size: 0.7em;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.6;
+    }
+
+    .quick-pick-card .quick-pick-title {
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+
+    .quick-pick-card .quick-pick-preview {
+      font-size: 1.1em;
+      line-height: 1.3;
+    }
+
+    .font-divider {
+      border: none;
+      border-top: 1px solid #232637;
+      margin: 10px 0 4px;
     }

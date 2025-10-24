@@ -1,0 +1,175 @@
+[
+  {
+    "id": "Hawks-Hawks",
+    "name": "Hawks",
+    "category": "Hawks",
+    "background": "/themes/general/Hawks/Hawks/backgrounds/16.png",
+    "overlay": "/themes/general/Hawks/Hawks/overlays/hawks-frame-cheerleader.png",
+    "template": "/themes/general/Hawks/Hawks/templates/go hawks.png",
+    "backgrounds": [
+      "/themes/general/Hawks/Hawks/backgrounds/16.png",
+      "/themes/general/Hawks/Hawks/backgrounds/blue-green-background.png",
+      "/themes/general/Hawks/Hawks/backgrounds/hawks-background-1.png",
+      "/themes/general/Hawks/Hawks/backgrounds/hawks-background-football.png",
+      "/themes/general/Hawks/Hawks/backgrounds/hawks-background-gradient.png",
+      "/themes/general/Hawks/Hawks/backgrounds/hawks-background-green-fog.png"
+    ],
+    "overlays": [
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-cheerleader.png",
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-fan.png",
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-go-hawks.png",
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-grass.png",
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-helmets.png",
+      "/themes/general/Hawks/Hawks/overlays/hawks-frame-players.png"
+    ],
+    "templates": [
+      "/themes/general/Hawks/Hawks/templates/go hawks.png"
+    ]
+  },
+  {
+    "id": "basic-basic",
+    "name": "basic",
+    "category": "basic",
+    "background": "/themes/general/basic/basic/backgrounds/basic-background-1.png",
+    "overlay": "/themes/general/basic/basic/overlays/blue smoke frame.png",
+    "backgrounds": [
+      "/themes/general/basic/basic/backgrounds/basic-background-1.png",
+      "/themes/general/basic/basic/backgrounds/sparkles.png"
+    ],
+    "overlays": [
+      "/themes/general/basic/basic/overlays/blue smoke frame.png",
+      "/themes/general/basic/basic/overlays/flowers frame.png",
+      "/themes/general/basic/basic/overlays/general-frame-black.png",
+      "/themes/general/basic/basic/overlays/general-frame-blue-flowers.png",
+      "/themes/general/basic/basic/overlays/sparkles.png"
+    ],
+    "templates": []
+  },
+  {
+    "id": "birthday-birthday",
+    "name": "birthday",
+    "category": "birthday",
+    "background": "/themes/general/birthday/birthday/backgrounds/birthday-background-1.png",
+    "overlay": "/themes/general/birthday/birthday/overlays/7.png",
+    "template": "/themes/general/birthday/birthday/templates/birthday banner.png",
+    "backgrounds": [
+      "/themes/general/birthday/birthday/backgrounds/birthday-background-1.png"
+    ],
+    "overlays": [
+      "/themes/general/birthday/birthday/overlays/7.png",
+      "/themes/general/birthday/birthday/overlays/banner frame.png",
+      "/themes/general/birthday/birthday/overlays/birthday confetti frame.png",
+      "/themes/general/birthday/birthday/overlays/colorful sparkle frame.png",
+      "/themes/general/birthday/birthday/overlays/double photo birthday frame.png",
+      "/themes/general/birthday/birthday/overlays/happy birthday balloons frame.png",
+      "/themes/general/birthday/birthday/overlays/sparkle sides frame.png"
+    ],
+    "templates": [
+      "/themes/general/birthday/birthday/templates/birthday banner.png",
+      "/themes/general/birthday/birthday/templates/birthday.png"
+    ]
+  },
+  {
+    "id": "holidays-fall",
+    "name": "fall",
+    "category": "holidays",
+    "background": "/themes/general/holidays/fall/backgrounds/halloween-background-grey-1.jpg",
+    "overlay": "/themes/general/holidays/fall/overlays/4.png",
+    "template": "/themes/general/holidays/fall/templates/halloween-template-2.png",
+    "backgrounds": [
+      "/themes/general/holidays/fall/backgrounds/halloween-background-grey-1.jpg",
+      "/themes/general/holidays/fall/backgrounds/halloween-background-pink.png"
+    ],
+    "overlays": [
+      "/themes/general/holidays/fall/overlays/4.png",
+      "/themes/general/holidays/fall/overlays/5.png",
+      "/themes/general/holidays/fall/overlays/6.png",
+      "/themes/general/holidays/fall/overlays/fall leaves frame.png",
+      "/themes/general/holidays/fall/overlays/graveyard transparent frame.png",
+      "/themes/general/holidays/fall/overlays/halloween overlay ghosts.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-boo.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-fog.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-groovy-ghosties.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-groovy.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-haunted-house.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-landscape-3.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-landscape-5.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-landscape-6.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-landscape-7.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-landscaspe-6.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-lanscape-10.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-lanscape-9.png",
+      "/themes/general/holidays/fall/overlays/halloween-frame-skeletons.png",
+      "/themes/general/holidays/fall/overlays/smoke corner frame.png"
+    ],
+    "templates": [
+      "/themes/general/holidays/fall/templates/halloween-template-2.png",
+      "/themes/general/holidays/fall/templates/halloween-template-3.png",
+      "/themes/general/holidays/fall/templates/halloween-template-4.png",
+      "/themes/general/holidays/fall/templates/halloween-template-maddies.png"
+    ]
+  },
+  {
+    "id": "holidays-spring",
+    "name": "spring",
+    "category": "holidays",
+    "background": "/themes/general/holidays/spring/backgrounds/st.patricksday-background-1.png",
+    "template": "/themes/general/holidays/spring/templates/st patricks.png",
+    "backgrounds": [
+      "/themes/general/holidays/spring/backgrounds/st.patricksday-background-1.png"
+    ],
+    "overlays": [],
+    "templates": [
+      "/themes/general/holidays/spring/templates/st patricks.png",
+      "/themes/general/holidays/spring/templates/stpatricksday-template-1.png"
+    ]
+  },
+  {
+    "id": "holidays-winter",
+    "name": "winter",
+    "category": "holidays",
+    "background": "/themes/general/holidays/winter/backgrounds/valentines-background-1.png",
+    "template": "/themes/general/holidays/winter/templates/valentines pink.png",
+    "backgrounds": [
+      "/themes/general/holidays/winter/backgrounds/valentines-background-1.png",
+      "/themes/general/holidays/winter/backgrounds/valentines-background-2.png"
+    ],
+    "overlays": [],
+    "templates": [
+      "/themes/general/holidays/winter/templates/valentines pink.png"
+    ]
+  },
+  {
+    "id": "holidays-winter",
+    "name": "winter",
+    "category": "holidays",
+    "background": "/themes/general/holidays/winter/backgrounds/christmas-background-1.png",
+    "template": "/themes/general/holidays/winter/templates/chritsmas-template-1.png",
+    "backgrounds": [
+      "/themes/general/holidays/winter/backgrounds/christmas-background-1.png",
+      "/themes/general/holidays/winter/backgrounds/christmas-background-2.png",
+      "/themes/general/holidays/winter/backgrounds/christmas-background-3.png",
+      "/themes/general/holidays/winter/backgrounds/christmas-background-4.png",
+      "/themes/general/holidays/winter/backgrounds/christmas-backlground-5.png",
+      "/themes/general/holidays/winter/backgrounds/christmas.png",
+      "/themes/general/holidays/winter/backgrounds/winter.png"
+    ],
+    "overlays": [],
+    "templates": [
+      "/themes/general/holidays/winter/templates/chritsmas-template-1.png",
+      "/themes/general/holidays/winter/templates/mrery christmas.png"
+    ]
+  },
+  {
+    "id": "school-ANE",
+    "name": "ANE",
+    "category": "school",
+    "overlay": "/themes/general/school/ANE/overlays/ANE-frame-stream-night-landscape-2.png",
+    "backgrounds": [],
+    "overlays": [
+      "/themes/general/school/ANE/overlays/ANE-frame-stream-night-landscape-2.png",
+      "/themes/general/school/ANE/overlays/School-frame-landscape-1.png"
+    ],
+    "templates": []
+  }
+]

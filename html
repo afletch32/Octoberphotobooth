@@ -1,0 +1,34 @@
+<div class="grid gap-4">
+    <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+            <label for="headingFont" class="block text-sm mb-1">Header Font</label>
+            <select id="headingFont" class="border rounded px-2 py-1 w-full"></select>
+            <div id="headingPreview" class="mt-2 text-2xl font-heading">
+                Welcome to Fletch Photobooth
+            </div>
+        </div>
+
+        <div>
+            <label for="bodyFont" class="block text-sm mb-1">Body Font</label>
+            <select id="bodyFont" class="border rounded px-2 py-1 w-full"></select>
+            <p id="bodyPreview" class="mt-2 font-body">
+                Welcome to Fletch Photobooth
+            </p>
+        </div>
+    </div>
+
+    <!-- Recommended Pairings -->
+    <div>
+        <label for="pairings" class="block text-sm mb-1">Recommended Pairings</label>
+        <select id="pairings" class="border rounded px-2 py-1 w-full"></select>
+    </div>
+
+    <!-- Quick Picks -->
+    <div class="mt-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-sm font-medium">Quick Picks</h3>
+            <button id="qpToggle" class="text-xs underline" type="button">show all</button>
+        </div>
+        <div id="quickPicks" class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3"></div>
+    </div>
+</div>

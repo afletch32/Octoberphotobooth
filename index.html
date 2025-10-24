@@ -17,6 +17,8 @@
     :root {
       --accent: rgb(212, 242, 217);
       --accent2: white;
+      --font-heading: 'Comic Neue', cursive;
+      --font-body: 'Comic Neue', cursive;
     }
 
     body,
@@ -24,7 +26,7 @@
       margin: 0;
       padding: 0;
       height: 100%;
-      font-family: var(--font), 'Comic Neue', cursive;
+      font-family: var(--font-body, var(--font, 'Comic Neue', cursive));
       background: #000;
       color: white;
       overflow: hidden;
@@ -383,6 +385,11 @@
       display: flex;
       gap: 8px;
       align-items: center;
+    }
+
+    #currentFont.asset-single {
+      align-items: stretch;
+      flex-direction: column;
     }
 
     .asset-item {
@@ -1141,6 +1148,140 @@
       flex-direction: column;
       gap: 3px;
     }
+
+    .font-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .font-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .font-row label {
+      font-weight: 600;
+      color: var(--accent2);
+    }
+
+    .font-row select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #232637;
+      background: #10131f;
+      color: #fff;
+    }
+
+    .font-preview {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #232637;
+      background: #161a29;
+      font-size: 1.2em;
+      color: #f6f7ff;
+    }
+
+    .font-heading {
+      font-family: var(--font-heading);
+    }
+
+    .font-body {
+      font-family: var(--font-body);
+    }
+
+    .font-preview small {
+      display: block;
+      font-size: 0.75em;
+      opacity: 0.7;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .font-preview-text {
+      display: block;
+    }
+
+    .font-quick-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 600;
+      color: var(--accent2);
+    }
+
+    .font-quick-toggle {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 0.85em;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .quick-picks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      max-height: 220px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .quick-picks.expanded {
+      max-height: none;
+      overflow: visible;
+    }
+
+    .quick-pick-card {
+      border-radius: 12px;
+      border: 1px solid #232637;
+      background: #131726;
+      color: #f6f7ff;
+      padding: 12px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .quick-pick-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .quick-pick-card .quick-pick-label {
+      font-size: 0.7em;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      opacity: 0.6;
+    }
+
+    .quick-pick-card .quick-pick-title {
+      font-weight: 600;
+      font-size: 0.95em;
+    }
+
+    .quick-pick-card .quick-pick-preview {
+      font-size: 1.1em;
+      line-height: 1.3;
+    }
+
+    .font-divider {
+      border: none;
+      border-top: 1px solid #232637;
+      margin: 10px 0 4px;
+    }
   </style>
 </head>
 
@@ -1237,6 +1378,15 @@
               <button type="button" id="addBackgroundBtn">Add Background</button>
               <button type="button" id="addOverlayBtn">Add Overlay</button>
               <button type="button" id="addTemplateBtn">Add Template</button>
+              <button type="button" id="addLogoBtn">Add Logo</button>
+            </div>
+            <div id="assetUploadInputs" class="hidden">
+              <input type="file" id="themeBackground" accept="image/*">
+              <input type="file" id="themeLogo" accept="image/*">
+              <input type="file" id="themeOverlays" accept="image/*" multiple>
+              <input type="file" id="themeOverlaysFolderPicker" webkitdirectory directory multiple>
+              <input type="file" id="themeTemplates" accept="image/*" multiple>
+              <input type="file" id="themeTemplatesFolderPicker" webkitdirectory directory multiple>
             </div>
             <div id="currentAssets" class="current-assets">
               <div
@@ -1279,84 +1429,23 @@
       <div class="admin-right panel">
         <div id="themeEditor">
           <h2>Theme Editor</h2>
-          <div class="theme-editor-summary">
-            <div class="theme-editor-current">
-              <span class="theme-editor-current-label">Current theme</span>
-              <span id="themeEditorActive" class="theme-editor-current-name">None selected</span>
-              <span id="themeEditorEditing" class="theme-editor-current-sub">Editing: None</span>
+          <p style="color:#bbb; margin-top:0;">Theme assets are managed from the controls on the left. A single shared
+            logo now applies to every theme.</p>
+          <details class="theme-tools" style="margin-top:12px;">
+            <summary style="cursor:pointer; color:#ddd;">Theme data tools</summary>
+            <div class="btn-row" style="margin-top:10px;">
+              <button onclick="exportThemes()">Export Themes</button>
+              <button onclick="importThemes()">Import Themes</button>
+              <button onclick="exportSetupPackage()">Export Package (zip)</button>
+              <button onclick="triggerImportZip()">Import Package (zip)</button>
             </div>
-            <div class="theme-editor-action">
-              <label for="themeEditorModeSelect">Editor mode</label>
-              <select id="themeEditorModeSelect">
-                <option value="edit">Edit existing theme</option>
-                <option value="clone">Clone this theme</option>
-                <option value="create">Create new theme</option>
-              </select>
-            </div>
-          </div>
-          <div id="themeCloneSection" class="theme-editor-section hidden">
-            <label for="themeCloneName">Cloned theme name</label>
-            <input type="text" id="themeCloneName" placeholder="e.g., Halloween Copy">
-            <button type="button" id="cloneThemeBtn" class="primary">Clone Theme</button>
-          </div>
-          <div id="themeEditorForm" class="theme-editor-section">
-            <div class="theme-field">
-              <label for="themeName">Theme Name</label>
-              <input type="text" id="themeName" placeholder="My Awesome Theme">
-            </div>
-          </div>
-          <label for="themeFontSelect">Font Family:</label>
-          <select id="themeFontSelect"></select>
-          <div class="btn-row"><button onclick="updateCurrentThemeFont()">Apply Font To Selected Theme</button></div>
-          <label for="themeAccent">Accent Color:</label>
-          <input type="color" id="themeAccent" value="#ff0000"><br />
-          <label for="themeAccent2">Second Accent Color:</label>
-          <input type="color" id="themeAccent2" value="#ffffff"><br />
-          <label for="themeBackground">Background Image:</label>
-          <input type="file" id="themeBackground" accept="image/*"><br />
-          <small id="summaryBackground" style="color:#aaa;"></small><br />
-          <label for="themeLogo">Logo:</label>
-          <input type="file" id="themeLogo" accept="image/*"><br />
-          <small id="summaryLogo" style="color:#aaa;"></small><br />
-          <label for="themeOverlays">Overlays:</label>
-          <input type="file" id="themeOverlays" accept="image/*" multiple><br />
-          <small id="summaryOverlays" style="color:#aaa;"></small><br />
-          <label for="themeOverlaysFolderPicker">Import Overlays From Folder (device-only):</label>
-          <input type="file" id="themeOverlaysFolderPicker" webkitdirectory directory multiple><br />
-          <label for="themeOverlaysFolder">Overlays Folder (optional):</label>
-          <input type="text" id="themeOverlaysFolder" placeholder="assets/.../overlays/"><br />
-          <small style="color:#aaa;">Tip: add an overlays.json in that folder listing files, e.g.
-            ["frame1.png","frame2.png"].</small><br />
-          <label for="themeTemplates">Templates:</label>
-          <input type="file" id="themeTemplates" accept="image/*" multiple><br />
-          <small id="summaryTemplates" style="color:#aaa;"></small><br />
-          <label for="themeTemplatesFolderPicker">Import Templates From Folder (device-only):</label>
-          <input type="file" id="themeTemplatesFolderPicker" webkitdirectory directory multiple><br />
-          <label for="themeTemplatesFolder">Templates Folder (optional):</label>
-          <input type="text" id="themeTemplatesFolder" placeholder="assets/.../templates/"><br />
-          <small style="color:#aaa;">Tip: add a templates.json in that folder: ["template1.png",
-            {"src":"template2.png","layout":"double_column"}]</small><br />
-
-          <label for="themeWelcomeTitle">Welcome Title:</label>
-          <input type="text" id="themeWelcomeTitle" placeholder="Welcome!"><br />
-          <label for="themeWelcomePrompt">Welcome Prompt:</label>
-          <input type="text" id="themeWelcomePrompt" placeholder="Touch to start"><br />
-          <div class="btn-row">
-            <button id="btnUpdateTheme" onclick="updateSelectedTheme()" class="primary">Update Selected Theme</button>
-            <button id="btnSaveTheme" onclick="saveTheme()">Save As New Theme</button>
-          </div>
-          <div class="btn-row">
-            <button onclick="exportThemes()">Export Themes</button>
-            <button onclick="importThemes()">Import Themes</button>
-            <button onclick="exportSetupPackage()">Export Package (zip)</button>
-            <button onclick="triggerImportZip()">Import Package (zip)</button>
             <div class="icon-tiles">
               <button class="icon-tile" onclick="rebuildManifestsUI()" aria-label="Rebuild Manifests">
                 <span class="icon-glyph" aria-hidden="true">🔄</span>
                 <span class="icon-label">Rebuild</span>
               </button>
             </div>
-          </div>
+          </details>
           <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleImport()">
           <input type="file" id="importZip" class="hidden" accept=".zip" onchange="handleImportZip()">
         </div>
@@ -1419,10 +1508,45 @@
       </div>
       <div class="panel">
         <h2>Font Library</h2>
-        <h3>Add More Fonts</h3>
+        <div class="font-picker">
+          <div class="font-row">
+            <label for="headingFont">Heading Font</label>
+            <select id="headingFont">
+              <option value="">Loading…</option>
+            </select>
+            <div id="headingPreview" class="font-preview font-heading">
+              <small>Preview</small>
+              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
+            </div>
+          </div>
+          <div class="font-row">
+            <label for="bodyFont">Body Font</label>
+            <select id="bodyFont">
+              <option value="">Loading…</option>
+            </select>
+            <div id="bodyPreview" class="font-preview font-body">
+              <small>Preview</small>
+              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
+            </div>
+          </div>
+          <div class="font-row">
+            <label for="pairings">Recommended Pairings</label>
+            <select id="pairings">
+              <option value="">Loading…</option>
+            </select>
+          </div>
+          <div>
+            <div class="font-quick-header">
+              <span>Quick Picks</span>
+              <button type="button" id="qpToggle" class="font-quick-toggle">show all</button>
+            </div>
+            <div id="quickPicks" class="quick-picks"></div>
+          </div>
+        </div>
+        <hr class="font-divider">
+        <h3 style="margin-top:8px;">Add Custom Fonts</h3>
         <label for="addFontFamily">Google Font Family:</label>
-        <input type="text" id="addFontFamily" placeholder="e.g., Pacifico"><button
-          onclick="addFontByFamily()">Add</button><br />
+        <input type="text" id="addFontFamily" placeholder="e.g., Pacifico"><button onclick="addFontByFamily()">Add</button><br />
         <small>Tip: enter a Google Fonts family name (weights default).</small><br />
         <label for="addFontUrl">Google Fonts URL:</label>
         <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&display=swap"

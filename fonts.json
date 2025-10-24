@@ -1,0 +1,258 @@
+{
+    "available": [
+        {
+            "name": "Inter",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Roboto",
+            "weights": [
+                300,
+                400,
+                500,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Source Sans 3",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Open Sans",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Lato",
+            "weights": [
+                300,
+                400,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Poppins",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Montserrat",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Merriweather",
+            "weights": [
+                300,
+                400,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Lora",
+            "weights": [
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Libre Baskerville",
+            "weights": [
+                400,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Playfair Display",
+            "weights": [
+                400,
+                600,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "DM Serif Display",
+            "weights": [
+                400
+            ],
+            "ital": false,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Raleway",
+            "weights": [
+                300,
+                400,
+                700
+            ],
+            "ital": true,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Oswald",
+            "weights": [
+                300,
+                400,
+                700
+            ],
+            "ital": false,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Space Grotesk",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": false,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Sora",
+            "weights": [
+                300,
+                400,
+                600,
+                700
+            ],
+            "ital": false,
+            "preview": "Welcome to Fletch Photobooth"
+        },
+        {
+            "name": "Mountains of Christmas",
+            "weights": [
+                400,
+                700
+            ],
+            "ital": false,
+            "preview": "Merry Christmas from Fletch Photobooth 🎄"
+        },
+        {
+            "name": "Cookie",
+            "weights": [
+                400
+            ],
+            "ital": false,
+            "preview": "Happy Holidays at Fletch Photobooth ✨"
+        },
+        {
+            "name": "Creepster",
+            "weights": [
+                400
+            ],
+            "ital": false,
+            "preview": "Spooky Fun at Fletch Photobooth 🎃"
+        },
+        {
+            "name": "Butcherman",
+            "weights": [
+                400
+            ],
+            "ital": false,
+            "preview": "Fright Night with Fletch Photobooth 👻"
+        },
+        {
+            "name": "Dancing Script",
+            "weights": [
+                400,
+                700
+            ],
+            "ital": false,
+            "preview": "Love is in the Air 💕 — Fletch Photobooth"
+        },
+        {
+            "name": "Parisienne",
+            "weights": [
+                400
+            ],
+            "ital": false,
+            "preview": "Sweet Moments at Fletch Photobooth ❤️"
+        }
+    ],
+    "defaults": {
+        "heading": "Montserrat",
+        "body": "Inter"
+    },
+    "pairings": [
+        {
+            "heading": "Montserrat",
+            "body": "Inter",
+            "notes": "Modern + clean"
+        },
+        {
+            "heading": "Playfair Display",
+            "body": "Source Sans 3",
+            "notes": "Editorial + neutral"
+        },
+        {
+            "heading": "Raleway",
+            "body": "Lora",
+            "notes": "Elegant sans + warm serif"
+        },
+        {
+            "heading": "Mountains of Christmas",
+            "body": "Inter",
+            "notes": "Holiday preset",
+            "preview": "Merry Christmas from Fletch Photobooth 🎄"
+        },
+        {
+            "heading": "Creepster",
+            "body": "Inter",
+            "notes": "Spooky preset",
+            "preview": "Spooky Fun at Fletch Photobooth 🎃"
+        },
+        {
+            "heading": "Dancing Script",
+            "body": "Montserrat",
+            "notes": "Valentine preset",
+            "preview": "Love is in the Air 💕 — Fletch Photobooth"
+        }
+    ]
+}
