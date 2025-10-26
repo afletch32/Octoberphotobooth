@@ -19,6 +19,7 @@
       --accent2: white;
       --font-heading: 'Comic Neue', cursive;
       --font-body: 'Comic Neue', cursive;
+      --font: var(--font-body);
     }
 
     body,
@@ -124,6 +125,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     .admin-container {
@@ -149,12 +151,14 @@
       margin: 0 0 10px;
       font-size: 1.4em;
       color: var(--accent2);
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     .panel h3 {
       margin: 10px 0 6px;
       font-size: 1.05em;
       color: #ddd;
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     details.panel-section {
@@ -532,6 +536,126 @@
       font-size: .9em;
     }
 
+    .font-picker {
+      margin-top: 16px;
+      padding: 14px;
+      background: #101217;
+      border: 1px solid #232734;
+      border-radius: 12px;
+    }
+
+    .dual-font-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .dual-font-column label {
+      display: block;
+      font-size: .9em;
+      color: #bbb;
+      margin-bottom: 4px;
+    }
+
+    .font-picker select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .font-preview-box {
+      margin-top: 6px;
+      padding: 10px 12px;
+      background: #0b0d12;
+      border: 1px solid #1f2233;
+      border-radius: 8px;
+      min-height: 48px;
+      font-size: 1rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .quick-picks-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      font-size: .95em;
+      color: #bbb;
+    }
+
+    .quick-picks-grid {
+      display: grid;
+      gap: 10px;
+      max-height: 220px;
+      overflow: hidden;
+    }
+
+    .quick-pick-card {
+      background: #121522;
+      border: 1px solid #1f2536;
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #eef;
+      text-align: left;
+      font-size: .95em;
+      line-height: 1.4;
+      transition: background .2s ease, transform .1s ease;
+    }
+
+    .quick-pick-card:hover {
+      background: #1b2032;
+      transform: translateY(-1px);
+    }
+
+    .quick-pick-label {
+      font-size: .75em;
+      opacity: .7;
+      margin-bottom: 4px;
+    }
+
+    .quick-pick-fonts {
+      font-size: .9em;
+    }
+
+    .quick-pick-heading {
+      font-weight: 600;
+    }
+
+    .quick-pick-preview {
+      margin-top: 4px;
+      font-size: 1.05em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .quick-pick-notes {
+      margin-top: 4px;
+      font-size: .8em;
+      opacity: .7;
+    }
+
+    button.button-ghost {
+      margin: 0;
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: .9em;
+      cursor: pointer;
+    }
+
+    button.button-ghost:hover {
+      text-decoration: underline;
+    }
+
     /* Toast */
     #toast {
       position: absolute;
@@ -648,8 +772,11 @@
     #videoWrap {
       flex: 1;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      position: relative;
+      gap: 12px;
     }
 
     #videoContainer {
@@ -668,6 +795,9 @@
       opacity: 0;
       transition: opacity 500ms ease;
       object-fit: cover;
+      transform-origin: center;
+      -webkit-transform: scaleX(-1) !important;
+      transform: scaleX(-1) !important;
     }
 
     #lastShot {
@@ -680,6 +810,9 @@
       border-radius: 6px;
       pointer-events: none;
       display: none;
+      transform-origin: center;
+      -webkit-transform: scaleX(1) !important;
+      transform: scaleX(1) !important;
     }
 
     #liveOverlay {
@@ -691,11 +824,13 @@
       pointer-events: none;
       border-radius: 6px;
       object-fit: cover;
+      -webkit-transform: scaleX(1) !important;
+      transform: scaleX(1) !important;
     }
 
     .view-landscape #videoContainer {
       max-height: 88vh;
-      max-width: 70vw;
+      max-width: 80vw;
       aspect-ratio: 16 / 9;
     }
 
@@ -722,11 +857,53 @@
 
     #captureBtn {
       display: none;
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      position: relative;
       z-index: 5;
+      align-self: center;
+    }
+
+    @media (max-width: 1100px) {
+      #boothMain {
+        flex-direction: column;
+        align-items: center;
+      }
+      #options,
+      #controls {
+        width: 100%;
+        max-height: none;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 6px;
+      }
+      #options {
+        order: 3;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      #controls {
+        order: 2;
+      }
+      #options .thumb {
+        max-width: 110px;
+        margin: 0 6px;
+      }
+      #videoWrap {
+        order: 1;
+        width: 100%;
+      }
+      #videoContainer {
+        width: 100%;
+        max-width: 680px;
+      }
+      .view-landscape #videoContainer {
+        max-width: min(92vw, 680px);
+      }
+      #captureBtn {
+        margin-bottom: 8px;
+      }
     }
 
     /* shown in photo mode only */
@@ -1552,6 +1729,28 @@
         <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&display=swap"
           style="width:60%"><button onclick="addFontByUrl()">Add URL</button>
         <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
+        <div class="font-picker">
+          <h3>Heading &amp; Body Fonts</h3>
+          <div class="dual-font-grid">
+            <div class="dual-font-column">
+              <label for="headingFontSelect">Heading Font</label>
+              <select id="headingFontSelect"></select>
+              <div id="headingFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
+            </div>
+            <div class="dual-font-column">
+              <label for="bodyFontSelect">Body Font</label>
+              <select id="bodyFontSelect"></select>
+              <div id="bodyFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
+            </div>
+          </div>
+          <label for="fontPairingSelect" style="display:block; margin-top:12px;">Pairing Suggestions</label>
+          <select id="fontPairingSelect"></select>
+          <div class="quick-picks-header">
+            <span>Quick Picks</span>
+            <button type="button" id="qpToggle" class="button-ghost">show all</button>
+          </div>
+          <div id="quickPicks" class="quick-picks-grid"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1643,30 +1842,4 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
-  <div id="createThemeModal" class="modal-backdrop">
-    <div class="modal-card">
-      <h3>Create New Theme</h3>
-      <label for="createThemeName">Theme Name</label>
-      <input type="text" id="createThemeName" placeholder="My New Theme">
-      <div id="createThemeSummary" style="color:#aab; font-size:0.9em;"></div>
-      <div id="createThemeDropZone" class="drop-zone">
-        <strong>Drop your theme folder here</strong>
-        <span>Include folders like <code>backgrounds/</code>, <code>overlays/</code>, <code>templates/</code>.</span>
-        <button type="button" id="createThemeBrowseBtn">Browse…</button>
-      </div>
-      <div class="modal-footer">
-        <button type="button" id="createThemeCancel">Cancel</button>
-        <button type="button" id="createThemeConfirm" class="primary">Create Theme</button>
-      </div>
-    </div>
-  </div>
-  <input type="file" id="createThemeFolderInput" class="hidden" webkitdirectory multiple>
-
-  <script type="module" src="scripts/app.js"></script>
-</body>
-
-</html>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/q

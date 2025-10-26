@@ -268,13 +268,14 @@ const DOM = {
   sendPendingBtn: document.getElementById('sendPendingBtn'),
   cacheAssetsBtn: document.getElementById('cacheAssetsBtn'),
   forceCameraFileToggle: document.getElementById('forceCameraFileToggle'),
-  headingFontSelect: document.getElementById('headingFont'),
-  bodyFontSelect: document.getElementById('bodyFont'),
-  fontPairingsSelect: document.getElementById('pairings'),
-  headingFontPreview: document.getElementById('headingPreview'),
-  bodyFontPreview: document.getElementById('bodyPreview'),
-  fontQuickPicks: document.getElementById('quickPicks'),
-  fontQuickPicksToggle: document.getElementById('qpToggle'),
+  headingFontSelect: document.getElementById('headingFontSelect'),
+  bodyFontSelect: document.getElementById('bodyFontSelect'),
+  fontPairingSelect: document.getElementById('fontPairingSelect'),
+  headingFontPreview: document.getElementById('headingFontPreview'),
+  bodyFontPreview: document.getElementById('bodyFontPreview'),
+  quickPicks: document.getElementById('quickPicks'),
+  quickPicksToggle: document.getElementById('qpToggle'),
+  themeFontSelect: document.getElementById('themeFontSelect'),
   themeEditorModeSelect: document.getElementById('themeEditorModeSelect'),
   themeCloneSection: document.getElementById('themeCloneSection'),
   themeCloneName: document.getElementById('themeCloneName'),
@@ -557,6 +558,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   ['click', 'mousemove', 'keydown', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
   resetIdleTimer();
   init();
+  if (DOM.headingFontSelect && DOM.bodyFontSelect) {
+    setupDualFontPicker({
+      headingSelect: DOM.headingFontSelect,
+      bodySelect: DOM.bodyFontSelect,
+      pairingSelect: DOM.fontPairingSelect,
+      headingPreview: DOM.headingFontPreview,
+      bodyPreview: DOM.bodyFontPreview
+    }).catch((err) => console.warn('Dual font picker failed to initialize', err));
+  }
   setupInstallPrompt();
   ensureRemoteSeed();
   updateThemeEditorSummary();
@@ -610,7 +620,23 @@ function mergeFonts(a, b) {
 }
 async function loadFontsRemote() {
   if (!canSyncRemote()) return [];
-  try { const r = await fetch('/api/fonts', { cache: 'no-store' }); if (!r.ok) return []; return await r.json(); } catch (_) { return []; }
+  try {
+    const r = await fetch('/api/fonts', { cache: 'no-store' });
+    if (!r.ok) return [];
+    const data = await r.json();
+    if (Array.isArray(data)) return data;
+    const normalized = normalizeFontsPayload(data);
+    if (normalized && Array.isArray(normalized.available)) {
+      return normalized.available.map((font) => ({
+        type: 'family',
+        value: font.name,
+        weights: font.weights
+      }));
+    }
+    return [];
+  } catch (_) {
+    return [];
+  }
 }
 async function syncFontsRemote(fonts) {
   if (!canSyncRemote()) return;
@@ -1449,7 +1475,7 @@ function showWelcome() {
   DOM.welcomeTitle.style.fontFamily = (activeTheme.fontHeading || activeTheme.fontBody || activeTheme.font || '');
   if (DOM.startButton) DOM.startButton.textContent = (activeTheme.welcome && activeTheme.welcome.prompt) || 'Touch to start';
 
-  // Mirror the booth background on the welcome screen and hide standalone images
+  //  the booth background on the welcome screen and hide standalone images
   const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : '';
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
@@ -1519,7 +1545,10 @@ async function startCamera(autoStartBooth = false) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(s => {
         stream = s;
-        if (DOM.video) DOM.video.srcObject = s;
+        if (DOM.video) {
+          DOM.video.srcObject = s;
+          DOM.video.style.transform = 'scaleX(-1)';
+        }
         showToast('Camera permission granted');
         if (autoStartBooth) startBoothFlow();
       }).catch(err => {
@@ -3519,10 +3548,349 @@ function setThemeEditorMode(mode) {
     }).catch(() => { });
   } else {
     hideCreateThemeModal();
-     resetCreateThemeModal();
+    resetCreateThemeModal();
     syncThemeEditorWithActiveTheme();
   }
   updateThemeEditorSummary();
+}
+
+function populateFontSelect(preselectFamily = '') {
+  const sel = DOM.themeFontSelect;
+  if (!sel) return;
+  const defaults = ["Comic Neue", "Creepster", "system-ui"];
+  const set = new Set(defaults);
+  const stored = getStoredFonts();
+  stored.forEach(f => {
+    if (f.type === 'family') set.add(f.value);
+    if (f.type === 'url' && f.label) set.add(f.label);
+  });
+  const families = Array.from(set);
+  sel.innerHTML = '';
+  families.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f; o.textContent = f;
+    sel.appendChild(o);
+  });
+  if (preselectFamily) {
+    const idx = families.findIndex(x => x.toLowerCase() === preselectFamily.toLowerCase());
+    if (idx >= 0) sel.selectedIndex = idx; else sel.selectedIndex = 0;
+  } else {
+    sel.selectedIndex = 0;
+  }
+}
+
+const DEFAULT_FONT_PREVIEW_TEXT = 'Welcome to Fletch Photobooth';
+const DEFAULT_FONTS_PAYLOAD = {
+  available: [
+    { name: 'Comic Neue', weights: [400, 700], preview: 'Welcome to the celebration!' },
+    { name: 'Creepster', weights: [400], preview: 'Spooky season starts now!' },
+    { name: 'Nosifer', weights: [400], preview: 'Dripping thrills at Fletch Photobooth!' },
+    { name: 'Montserrat', weights: [400, 600, 700], preview: 'Modern, clean, and easy to read.' },
+    { name: 'Bangers', weights: [400], preview: "Let's make some noise tonight!" },
+    { name: 'Great Vibes', weights: [400], preview: 'Love is in the air.' }
+  ],
+  defaults: {
+    heading: 'Comic Neue',
+    body: 'Montserrat'
+  },
+  pairings: [
+    { heading: 'Creepster', body: 'Comic Neue', notes: 'Halloween ready mix', preview: 'Spooky season starts now!' },
+    { heading: 'Nosifer', body: 'Inter', notes: 'Dripping horror headline', preview: 'Dripping thrills at Fletch Photobooth!' },
+    { heading: 'Bangers', body: 'Montserrat', notes: 'Bold energy + legible copy', preview: "Let's make some noise tonight!" },
+    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic headline with modern body', preview: 'Love is in the air.' }
+  ]
+};
+
+function normalizeFontFamilyName(name) {
+  return (name || '').toString().replace(/^['"]|['"]$/g, '').trim();
+}
+
+function dedupeFontDefs(fonts) {
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(fonts) ? fonts : []).forEach((font) => {
+    if (!font || typeof font !== 'object') return;
+    const cleanName = normalizeFontFamilyName(font.name || font.value);
+    if (!cleanName) return;
+    const key = cleanName.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    const weights = Array.isArray(font.weights) ? font.weights.filter((w) => Number.isFinite(w)).map((w) => Number(w)) : [];
+    out.push({
+      name: cleanName,
+      weights: weights.length ? weights : undefined,
+      ital: Boolean(font.ital),
+      preview: font.preview || font.label || ''
+    });
+  });
+  return out;
+}
+
+function normalizeFontsPayload(raw) {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    const converted = raw
+      .filter((item) => item && typeof item === 'object' && item.type === 'family')
+      .map((item) => ({
+        name: normalizeFontFamilyName(item.value),
+        weights: item.weights,
+        preview: item.label || ''
+      }))
+      .filter((item) => item.name);
+    return {
+      available: dedupeFontDefs([...DEFAULT_FONTS_PAYLOAD.available, ...converted]),
+      defaults: { ...DEFAULT_FONTS_PAYLOAD.defaults },
+      pairings: [...DEFAULT_FONTS_PAYLOAD.pairings]
+    };
+  }
+  if (typeof raw === 'object') {
+    const available = Array.isArray(raw.available) && raw.available.length
+      ? dedupeFontDefs(raw.available)
+      : dedupeFontDefs(DEFAULT_FONTS_PAYLOAD.available);
+    const defaults = {
+      ...DEFAULT_FONTS_PAYLOAD.defaults,
+      ...(raw.defaults && typeof raw.defaults === 'object' ? raw.defaults : {})
+    };
+    const pairings = Array.isArray(raw.pairings) && raw.pairings.length
+      ? raw.pairings
+      : DEFAULT_FONTS_PAYLOAD.pairings;
+    return { available, defaults, pairings };
+  }
+  return null;
+}
+
+function buildGoogleFontsURL(fonts) {
+  const items = (Array.isArray(fonts) ? fonts : []).filter((font) => font && font.name);
+  if (!items.length) return '';
+  const fams = items.map((font) => {
+    const fam = encodeURIComponent(font.name).replace(/%20/g, '+');
+    const weights = Array.isArray(font.weights) && font.weights.length
+      ? Array.from(new Set(font.weights)).sort((a, b) => a - b)
+      : [400];
+    if (font.ital) {
+      const pairs = [...weights.map((w) => `0,${w}`), ...weights.map((w) => `1,${w}`)].join(';');
+      return `family=${fam}:ital,wght@${pairs}`;
+    }
+    return `family=${fam}:wght@${weights.join(';')}`;
+  }).join('&');
+  return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
+}
+
+function injectStylesheetOnce(href) {
+  if (!href) return;
+  const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+  if (existing.some((link) => link.href === href)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function setHeadingFont(family) {
+  const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.heading);
+  const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+  document.documentElement.style.setProperty('--font-heading', stack);
+  localStorage.setItem('font.heading', clean);
+}
+
+function setBodyFont(family) {
+  const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.body);
+  const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+  document.documentElement.style.setProperty('--font-body', stack);
+  document.documentElement.style.setProperty('--font', stack);
+  localStorage.setItem('font.body', clean);
+}
+
+function findFontPreview(fonts, name) {
+  const clean = normalizeFontFamilyName(name);
+  const match = (Array.isArray(fonts) ? fonts : []).find((f) => normalizeFontFamilyName(f.name) === clean);
+  return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW_TEXT;
+}
+
+function findPairingPreview(pairing, fonts) {
+  if (pairing && pairing.preview) return pairing.preview;
+  if (pairing && pairing.heading) return findFontPreview(fonts, pairing.heading);
+  return DEFAULT_FONT_PREVIEW_TEXT;
+}
+
+function renderQuickPicks(args) {
+  const { container, pairings, fonts, apply } = args;
+  container.innerHTML = '';
+  const seasonalWords = ['Christmas', 'Holiday', 'Spooky', 'Valentine', 'Easter', 'New Year'];
+  const sorted = [...pairings].sort((a, b) => {
+    const aSeason = a && a.preview && seasonalWords.some((w) => a.preview.includes(w));
+    const bSeason = b && b.preview && seasonalWords.some((w) => b.preview.includes(w));
+    if (aSeason === bSeason) return 0;
+    return aSeason ? -1 : 1;
+  });
+  sorted.forEach((pairing) => {
+    if (!pairing || !pairing.heading || !pairing.body) return;
+    const headingPreview = pairing.preview
+      || findFontPreview(fonts, pairing.heading)
+      || DEFAULT_FONT_PREVIEW_TEXT;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'quick-pick-card';
+    card.innerHTML = `
+      <div class="quick-pick-label">Quick Pick</div>
+      <div class="quick-pick-fonts"><span class="quick-pick-heading">${pairing.heading}</span> + ${pairing.body}</div>
+      <div class="quick-pick-preview" style="font-family: '${pairing.heading}', system-ui, sans-serif;">${headingPreview}</div>
+      ${pairing.notes ? `<div class="quick-pick-notes">${pairing.notes}</div>` : ''}
+    `;
+    card.addEventListener('click', () => apply(pairing.heading, pairing.body, headingPreview));
+    container.appendChild(card);
+  });
+}
+
+async function setupDualFontPicker(opts) {
+  const endpoint = opts.fontsEndpoint || '/api/fonts';
+  let payload = null;
+  try {
+    const res = await fetch(endpoint, { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      payload = normalizeFontsPayload(data);
+    }
+  } catch (e) {
+    console.warn('Failed to fetch fonts payload', e);
+  }
+  const effective = payload || normalizeFontsPayload(DEFAULT_FONTS_PAYLOAD) || DEFAULT_FONTS_PAYLOAD;
+  const fonts = dedupeFontDefs(effective.available);
+  const pairings = Array.isArray(effective.pairings) ? effective.pairings : [];
+  if (!fonts.length) return;
+  const href = buildGoogleFontsURL(fonts);
+  injectStylesheetOnce(href);
+
+  const populate = (sel) => {
+    if (!sel) return;
+    sel.innerHTML = '';
+    fonts.forEach((font) => {
+      const opt = document.createElement('option');
+      opt.value = font.name;
+      opt.textContent = font.name;
+      opt.style.fontFamily = `'${font.name}', system-ui, sans-serif`;
+      sel.appendChild(opt);
+    });
+  };
+
+  populate(opts.headingSelect);
+  populate(opts.bodySelect);
+
+  const storedHeading = normalizeFontFamilyName(localStorage.getItem('font.heading'));
+  const storedBody = normalizeFontFamilyName(localStorage.getItem('font.body'));
+  const defaultHeading = storedHeading || normalizeFontFamilyName(effective.defaults && effective.defaults.heading) || fonts[0].name;
+  const defaultBody = storedBody || normalizeFontFamilyName(effective.defaults && effective.defaults.body) || fonts[0].name;
+
+  setHeadingFont(defaultHeading);
+  setBodyFont(defaultBody);
+
+  if (opts.headingSelect) opts.headingSelect.value = defaultHeading;
+  if (opts.bodySelect) opts.bodySelect.value = defaultBody;
+  if (opts.headingPreview) {
+    opts.headingPreview.style.fontFamily = `'${defaultHeading}', system-ui, sans-serif`;
+    opts.headingPreview.textContent = findFontPreview(fonts, defaultHeading);
+  }
+  if (opts.bodyPreview) {
+    opts.bodyPreview.style.fontFamily = `'${defaultBody}', system-ui, sans-serif`;
+    opts.bodyPreview.textContent = findFontPreview(fonts, defaultBody);
+  }
+
+  if (opts.headingSelect) {
+    opts.headingSelect.addEventListener('change', () => {
+      const val = opts.headingSelect.value;
+      setHeadingFont(val);
+      if (opts.headingPreview) {
+        opts.headingPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
+        opts.headingPreview.textContent = findFontPreview(fonts, val);
+      }
+      if (opts.pairingSelect) opts.pairingSelect.value = '';
+    });
+  }
+
+  if (opts.bodySelect) {
+    opts.bodySelect.addEventListener('change', () => {
+      const val = opts.bodySelect.value;
+      setBodyFont(val);
+      if (opts.bodyPreview) {
+        opts.bodyPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
+        opts.bodyPreview.textContent = findFontPreview(fonts, val);
+      }
+      if (opts.pairingSelect) opts.pairingSelect.value = '';
+    });
+  }
+
+  if (opts.pairingSelect) {
+    const sel = opts.pairingSelect;
+    sel.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '-- Choose a pairing --';
+    sel.appendChild(placeholder);
+    pairings.forEach((pairing) => {
+      if (!pairing || !pairing.heading || !pairing.body) return;
+      const opt = document.createElement('option');
+      opt.value = `${pairing.heading}|${pairing.body}`;
+      opt.textContent = pairing.notes ? `${pairing.heading} + ${pairing.body} - ${pairing.notes}` : `${pairing.heading} + ${pairing.body}`;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => {
+      if (!sel.value) return;
+      const [h, b] = sel.value.split('|');
+      const pairing = pairings.find((p) => p.heading === h && p.body === b);
+      if (opts.headingSelect) opts.headingSelect.value = h;
+      if (opts.bodySelect) opts.bodySelect.value = b;
+      setHeadingFont(h);
+      setBodyFont(b);
+      const headingPreviewText = findPairingPreview(pairing, fonts);
+      if (opts.headingPreview) {
+        opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
+        opts.headingPreview.textContent = headingPreviewText;
+      }
+      if (opts.bodyPreview) {
+        opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
+        opts.bodyPreview.textContent = findFontPreview(fonts, b);
+      }
+    });
+  }
+
+  const qpEl = document.getElementById('quickPicks');
+  const qpToggle = document.getElementById('qpToggle');
+  const applyBoth = (h, b, previewText) => {
+    if (opts.headingSelect) opts.headingSelect.value = h;
+    if (opts.bodySelect) opts.bodySelect.value = b;
+    setHeadingFont(h);
+    setBodyFont(b);
+    const bodyPreviewText = findFontPreview(fonts, b);
+    if (opts.headingPreview) {
+      opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
+      opts.headingPreview.textContent = previewText || findFontPreview(fonts, h);
+    }
+    if (opts.bodyPreview) {
+      opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
+      opts.bodyPreview.textContent = bodyPreviewText;
+    }
+    if (opts.pairingSelect) opts.pairingSelect.value = '';
+  };
+
+  if (qpEl && pairings.length) {
+    renderQuickPicks({ container: qpEl, pairings, fonts, apply: applyBoth });
+    let expanded = false;
+    const updateGrid = () => {
+      qpEl.style.maxHeight = expanded ? '' : '220px';
+      qpEl.style.overflow = expanded ? 'visible' : 'hidden';
+      if (qpToggle) qpToggle.textContent = expanded ? 'show less' : 'show all';
+    };
+    updateGrid();
+    if (qpToggle) {
+      qpToggle.style.display = 'inline-block';
+      qpToggle.addEventListener('click', () => {
+        expanded = !expanded;
+        updateGrid();
+      });
+    }
+  } else if (qpToggle) {
+    qpToggle.style.display = 'none';
+  }
 }
 
 // --- Editing Existing Themes ---
@@ -4569,3 +4937,4 @@ Object.assign(window, {
   updateCurrentThemeFont,
   updateSelectedTheme
 });
+                                                                                                             
