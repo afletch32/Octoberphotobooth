@@ -8,7 +8,7 @@
             "type": "chrome",
             "request": "launch",
             "name": "Open index.html",
-            "file": "/Users/ashleyfletcher/Library/Mobile Documents/com~apple~CloudDocs/Photo Booth Master Folder/photobooth_system_fixed/index.html"
+            "file": "${workspaceFolder}/index.html"
         }
     ]
 }
