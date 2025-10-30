@@ -3241,19 +3241,6 @@ function loadFontsFromStorage() {
   }
 }
 
-function buildGoogleFontsURL(fonts) {
-  const fams = (Array.isArray(fonts) ? fonts : []).map(f => {
-    const fam = encodeURIComponent(f.name).replace(/%20/g, "+");
-    const ws = (f.weights && f.weights.length ? Array.from(new Set(f.weights)) : [400]).sort((a, b) => a - b);
-    if (f.ital) {
-      const pairs = [...ws.map(w => `0,${w}`), ...ws.map(w => `1,${w}`)].join(";");
-      return `family=${fam}:ital,wght@${pairs}`;
-    }
-    return `family=${fam}:wght@${ws.join(";")}`;
-  }).join("&");
-  return fams ? `https://fonts.googleapis.com/css2?${fams}&display=swap` : '';
-}
-
 function injectStylesheetOnce(href) {
   if (!href) return;
   const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
@@ -3604,31 +3591,6 @@ function setThemeEditorMode(mode) {
     syncThemeEditorWithActiveTheme();
   }
   updateThemeEditorSummary();
-}
-
-function populateFontSelect(preselectFamily = '') {
-  const sel = DOM.themeFontSelect;
-  if (!sel) return;
-  const defaults = ["Comic Neue", "Creepster", "system-ui"];
-  const set = new Set(defaults);
-  const stored = getStoredFonts();
-  stored.forEach(f => {
-    if (f.type === 'family') set.add(f.value);
-    if (f.type === 'url' && f.label) set.add(f.label);
-  });
-  const families = Array.from(set);
-  sel.innerHTML = '';
-  families.forEach(f => {
-    const o = document.createElement('option');
-    o.value = f; o.textContent = f;
-    sel.appendChild(o);
-  });
-  if (preselectFamily) {
-    const idx = families.findIndex(x => x.toLowerCase() === preselectFamily.toLowerCase());
-    if (idx >= 0) sel.selectedIndex = idx; else sel.selectedIndex = 0;
-  } else {
-    sel.selectedIndex = 0;
-  }
 }
 
 const DEFAULT_FONT_PREVIEW_TEXT = 'Welcome to Fletch Photobooth';
