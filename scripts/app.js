@@ -281,9 +281,6 @@ const DOM = {
   themeCloneSection: document.getElementById('themeCloneSection'),
   themeCloneName: document.getElementById('themeCloneName'),
   cloneThemeBtn: document.getElementById('cloneThemeBtn'),
-  addBackgroundBtn: document.getElementById('addBackgroundBtn'),
-  addOverlayBtn: document.getElementById('addOverlayBtn'),
-  addTemplateBtn: document.getElementById('addTemplateBtn'),
   addLogoBtn: document.getElementById('addLogoBtn'),
   addFontFamily: document.getElementById('addFontFamily'),
   addFontUrl: document.getElementById('addFontUrl'),
@@ -455,9 +452,6 @@ function setupThemeEditorControls() {
   if (DOM.themeCloneName) DOM.themeCloneName.addEventListener('input', updateThemeEditorSummary);
   if (DOM.createThemeName) DOM.createThemeName.addEventListener('input', updateThemeEditorSummary);
   if (DOM.cloneThemeBtn) DOM.cloneThemeBtn.addEventListener('click', handleCloneTheme);
-  if (DOM.addBackgroundBtn && DOM.themeBackground) DOM.addBackgroundBtn.addEventListener('click', () => DOM.themeBackground.click());
-  if (DOM.addOverlayBtn && DOM.themeOverlays) DOM.addOverlayBtn.addEventListener('click', () => DOM.themeOverlays.click());
-  if (DOM.addTemplateBtn && DOM.themeTemplates) DOM.addTemplateBtn.addEventListener('click', () => DOM.themeTemplates.click());
   if (DOM.addLogoBtn && DOM.themeLogo) DOM.addLogoBtn.addEventListener('click', () => DOM.themeLogo.click());
   if (DOM.themeBackground) DOM.themeBackground.addEventListener('change', () => handleThemeAssetInputChange('background'));
   if (DOM.themeLogo) DOM.themeLogo.addEventListener('change', () => handleThemeAssetInputChange('logo'));
@@ -4952,5 +4946,4 @@ Object.assign(window, {
   updateCurrentThemeFont,
   updateSelectedTheme
 });
-
 
