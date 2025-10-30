@@ -188,6 +188,40 @@
       gap: 10px;
     }
 
+    .theme-quick-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .theme-quick-grid .theme-quick-btn {
+      flex: 1 1 180px;
+      min-width: 140px;
+      border-radius: 10px;
+      border: 1px solid #2b2f3a;
+      padding: 10px 12px;
+      background: #121620;
+      color: #f3f5ff;
+      font-size: 0.95em;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+
+    .theme-quick-grid .theme-quick-btn:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 14px rgba(0, 0, 0, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .theme-quick-grid .theme-quick-btn.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+    }
+
     .theme-editor-summary {
       display: flex;
       flex-wrap: wrap;

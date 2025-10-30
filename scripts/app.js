@@ -276,6 +276,7 @@ const DOM = {
   bodyFontPreview: document.getElementById('bodyFontPreview'),
   quickPicks: document.getElementById('quickPicks'),
   quickPicksToggle: document.getElementById('qpToggle'),
+  themeQuickSelect: document.getElementById('themeQuickSelect'),
   themeFontSelect: document.getElementById('themeFontSelect'),
   themeEditorModeSelect: document.getElementById('themeEditorModeSelect'),
   themeCloneSection: document.getElementById('themeCloneSection'),
@@ -410,6 +411,7 @@ function setupEventSelector() {
 function handleEventSelectChange(event) {
   const key = event.target.value;
   loadTheme(key);
+  highlightThemeQuickSelect(key);
   syncThemeEditorWithActiveTheme();
   if (DOM.eventNameInput) {
     DOM.eventNameInput.value = getStoredEventName(key) || '';
@@ -816,13 +818,52 @@ function populateThemeSelector(preferredKey) {
       select.appendChild(option);
     }
   }
+  renderThemeQuickSelect(select);
   const resolved = resolvePreferredThemeKey(preferredKey);
   if (resolved && !setEventSelection(resolved) && select.options.length > 0) {
     select.selectedIndex = 0;
   }
   const selectedKey = (DOM.eventSelect && DOM.eventSelect.value) || null;
+  highlightThemeQuickSelect(selectedKey);
   updateThemeEditorSummary();
   return selectedKey;
+}
+
+function renderThemeQuickSelect(selectEl = DOM.eventSelect) {
+  const container = DOM.themeQuickSelect;
+  if (!container || !selectEl) return;
+  container.innerHTML = '';
+  const options = Array.from(selectEl.options || []).filter((opt) => opt && opt.value);
+  if (!options.length) {
+    container.classList.add('hidden');
+    return;
+  }
+  container.classList.remove('hidden');
+  options.forEach((opt) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'theme-quick-btn';
+    btn.textContent = opt.textContent || opt.value;
+    btn.dataset.value = opt.value;
+    btn.addEventListener('click', () => {
+      if (selectEl.value !== opt.value) {
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        highlightThemeQuickSelect(opt.value);
+      }
+    });
+    container.appendChild(btn);
+  });
+  highlightThemeQuickSelect(selectEl.value);
+}
+
+function highlightThemeQuickSelect(value) {
+  const container = DOM.themeQuickSelect;
+  if (!container) return;
+  Array.from(container.querySelectorAll('.theme-quick-btn')).forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
 }
 
 function showToast(message, duration = 2000) {
@@ -839,6 +880,7 @@ function setEventSelection(key) {
   const match = options.find(opt => opt.value === key);
   if (!match) return false;
   DOM.eventSelect.value = key;
+  highlightThemeQuickSelect(key);
   updateThemeEditorSummary();
   return true;
 }
@@ -1000,6 +1042,7 @@ function loadTheme(themeKey) {
     console.warn('Theme not found for key:', themeKey);
     return;
   }
+  highlightThemeQuickSelect(themeKey);
   activeTheme = theme;
   const globalLogo = getGlobalLogo();
   if (globalLogo !== null) applyGlobalLogoToTheme(activeTheme, globalLogo);
@@ -2642,7 +2685,7 @@ function saveTheme() {
     themes[newKey] = newTheme;
     saveThemesToStorage();
     populateThemeSelector(newKey);
-    if (DOM.eventSelect) DOM.eventSelect.value = newKey;
+    setEventSelection(newKey);
     loadTheme(newKey);
     if (DOM.themeEditorModeSelect) {
       DOM.themeEditorModeSelect.value = 'edit';
@@ -3949,7 +3992,7 @@ async function updateSelectedTheme(reason = '') {
   saveThemesToStorage();
 
   populateThemeSelector(key);
-  if (DOM.eventSelect) DOM.eventSelect.value = key;
+  setEventSelection(key);
   loadTheme(key);
   clearThemeFileInputs();
   syncThemeEditorWithActiveTheme();
@@ -4946,4 +4989,3 @@ Object.assign(window, {
   updateCurrentThemeFont,
   updateSelectedTheme
 });
-
