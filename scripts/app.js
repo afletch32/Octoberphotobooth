@@ -232,6 +232,7 @@ const DOM = {
   finalStrip: document.getElementById('finalStrip'),
   qrCodeContainer: document.getElementById('qrCodeContainer'),
   qrCode: document.getElementById('qrCode'),
+  lastShot: document.getElementById('lastShot'),
   qrHint: document.getElementById('qrHint'),
   shareStatus: document.getElementById('shareStatus'),
   shareLinkRow: document.getElementById('shareLinkRow'),
@@ -430,7 +431,12 @@ function setupBoothButtons() {
 }
 
 function setupVideoListeners() {
-  if (DOM.video) DOM.video.addEventListener('loadedmetadata', updateCaptureAspect);
+  if (DOM.video) {
+    DOM.video.addEventListener('loadedmetadata', () => {
+      updateCaptureAspect();
+      applyPreviewOrientation();
+    });
+  }
 }
 
 function setupFinalPreviewListeners() {
@@ -542,6 +548,7 @@ function init() {
   setThemeEditorMode(DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
   loadEmailJsSettings();
   updatePendingUI();
+  applyPreviewOrientation();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -971,7 +978,15 @@ function syncAdminUiWithTheme(themeKey, theme) {
   const currentKey = themeKey || (DOM.eventSelect && DOM.eventSelect.value) || '';
   const storedName = getStoredEventName(currentKey);
   if (DOM.eventTitle) DOM.eventTitle.textContent = storedName || (theme.welcome && theme.welcome.title) || '';
-  if (DOM.logo) DOM.logo.src = theme.logo || '';
+  if (DOM.logo) {
+    if (theme.logo) {
+      DOM.logo.src = theme.logo;
+      DOM.logo.classList.remove('hidden');
+    } else {
+      DOM.logo.src = '';
+      DOM.logo.classList.add('hidden');
+    }
+  }
   selectedOverlay = null;
   if (DOM.liveOverlay) DOM.liveOverlay.src = '';
   refreshFontSelectForTheme(theme);
@@ -4937,4 +4952,5 @@ Object.assign(window, {
   updateCurrentThemeFont,
   updateSelectedTheme
 });
-                                                                                                             
+
+

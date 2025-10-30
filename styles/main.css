@@ -536,6 +536,107 @@
       box-shadow: 0 0 18px #000;
     }
 
+    @media (orientation: portrait) {
+      #boothMain {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+      }
+
+      #videoWrap {
+        order: 1;
+        width: 100%;
+      }
+
+      #options,
+      #controls {
+        order: 2;
+        width: 100%;
+        max-height: none;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 12px;
+        padding-bottom: 8px;
+      }
+
+      #controls {
+        order: 3;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      #options .thumb {
+        flex: 0 0 120px;
+        max-width: 120px;
+      }
+    }
+
+    @media (max-width: 1400px) {
+      #boothMain {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+
+      #options,
+      #controls {
+        width: 100%;
+        max-height: none;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      #options .thumb {
+        max-width: 120px;
+        margin: 6px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      #boothMain {
+        padding: 6px;
+      }
+
+      #options,
+      #controls {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+      }
+
+      #options .thumb {
+        flex: 0 0 110px;
+        max-width: 110px;
+      }
+
+      #videoContainer {
+        border-width: 4px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      #options,
+      #controls {
+        gap: 6px;
+        padding: 4px 0;
+      }
+
+      #options .thumb {
+        flex: 0 0 96px;
+        max-width: 96px;
+      }
+
+      .mode-btn {
+        padding: 12px 8px !important;
+      }
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
@@ -951,6 +1052,8 @@
       justify-content: center;
       gap: 20px;
       text-align: center;
+      flex-wrap: wrap;
+      padding: 20px;
     }
 
     #finalPreview.show {
@@ -969,6 +1072,8 @@
     #finalPreviewActions {
       display: flex;
       flex-direction: column;
+      gap: 12px;
+      align-items: center;
     }
 
     #qrCodeContainer {
@@ -1005,6 +1110,46 @@
       padding: 4px 8px;
       margin: 2px;
       background: #333;
+    }
+
+    @media (max-width: 900px) {
+      #finalPreviewContent {
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      #finalStrip {
+        max-width: 88vw;
+      }
+
+      #finalPreviewActions {
+        width: 100%;
+      }
+
+      #finalPreviewActions button,
+      #emailForm input,
+      #emailForm button {
+        width: min(320px, 90vw);
+      }
+
+      #qrCode {
+        width: min(220px, 60vw);
+        height: auto;
+      }
+    }
+
+    @media (max-width: 600px) {
+      #finalPreviewContent {
+        padding: 12px;
+      }
+
+      #finalStrip {
+        border-width: 6px;
+      }
+
+      #emailForm input {
+        width: 80vw;
+      }
     }
 
     .mode-btn {

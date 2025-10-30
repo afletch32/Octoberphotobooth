@@ -1842,4 +1842,30 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/q
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <div id="createThemeModal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3>Create New Theme</h3>
+      <label for="createThemeName">Theme Name</label>
+      <input type="text" id="createThemeName" placeholder="My New Theme">
+      <div id="createThemeSummary" style="color:#aab; font-size:0.9em;"></div>
+      <div id="createThemeDropZone" class="drop-zone">
+        <strong>Drop your theme folder here</strong>
+        <span>Include folders like <code>backgrounds/</code>, <code>overlays/</code>, <code>templates/</code>.</span>
+        <button type="button" id="createThemeBrowseBtn">Browse…</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="createThemeCancel">Cancel</button>
+        <button type="button" id="createThemeConfirm" class="primary">Create Theme</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="createThemeFolderInput" class="hidden" webkitdirectory multiple>
+
+  <script type="module" src="scripts/app.js"></script>
+</body>
+
+</html>
