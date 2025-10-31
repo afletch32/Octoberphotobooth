@@ -788,10 +788,12 @@ const SPOT_MASK = {
   tolerance: 12     // 0-255 per channel
 };
 
-function populateThemeSelector(preferredKey) {
+function populateThemeSelector(preferredKey, attempt = 0) {
   console.log("Themes object:", themes);
   const select = DOM.eventSelect;
+  if (!select) return null;
   select.innerHTML = '';
+  let optionCount = 0;
   for (const themeKey in themes) {
     if (themeKey.startsWith('_')) continue; // skip meta buckets
     const theme = themes[themeKey];
@@ -809,6 +811,7 @@ function populateThemeSelector(preferredKey) {
         option.value = `${themeKey}:${subThemeKey}`;
         option.textContent = subTheme.name;
         optgroup.appendChild(option);
+        optionCount += 1;
       }
       select.appendChild(optgroup);
     } else {
@@ -816,7 +819,20 @@ function populateThemeSelector(preferredKey) {
       option.value = themeKey;
       option.textContent = theme.name;
       select.appendChild(option);
+      optionCount += 1;
     }
+  }
+  if (optionCount === 0) {
+    renderThemeQuickSelect(select);
+    if (attempt === 0) {
+      resetThemesToBuiltins('no selectable themes for dropdown');
+      ensureBuiltinThemes();
+      try { normalizeAllThemes(); } catch (_e) { }
+      return populateThemeSelector(preferredKey, attempt + 1);
+    }
+    highlightThemeQuickSelect(null);
+    updateThemeEditorSummary();
+    return null;
   }
   renderThemeQuickSelect(select);
   const resolved = resolvePreferredThemeKey(preferredKey);
@@ -1434,6 +1450,33 @@ function orientationFromTemplate(template) {
   return 'view-landscape';
 }
 
+function applyPreviewOrientation() {
+  if (!DOM.videoWrap) return;
+  if (mode === 'strip') {
+    const templates = getTemplateList(activeTheme);
+    const template = pendingTemplate || (Array.isArray(templates) ? templates[0] : null);
+    DOM.videoWrap.className = orientationFromTemplate(template);
+    return;
+  }
+  const overlays = getOverlayList(activeTheme);
+  const firstOverlay = Array.isArray(overlays) && overlays.length
+    ? overlays[0]
+    : null;
+  const overlaySrc = selectedOverlay
+    || (firstOverlay && (typeof firstOverlay === 'string' ? firstOverlay : firstOverlay.src));
+  if (overlaySrc) {
+    setViewOrientation(overlaySrc).catch(() => {
+      DOM.videoWrap.className = 'view-landscape';
+      setCaptureAspect(null);
+      updateCaptureAspect();
+    });
+  } else {
+    DOM.videoWrap.className = 'view-landscape';
+    setCaptureAspect(null);
+    updateCaptureAspect();
+  }
+}
+
 function capturePreviewState() {
   return {
     overlaySrc: DOM.liveOverlay ? DOM.liveOverlay.src : '',
@@ -1594,6 +1637,22 @@ async function startCamera(autoStartBooth = false) {
       return;
     }
 
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      isStartingCamera = false;
+      const httpsHint = location && !String(location.protocol).startsWith('https')
+        ? '\n\nTip: Open the app over HTTPS (GitHub Pages or Cloudflare Pages) to enable the camera.'
+        : '';
+      const useDemo = confirm(`Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`);
+      if (useDemo) {
+        demoMode = true;
+        if (autoStartBooth) startBoothFlow();
+        else showToast('Demo mode enabled');
+      } else {
+        alert('To use the camera, switch to a supported browser over HTTPS or connect a camera device.');
+      }
+      return;
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(s => {
         stream = s;
@@ -1627,6 +1686,9 @@ function startBoothFlow() {
   showWelcome();
   setMode('photo'); // Default to photo mode on start
 }
+
+const startCameraFlow = (...args) => startCamera(...args);
+const startBoothFromAdmin = (...args) => startBooth(...args);
 
 // Photo mode capture
 async function capturePhotoFlow() {
@@ -3257,10 +3319,20 @@ function getFontPreviewText(name) {
   return (match && match.preview) || DEFAULT_FONT_PREVIEW;
 }
 
-function findPairingPreview(pairing) {
+function getFontPreviewFamily(name) {
+  return getFontPreviewText(name);
+}
+
+function findPairingPreview(pairing, fonts = fontCatalog.available) {
   if (!pairing) return DEFAULT_FONT_PREVIEW;
   if (pairing.preview) return pairing.preview;
-  return getFontPreviewText(pairing.heading);
+  const heading = pairing.heading;
+  if (heading && Array.isArray(fonts)) {
+    const normalized = normalizeFontFamilyName(heading);
+    const match = fonts.find((font) => font && normalizeFontFamilyName(font.name || font.value) === normalized);
+    if (match && match.preview) return match.preview;
+  }
+  return getFontPreviewText(heading);
 }
 
 function populateFontPickerOptions(fonts) {
@@ -3593,7 +3665,6 @@ function setThemeEditorMode(mode) {
   updateThemeEditorSummary();
 }
 
-const DEFAULT_FONT_PREVIEW_TEXT = 'Welcome to Fletch Photobooth';
 const DEFAULT_FONTS_PAYLOAD = {
   available: [
     { name: 'Comic Neue', weights: [400, 700], preview: 'Welcome to the celebration!' },
@@ -3690,16 +3761,6 @@ function buildGoogleFontsURL(fonts) {
   return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
 }
 
-function injectStylesheetOnce(href) {
-  if (!href) return;
-  const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-  if (existing.some((link) => link.href === href)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = href;
-  document.head.appendChild(link);
-}
-
 function setHeadingFont(family) {
   const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.heading);
   const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
@@ -3718,13 +3779,7 @@ function setBodyFont(family) {
 function findFontPreview(fonts, name) {
   const clean = normalizeFontFamilyName(name);
   const match = (Array.isArray(fonts) ? fonts : []).find((f) => normalizeFontFamilyName(f.name) === clean);
-  return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW_TEXT;
-}
-
-function findPairingPreview(pairing, fonts) {
-  if (pairing && pairing.preview) return pairing.preview;
-  if (pairing && pairing.heading) return findFontPreview(fonts, pairing.heading);
-  return DEFAULT_FONT_PREVIEW_TEXT;
+  return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW;
 }
 
 function renderQuickPicks(args) {
@@ -3741,7 +3796,7 @@ function renderQuickPicks(args) {
     if (!pairing || !pairing.heading || !pairing.body) return;
     const headingPreview = pairing.preview
       || findFontPreview(fonts, pairing.heading)
-      || DEFAULT_FONT_PREVIEW_TEXT;
+      || DEFAULT_FONT_PREVIEW;
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'quick-pick-card';
@@ -4928,8 +4983,8 @@ Object.assign(window, {
   exportCurrentEvent,
   exportThemes,
   goAdmin,
-  startBooth,
-  startCamera,
+  startBooth: startBoothFromAdmin,
+  startCamera: startCameraFlow,
   importThemes,
   handleImport,
   makeAvailableOffline,
