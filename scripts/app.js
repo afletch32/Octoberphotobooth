@@ -788,10 +788,12 @@ const SPOT_MASK = {
   tolerance: 12     // 0-255 per channel
 };
 
-function populateThemeSelector(preferredKey) {
+function populateThemeSelector(preferredKey, attempt = 0) {
   console.log("Themes object:", themes);
   const select = DOM.eventSelect;
+  if (!select) return null;
   select.innerHTML = '';
+  let optionCount = 0;
   for (const themeKey in themes) {
     if (themeKey.startsWith('_')) continue; // skip meta buckets
     const theme = themes[themeKey];
@@ -809,6 +811,7 @@ function populateThemeSelector(preferredKey) {
         option.value = `${themeKey}:${subThemeKey}`;
         option.textContent = subTheme.name;
         optgroup.appendChild(option);
+        optionCount += 1;
       }
       select.appendChild(optgroup);
     } else {
@@ -816,7 +819,20 @@ function populateThemeSelector(preferredKey) {
       option.value = themeKey;
       option.textContent = theme.name;
       select.appendChild(option);
+      optionCount += 1;
     }
+  }
+  if (optionCount === 0) {
+    renderThemeQuickSelect(select);
+    if (attempt === 0) {
+      resetThemesToBuiltins('no selectable themes for dropdown');
+      ensureBuiltinThemes();
+      try { normalizeAllThemes(); } catch (_e) { }
+      return populateThemeSelector(preferredKey, attempt + 1);
+    }
+    highlightThemeQuickSelect(null);
+    updateThemeEditorSummary();
+    return null;
   }
   renderThemeQuickSelect(select);
   const resolved = resolvePreferredThemeKey(preferredKey);
@@ -1618,6 +1634,22 @@ async function startCamera(autoStartBooth = false) {
       if (autoStartBooth) startBoothFlow();
       showToast('Camera is ready');
       isStartingCamera = false;
+      return;
+    }
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      isStartingCamera = false;
+      const httpsHint = location && !String(location.protocol).startsWith('https')
+        ? '\n\nTip: Open the app over HTTPS (GitHub Pages or Cloudflare Pages) to enable the camera.'
+        : '';
+      const useDemo = confirm(`Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`);
+      if (useDemo) {
+        demoMode = true;
+        if (autoStartBooth) startBoothFlow();
+        else showToast('Demo mode enabled');
+      } else {
+        alert('To use the camera, switch to a supported browser over HTTPS or connect a camera device.');
+      }
       return;
     }
 
