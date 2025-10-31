@@ -3405,8 +3405,8 @@ function setFontPickerSelection(heading, body, options = {}) {
   }
   ignoreFontPickerEvents = false;
   updateFontPreviewElements(heading, body, options);
-  if (!options.keepPairing && DOM.fontPairingsSelect) {
-    DOM.fontPairingsSelect.value = '';
+  if (!options.keepPairing && DOM.fontPairingSelect) {
+    DOM.fontPairingSelect.value = '';
   }
 }
 
@@ -3580,10 +3580,10 @@ function attachFontPickerListeners() {
       applyFontSelection(heading, body, { keepPairing: false });
     });
   }
-  if (DOM.fontPairingsSelect) {
-    DOM.fontPairingsSelect.addEventListener('change', () => {
+  if (DOM.fontPairingSelect) {
+    DOM.fontPairingSelect.addEventListener('change', () => {
       if (ignoreFontPickerEvents) return;
-      const value = DOM.fontPairingsSelect.value;
+      const value = DOM.fontPairingSelect.value;
       if (!value) return;
       const [heading, body] = value.split('|');
       const pairing = (fontCatalog.pairings || []).find(p => p.heading === heading && p.body === body);
