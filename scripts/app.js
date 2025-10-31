@@ -3735,7 +3735,7 @@ function renderQuickPickButtons() {
     const body = pair.body;
     const card = document.createElement('button');
     card.type = 'button';
-    card.className = 'quick-pick-card';
+    card.className = `quick-pick-card${pair.isCustom ? ' quick-pick-card-custom' : ''}`;
     const previewText = findPairingPreview(pair);
     card.innerHTML = `
       <div class="quick-pick-label${pair.isCustom ? ' quick-pick-label-custom' : ''}">${pair.isCustom ? 'Custom quick pick' : 'Quick pick'}</div>

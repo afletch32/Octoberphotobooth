@@ -1313,8 +1313,8 @@
 
     .quick-pick-card {
       border-radius: 12px;
-      border: 1px solid #232637;
-      background: #131726;
+      border: 1px solid rgba(120, 134, 170, 0.4);
+      background: linear-gradient(140deg, rgba(36, 44, 64, 0.96), rgba(17, 21, 35, 0.96));
       color: #f6f7ff;
       padding: 12px;
       text-align: left;
@@ -1323,18 +1323,20 @@
       gap: 6px;
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.2s ease;
+      box-shadow: 0 14px 28px rgba(5, 9, 20, 0.45);
     }
 
     .quick-pick-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+      transform: translateY(-3px);
+      box-shadow: 0 18px 36px rgba(8, 12, 24, 0.55);
+      border-color: rgba(168, 184, 230, 0.55);
     }
 
     .quick-pick-card .quick-pick-label {
       font-size: 0.7em;
       text-transform: uppercase;
       letter-spacing: 0.4px;
-      opacity: 0.6;
+      opacity: 0.75;
     }
 
     .quick-pick-card .quick-pick-title {
@@ -1350,6 +1352,17 @@
     .quick-pick-label-custom {
       color: var(--accent);
       opacity: 0.85;
+    }
+
+    .quick-pick-card-custom {
+      border-color: rgba(255, 101, 132, 0.55);
+      background: linear-gradient(140deg, rgba(52, 26, 44, 0.98), rgba(28, 18, 36, 0.96));
+      box-shadow: 0 16px 38px rgba(28, 10, 26, 0.55);
+    }
+
+    .quick-pick-card-custom:hover {
+      border-color: rgba(255, 150, 180, 0.7);
+      box-shadow: 0 22px 44px rgba(36, 12, 30, 0.65);
     }
 
     .font-picker-note {
