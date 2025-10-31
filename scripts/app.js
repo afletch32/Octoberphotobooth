@@ -1434,6 +1434,33 @@ function orientationFromTemplate(template) {
   return 'view-landscape';
 }
 
+function applyPreviewOrientation() {
+  if (!DOM.videoWrap) return;
+  if (mode === 'strip') {
+    const templates = getTemplateList(activeTheme);
+    const template = pendingTemplate || (Array.isArray(templates) ? templates[0] : null);
+    DOM.videoWrap.className = orientationFromTemplate(template);
+    return;
+  }
+  const overlays = getOverlayList(activeTheme);
+  const firstOverlay = Array.isArray(overlays) && overlays.length
+    ? overlays[0]
+    : null;
+  const overlaySrc = selectedOverlay
+    || (firstOverlay && (typeof firstOverlay === 'string' ? firstOverlay : firstOverlay.src));
+  if (overlaySrc) {
+    setViewOrientation(overlaySrc).catch(() => {
+      DOM.videoWrap.className = 'view-landscape';
+      setCaptureAspect(null);
+      updateCaptureAspect();
+    });
+  } else {
+    DOM.videoWrap.className = 'view-landscape';
+    setCaptureAspect(null);
+    updateCaptureAspect();
+  }
+}
+
 function capturePreviewState() {
   return {
     overlaySrc: DOM.liveOverlay ? DOM.liveOverlay.src : '',
@@ -1627,6 +1654,9 @@ function startBoothFlow() {
   showWelcome();
   setMode('photo'); // Default to photo mode on start
 }
+
+const startCameraFlow = (...args) => startCamera(...args);
+const startBoothFromAdmin = (...args) => startBooth(...args);
 
 // Photo mode capture
 async function capturePhotoFlow() {
@@ -3257,10 +3287,20 @@ function getFontPreviewText(name) {
   return (match && match.preview) || DEFAULT_FONT_PREVIEW;
 }
 
-function findPairingPreview(pairing) {
+function getFontPreviewFamily(name) {
+  return getFontPreviewText(name);
+}
+
+function findPairingPreview(pairing, fonts = fontCatalog.available) {
   if (!pairing) return DEFAULT_FONT_PREVIEW;
   if (pairing.preview) return pairing.preview;
-  return getFontPreviewText(pairing.heading);
+  const heading = pairing.heading;
+  if (heading && Array.isArray(fonts)) {
+    const normalized = normalizeFontFamilyName(heading);
+    const match = fonts.find((font) => font && normalizeFontFamilyName(font.name || font.value) === normalized);
+    if (match && match.preview) return match.preview;
+  }
+  return getFontPreviewText(heading);
 }
 
 function populateFontPickerOptions(fonts) {
@@ -3593,7 +3633,6 @@ function setThemeEditorMode(mode) {
   updateThemeEditorSummary();
 }
 
-const DEFAULT_FONT_PREVIEW_TEXT = 'Welcome to Fletch Photobooth';
 const DEFAULT_FONTS_PAYLOAD = {
   available: [
     { name: 'Comic Neue', weights: [400, 700], preview: 'Welcome to the celebration!' },
@@ -3690,16 +3729,6 @@ function buildGoogleFontsURL(fonts) {
   return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
 }
 
-function injectStylesheetOnce(href) {
-  if (!href) return;
-  const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-  if (existing.some((link) => link.href === href)) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = href;
-  document.head.appendChild(link);
-}
-
 function setHeadingFont(family) {
   const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.heading);
   const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
@@ -3718,13 +3747,7 @@ function setBodyFont(family) {
 function findFontPreview(fonts, name) {
   const clean = normalizeFontFamilyName(name);
   const match = (Array.isArray(fonts) ? fonts : []).find((f) => normalizeFontFamilyName(f.name) === clean);
-  return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW_TEXT;
-}
-
-function findPairingPreview(pairing, fonts) {
-  if (pairing && pairing.preview) return pairing.preview;
-  if (pairing && pairing.heading) return findFontPreview(fonts, pairing.heading);
-  return DEFAULT_FONT_PREVIEW_TEXT;
+  return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW;
 }
 
 function renderQuickPicks(args) {
@@ -3741,7 +3764,7 @@ function renderQuickPicks(args) {
     if (!pairing || !pairing.heading || !pairing.body) return;
     const headingPreview = pairing.preview
       || findFontPreview(fonts, pairing.heading)
-      || DEFAULT_FONT_PREVIEW_TEXT;
+      || DEFAULT_FONT_PREVIEW;
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'quick-pick-card';
@@ -4928,8 +4951,8 @@ Object.assign(window, {
   exportCurrentEvent,
   exportThemes,
   goAdmin,
-  startBooth,
-  startCamera,
+  startBooth: startBoothFromAdmin,
+  startCamera: startCameraFlow,
   importThemes,
   handleImport,
   makeAvailableOffline,
