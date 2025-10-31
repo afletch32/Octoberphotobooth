@@ -3759,13 +3759,17 @@ async function reloadFontPickerOptions(options = {}) {
   const preserveSelection = !!options.preserveSelection;
   const previous = preserveSelection ? getFontPickerSelection() : null;
   let base = { available: [], defaults: {}, pairings: [] };
-  try {
-    const res = await fetch('/fonts.json', { cache: 'no-store' });
-    if (res.ok) {
-      base = await res.json();
+  const manifestCandidates = ['fonts.json', './fonts.json', '/fonts.json'];
+  for (const candidate of manifestCandidates) {
+    try {
+      const res = await fetch(candidate, { cache: 'no-store' });
+      if (res && res.ok) {
+        base = await res.json();
+        break;
+      }
+    } catch (e) {
+      console.warn('Failed to load fonts manifest from', candidate, e);
     }
-  } catch (e) {
-    console.warn('Failed to load base fonts.json', e);
   }
   const stored = getStoredFonts();
   const extras = stored
