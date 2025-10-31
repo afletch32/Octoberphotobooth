@@ -421,11 +421,11 @@ function handleEventSelectChange(event) {
 
 function setupBoothButtons() {
   const startCameraBtn = document.getElementById('startCameraButton');
-  if (startCameraBtn) startCameraBtn.addEventListener('click', () => startCameraFlow());
+  if (startCameraBtn) startCameraBtn.addEventListener('click', startCamera);
   else console.warn('Start Camera button not found in DOM.');
 
   const startBoothBtn = document.getElementById('startBoothButton');
-  if (startBoothBtn) startBoothBtn.addEventListener('click', startBoothFromAdmin);
+  if (startBoothBtn) startBoothBtn.addEventListener('click', startBooth);
   else console.warn('Start Booth button not found in DOM.');
 }
 
@@ -1592,7 +1592,7 @@ function hideWelcome() {
 }
 
 // Camera
-async function startCameraFlow(autoStartBooth = false) {
+async function startCamera(autoStartBooth = false) {
   if (isStartingCamera) return;
   isStartingCamera = true;
 
@@ -1639,13 +1639,13 @@ async function startCameraFlow(autoStartBooth = false) {
   } catch (e) { isStartingCamera = false; }
 }
 
-function startBoothFromAdmin() {
+function startBooth() {
   // Ensure camera is initialized; auto-enter booth when ready
-  startCameraFlow(true);
+  startCamera(true);
 }
 
 function startBoothFlow() {
-  // Theme is now pre-loaded by startCameraFlow()
+  // Theme is now pre-loaded by startCamera()
   allowRetake = DOM.allowRetakes.checked;
   DOM.adminScreen.classList.add('hidden');
   DOM.boothScreen.classList.remove('hidden');
@@ -1654,6 +1654,9 @@ function startBoothFlow() {
   showWelcome();
   setMode('photo'); // Default to photo mode on start
 }
+
+const startCameraFlow = (...args) => startCamera(...args);
+const startBoothFromAdmin = (...args) => startBooth(...args);
 
 // Photo mode capture
 async function capturePhotoFlow() {
