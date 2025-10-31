@@ -1625,61 +1625,62 @@
           <input type="file" id="importZip" class="hidden" accept=".zip" onchange="handleImportZip()">
         </div>
 
-          <h3 style="margin-top:14px;">Deploy</h3>
-          <small style="display:block; color:#aaa; margin-bottom:6px;">Option A (Git projects): create a Cloudflare
-            Pages Deploy Hook and paste it here. Clicking Deploy Now will trigger a new build.</small>
-          <label for="deployHookUrl">Deploy Hook URL</label>
-          <input type="text" id="deployHookUrl"
-            placeholder="https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/...">
-          <div class="icon-tiles" style="margin-top:6px;">
-            <button class="icon-tile" onclick="triggerDeployHook()" aria-label="Deploy Now">
-              <span class="icon-glyph" aria-hidden="true">🚀</span>
-              <span class="icon-label">Deploy</span>
-            </button>
-            <button class="icon-tile" onclick="saveDeploySettings()" aria-label="Save Deploy Hook"
-              title="Save Deploy Hook">
-              <span class="icon-glyph" aria-hidden="true">💾</span>
-              <span class="icon-label">Save</span>
-            </button>
+        <details class="admin-help">
+          <summary>Help &amp; How-To</summary>
+          <div class="admin-help-content">
+            <section class="help-block">
+              <h3>Deploy</h3>
+              <small>Option A (Git projects): create a Cloudflare Pages Deploy Hook and paste it here. Clicking Deploy
+                Now will trigger a new build.</small>
+              <label for="deployHookUrl" class="help-field">
+                Deploy Hook URL
+                <input type="text" id="deployHookUrl"
+                  placeholder="https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/...">
+              </label>
+              <div class="icon-tiles" style="margin-top:6px;">
+                <button class="icon-tile" onclick="triggerDeployHook()" aria-label="Deploy Now">
+                  <span class="icon-glyph" aria-hidden="true">🚀</span>
+                  <span class="icon-label">Deploy</span>
+                </button>
+                <button class="icon-tile" onclick="saveDeploySettings()" aria-label="Save Deploy Hook"
+                  title="Save Deploy Hook">
+                  <span class="icon-glyph" aria-hidden="true">💾</span>
+                  <span class="icon-label">Save</span>
+                </button>
+              </div>
+            </section>
+            <details class="help-block">
+              <summary>How to enable one-click deploy (Git)</summary>
+              <ol>
+                <li>Cloudflare → Pages → your Git project → Settings → Build &amp; deploy.</li>
+                <li>Framework preset: None.</li>
+                <li>Build command: <code id="buildCmdText">npm ci &amp;&amp; node tools/update-manifests.js &amp;&amp; echo skip</code> <button
+                    type="button" onclick="copyBuildCmd()">Copy</button></li>
+                <li>Build output directory: <code>.</code></li>
+                <li>Settings → Deploy Hooks → Create hook → copy URL and paste above → Save.</li>
+                <li>Click “Deploy Now” anytime to rebuild + publish.</li>
+              </ol>
+            </details>
+            <details class="help-block">
+              <summary>Direct upload (no Git)</summary>
+              <div>
+                <p>Run this one command from the project folder:</p>
+                <p><code id="shipCmdText">npm run ship</code> <button type="button" onclick="copyShipCmd()">Copy</button></p>
+                <p>It rebuilds manifests and deploys to your Pages project.</p>
+                <p>Prefer a desktop button? In Finder, right‑click <code>Ship.command</code> → Open. First time run: <code>chmod +x Ship.command</code>. Drag it to the Dock or make an alias.</p>
+              </div>
+            </details>
+            <details class="help-block">
+              <summary>QR / Email (Cloudinary)</summary>
+              <p>Enter Cloudinary Cloud Name + Unsigned Upload Preset in Admin → Email/Cloudinary, check “Use Cloudinary for share links”, then Save. QR will always point to a public URL.</p>
+            </details>
+            <details class="help-block">
+              <summary>After deploy</summary>
+              <p>Hard refresh the app (DevTools → Application → Service Workers → Unregister → reload). If you added files, click “Make Available Offline” to recache.</p>
+            </details>
           </div>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">How to enable one‑click deploy (Git)</summary>
-            <ol style="margin:6px 0 0 16px; color:#bbb;">
-              <li>Cloudflare → Pages → your Git project → Settings → Build & deploy.</li>
-              <li>Framework preset: None.</li>
-              <li>Build command: <code
-                  id="buildCmdText">npm ci &amp;&amp; node tools/update-manifests.js &amp;&amp; echo skip</code> <button
-                  type="button" onclick="copyBuildCmd()">Copy</button></li>
-              <li>Build output directory: <code>.</code></li>
-              <li>Then: Settings → Deploy Hooks → Create hook → Copy URL and paste above → Save.</li>
-              <li>Now click “Deploy Now” here anytime to rebuild + publish.</li>
-            </ol>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">Direct Upload (no Git)</summary>
-            <div style="color:#bbb; margin-left:16px;">
-              <div>Run this one command from the project folder:</div>
-              <div style="margin-top:4px;"><code id="shipCmdText">npm run ship</code> <button type="button"
-                  onclick="copyShipCmd()">Copy</button></div>
-              <div style="margin-top:6px;">It rebuilds manifests and deploys to your Pages project.</div>
-              <div style="margin-top:8px;">Prefer a desktop button? In Finder, right‑click <code>Ship.command</code> in
-                this folder → Open. The first time, run this once in Terminal: <code>chmod +x Ship.command</code>. You
-                can drag it to the Dock or make an alias on the Desktop.</div>
-            </div>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">QR/Email (Cloudinary)</summary>
-            <div style="color:#bbb; margin-left:16px;">
-              Enter Cloudinary Cloud Name + Unsigned Upload Preset in Admin → Email/Cloudinary, check “Use Cloudinary
-              for share links”, then Save. QR will always point to a public URL.
-            </div>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">After deploy</summary>
-            <div style="color:#bbb; margin-left:16px;">Hard refresh the app (DevTools → Application → Service Workers →
-              Unregister → reload). If you added files, click “Make Available Offline” to recache.</div>
-          </details>
-        </div>
+        </details>
+      </div>
       </div>
       <div class="panel">
         <h2>Font Library</h2>
@@ -1799,6 +1800,11 @@
           </div>
           <span>Photo Strip</span>
         </button>
+      </div>
+      <div id="boothGuide" class="booth-guide hidden">
+        <div class="booth-guide-step" id="boothGuideStepLabel">Step 1</div>
+        <h3 id="boothGuideTitle">Choose capture mode</h3>
+        <p id="boothGuideDesc">Tap Single Photo or Photo Strip to get started.</p>
       </div>
     </div>
     <div id="countdownOverlay"></div>

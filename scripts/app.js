@@ -1,13 +1,8 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      let reg;
-      try {
-        reg = await navigator.serviceWorker.register('/sw.js');
-      } catch (_e) {
-        // Likely served under a subpath (e.g., VS Code Live Server). Try relative path.
-        reg = await navigator.serviceWorker.register('./sw.js');
-      }
+      const swUrl = new URL('sw.js', window.location.href);
+      const reg = await navigator.serviceWorker.register(swUrl.href);
       // Nudge the SW to check for updates on load
       try { await reg.update(); } catch (_) { }
       console.log('SW registered:', reg && reg.scope);
