@@ -1685,8 +1685,8 @@
         <h2>Font Library</h2>
         <div class="font-picker">
           <div class="font-row">
-            <label for="headingFont">Heading Font</label>
-            <select id="headingFont">
+            <label for="libraryHeadingFont">Heading Font</label>
+            <select id="libraryHeadingFont">
               <option value="">Loading…</option>
             </select>
             <div id="headingPreview" class="font-preview font-heading">
@@ -1695,8 +1695,8 @@
             </div>
           </div>
           <div class="font-row">
-            <label for="bodyFont">Body Font</label>
-            <select id="bodyFont">
+            <label for="libraryBodyFont">Body Font</label>
+            <select id="libraryBodyFont">
               <option value="">Loading…</option>
             </select>
             <div id="bodyPreview" class="font-preview font-body">
@@ -1705,17 +1705,17 @@
             </div>
           </div>
           <div class="font-row">
-            <label for="pairings">Recommended Pairings</label>
-            <select id="pairings">
+            <label for="libraryPairings">Recommended Pairings</label>
+            <select id="libraryPairings">
               <option value="">Loading…</option>
             </select>
           </div>
           <div>
             <div class="font-quick-header">
               <span>Quick Picks</span>
-              <button type="button" id="qpToggle" class="font-quick-toggle">show all</button>
+              <button type="button" id="libraryQpToggle" class="font-quick-toggle">show all</button>
             </div>
-            <div id="quickPicks" class="quick-picks"></div>
+            <div id="libraryQuickPicks" class="quick-picks"></div>
           </div>
         </div>
         <hr class="font-divider">
@@ -1728,26 +1728,44 @@
           style="width:60%"><button onclick="addFontByUrl()">Add URL</button>
         <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
         <div class="font-picker">
-          <h3>Heading &amp; Body Fonts</h3>
-          <div class="dual-font-grid">
-            <div class="dual-font-column">
-              <label for="headingFontSelect">Heading Font</label>
-              <select id="headingFontSelect"></select>
+          <h3>Font Pairings</h3>
+          <p class="font-picker-note">Pick a quick pairing or add your own combo. The selection updates the active theme immediately.</p>
+          <div class="font-current-previews">
+            <div class="font-preview-column">
+              <span class="font-preview-label">Heading preview</span>
               <div id="headingFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
             </div>
-            <div class="dual-font-column">
-              <label for="bodyFontSelect">Body Font</label>
-              <select id="bodyFontSelect"></select>
+            <div class="font-preview-column">
+              <span class="font-preview-label">Body preview</span>
               <div id="bodyFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
             </div>
           </div>
-          <label for="fontPairingSelect" style="display:block; margin-top:12px;">Pairing Suggestions</label>
-          <select id="fontPairingSelect"></select>
+          <div class="font-select-legacy">
+            <label for="headingFontSelect">Heading Font</label>
+            <select id="headingFontSelect"></select>
+            <label for="bodyFontSelect">Body Font</label>
+            <select id="bodyFontSelect"></select>
+            <label for="fontPairingSelect">Pairing Suggestions</label>
+            <select id="fontPairingSelect"></select>
+          </div>
           <div class="quick-picks-header">
             <span>Quick Picks</span>
             <button type="button" id="qpToggle" class="button-ghost">show all</button>
           </div>
           <div id="quickPicks" class="quick-picks-grid"></div>
+          <div class="quick-picks-add">
+            <h4>Add a quick pick</h4>
+            <form id="quickPickForm" class="quick-picks-form">
+              <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
+              <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
+              <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
+              <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
+              <button type="submit" id="addPairingBtn">Add Pairing</button>
+            </form>
+            <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
+            <div id="customPairingsList" class="custom-pairings-list"></div>
+          </div>
+          <datalist id="fontSuggestions"></datalist>
         </div>
       </div>
     </div>

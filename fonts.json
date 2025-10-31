@@ -224,35 +224,62 @@
         {
             "heading": "Montserrat",
             "body": "Inter",
-            "notes": "Modern + clean"
+            "notes": "Modern sans combo",
+            "preview": "Modern & clean for any celebration."
         },
         {
             "heading": "Playfair Display",
             "body": "Source Sans 3",
-            "notes": "Editorial + neutral"
+            "notes": "Serif headline with clean body",
+            "preview": "Elegant invite vibes with Playfair Display."
         },
         {
             "heading": "Raleway",
             "body": "Lora",
-            "notes": "Elegant sans + warm serif"
+            "notes": "Elegant sans meets warm serif",
+            "preview": "Timeless look for weddings and galas."
+        },
+        {
+            "heading": "Oswald",
+            "body": "Montserrat",
+            "notes": "Bold title with balanced body",
+            "preview": "Big energy for school or sports events."
+        },
+        {
+            "heading": "Poppins",
+            "body": "Lato",
+            "notes": "Friendly geometric pairing",
+            "preview": "Bright, friendly, and easy to read."
+        },
+        {
+            "heading": "Great Vibes",
+            "body": "Montserrat",
+            "notes": "Romantic headline with modern body",
+            "preview": "Romance-ready script for special nights."
+        },
+        {
+            "heading": "Dancing Script",
+            "body": "Poppins",
+            "notes": "Playful celebration mix",
+            "preview": "Celebrate in style with Dancing Script!"
+        },
+        {
+            "heading": "Bangers",
+            "body": "Montserrat",
+            "notes": "Bold energy + legible copy",
+            "preview": "Let's make some noise tonight!"
+        },
+        {
+            "heading": "Creepster",
+            "body": "Inter",
+            "notes": "Halloween-ready combo",
+            "preview": "Spooky Fun at Fletch Photobooth 🎃"
         },
         {
             "heading": "Mountains of Christmas",
             "body": "Inter",
             "notes": "Holiday preset",
             "preview": "Merry Christmas from Fletch Photobooth 🎄"
-        },
-        {
-            "heading": "Creepster",
-            "body": "Inter",
-            "notes": "Spooky preset",
-            "preview": "Spooky Fun at Fletch Photobooth 🎃"
-        },
-        {
-            "heading": "Dancing Script",
-            "body": "Montserrat",
-            "notes": "Valentine preset",
-            "preview": "Love is in the Air 💕 — Fletch Photobooth"
         }
     ]
 }

@@ -276,6 +276,13 @@ const DOM = {
   bodyFontPreview: document.getElementById('bodyFontPreview'),
   quickPicks: document.getElementById('quickPicks'),
   quickPicksToggle: document.getElementById('qpToggle'),
+  addPairingHeading: document.getElementById('addPairingHeading'),
+  addPairingBody: document.getElementById('addPairingBody'),
+  addPairingNotes: document.getElementById('addPairingNotes'),
+  addPairingPreview: document.getElementById('addPairingPreview'),
+  addPairingBtn: document.getElementById('addPairingBtn'),
+  quickPickForm: document.getElementById('quickPickForm'),
+  customPairingsList: document.getElementById('customPairingsList'),
   themeQuickSelect: document.getElementById('themeQuickSelect'),
   themeFontSelect: document.getElementById('themeFontSelect'),
   themeEditorModeSelect: document.getElementById('themeEditorModeSelect'),
@@ -539,6 +546,7 @@ function init() {
   setupCreateThemeModalControls();
   setupOfflineControls();
   setupFolderPickers();
+  setupCustomPairingControls();
   setupEventNameInput();
   loadCloudinarySettings();
   setThemeEditorMode(DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
@@ -567,7 +575,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       bodySelect: DOM.bodyFontSelect,
       pairingSelect: DOM.fontPairingSelect,
       headingPreview: DOM.headingFontPreview,
-      bodyPreview: DOM.bodyFontPreview
+      bodyPreview: DOM.bodyFontPreview,
+      fontsEndpoint: canSyncRemote() ? '/api/fonts' : ''
     }).catch((err) => console.warn('Dual font picker failed to initialize', err));
   }
   setupInstallPrompt();
@@ -576,7 +585,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- Remote sync (Cloudflare Pages Functions) ---
-function canSyncRemote() { return typeof location !== 'undefined' && location.protocol.startsWith('http'); }
+const REMOTE_SYNC_ALLOWLIST = [
+  /\.pages\.dev$/i,
+  /\.workers\.dev$/i
+];
+const REMOTE_SYNC_BLOCKLIST = [
+  /github\.io$/i
+];
+
+function resolveRemoteSyncOverride() {
+  try {
+    if (typeof window !== 'undefined') {
+      if (typeof window.PHOTOBOOTH_REMOTE_SYNC === 'boolean') return window.PHOTOBOOTH_REMOTE_SYNC;
+      const stored = localStorage.getItem('photoboothRemoteSync');
+      if (stored === 'true') return true;
+      if (stored === 'false') return false;
+    }
+  } catch (_) { }
+  return null;
+}
+
+function hostMatches(list, host) {
+  if (!Array.isArray(list) || !host) return false;
+  return list.some((rule) => {
+    if (typeof rule === 'string') return host === rule;
+    if (rule && typeof rule.test === 'function') return rule.test(host);
+    return false;
+  });
+}
+
+function canSyncRemote() {
+  if (typeof location === 'undefined') return false;
+  const protocol = (location && location.protocol) || '';
+  if (!protocol.startsWith('http')) return false;
+  const override = resolveRemoteSyncOverride();
+  if (override !== null) return override;
+  const host = (location && location.hostname && location.hostname.toLowerCase()) || '';
+  if (!host) return false;
+  if (hostMatches(REMOTE_SYNC_BLOCKLIST, host)) return false;
+  return hostMatches(REMOTE_SYNC_ALLOWLIST, host);
+}
 async function loadThemesRemote() {
   if (!canSyncRemote()) return;
   try {
@@ -3152,10 +3200,196 @@ async function handleTemplateFolderPick(e) {
 const FONT_FALLBACK_STACK = "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
 const DEFAULT_FONT_PREVIEW = 'Welcome to Fletch Photobooth';
 let fontCatalog = { available: [], defaults: {}, pairings: [] };
+const CUSTOM_PAIRINGS_STORAGE_KEY = 'photoboothCustomPairings';
+let baseFontPairings = [];
+let customFontPairings = [];
 let fontPickerInitialized = false;
 let fontPickerSetupPromise = null;
 let ignoreFontPickerEvents = false;
 let quickPicksExpanded = false;
+
+function normalizePairingField(value) {
+  return (value || '').toString().trim();
+}
+
+function normalizePairingDef(def) {
+  if (!def) return null;
+  const heading = normalizePairingField(def.heading);
+  const body = normalizePairingField(def.body);
+  if (!heading || !body) return null;
+  const normalized = { heading, body };
+  const notes = normalizePairingField(def.notes);
+  if (notes) normalized.notes = notes;
+  const preview = normalizePairingField(def.preview);
+  if (preview) normalized.preview = preview;
+  return normalized;
+}
+
+function pairingKey(def) {
+  return `${normalizePairingField(def.heading).toLowerCase()}::${normalizePairingField(def.body).toLowerCase()}`;
+}
+
+function loadCustomFontPairings() {
+  if (customFontPairings.length) return customFontPairings.slice();
+  try {
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_PAIRINGS_STORAGE_KEY) || '[]');
+    if (Array.isArray(raw)) {
+      customFontPairings = raw.map(normalizePairingDef).filter(Boolean);
+    } else {
+      customFontPairings = [];
+    }
+  } catch (_) {
+    customFontPairings = [];
+  }
+  return customFontPairings.slice();
+}
+
+function saveCustomFontPairings(list) {
+  customFontPairings = Array.isArray(list) ? list.map(normalizePairingDef).filter(Boolean) : [];
+  try {
+    localStorage.setItem(CUSTOM_PAIRINGS_STORAGE_KEY, JSON.stringify(customFontPairings));
+  } catch (_) { }
+}
+
+function mergeCustomPairingsIntoCatalog() {
+  const base = Array.isArray(baseFontPairings) ? baseFontPairings.slice() : [];
+  const extras = loadCustomFontPairings();
+  const seen = new Set();
+  const merged = [];
+  base.forEach((pair) => {
+    const normalized = normalizePairingDef(pair);
+    if (!normalized) return;
+    const key = pairingKey(normalized);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push({ ...normalized, isCustom: false });
+  });
+  extras.forEach((pair) => {
+    const normalized = normalizePairingDef(pair);
+    if (!normalized) return;
+    const key = pairingKey(normalized);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push({ ...normalized, isCustom: true });
+  });
+  fontCatalog.pairings = merged;
+}
+
+function renderCustomPairingsList() {
+  const wrap = DOM.customPairingsList;
+  if (!wrap) return;
+  const extras = loadCustomFontPairings();
+  wrap.innerHTML = '';
+  if (!extras.length) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'custom-pairings-empty';
+    placeholder.textContent = 'No custom quick picks yet.';
+    wrap.appendChild(placeholder);
+    return;
+  }
+  extras.forEach((pair) => {
+    const item = document.createElement('div');
+    item.className = 'custom-pairing-row';
+    const label = document.createElement('div');
+    label.className = 'custom-pairing-label';
+    const heading = normalizePairingField(pair.heading);
+    const body = normalizePairingField(pair.body);
+    const notes = normalizePairingField(pair.notes);
+    label.textContent = notes ? `${heading} + ${body} — ${notes}` : `${heading} + ${body}`;
+    const actions = document.createElement('div');
+    actions.className = 'custom-pairing-actions';
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.textContent = 'Apply';
+    applyBtn.addEventListener('click', () => {
+      const previewText = normalizePairingField(pair.preview) || findPairingPreview(pair);
+      applyFontSelection(heading, body, {
+        keepPairing: true,
+        headingPreviewText: previewText,
+        bodyPreviewText: getFontPreviewText(body)
+      });
+      showToast('Pairing applied');
+    });
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'link-button';
+    removeBtn.textContent = 'Remove';
+    removeBtn.dataset.removePairing = pairingKey(pair);
+    actions.appendChild(applyBtn);
+    actions.appendChild(removeBtn);
+    item.appendChild(label);
+    item.appendChild(actions);
+    wrap.appendChild(item);
+  });
+}
+
+function handleAddQuickPickPairing() {
+  if (!DOM.addPairingHeading || !DOM.addPairingBody) return;
+  const heading = normalizePairingField(DOM.addPairingHeading.value);
+  const body = normalizePairingField(DOM.addPairingBody.value);
+  if (!heading || !body) {
+    alert('Enter both a heading and body font.');
+    return;
+  }
+  const notes = normalizePairingField(DOM.addPairingNotes && DOM.addPairingNotes.value);
+  const preview = normalizePairingField(DOM.addPairingPreview && DOM.addPairingPreview.value);
+  const candidate = normalizePairingDef({ heading, body, notes, preview });
+  if (!candidate) return;
+  const current = loadCustomFontPairings();
+  const key = pairingKey(candidate);
+  if (current.some((pair) => pairingKey(pair) === key)) {
+    alert('That pairing already exists.');
+    return;
+  }
+  current.push(candidate);
+  saveCustomFontPairings(current);
+  ensureFontLoaded(candidate.heading, true);
+  ensureFontLoaded(candidate.body, true);
+  mergeCustomPairingsIntoCatalog();
+  renderQuickPickButtons();
+  renderCustomPairingsList();
+  applyFontSelection(candidate.heading, candidate.body, {
+    keepPairing: true,
+    headingPreviewText: preview || findPairingPreview(candidate),
+    bodyPreviewText: getFontPreviewText(candidate.body)
+  });
+  DOM.addPairingHeading.value = '';
+  DOM.addPairingBody.value = '';
+  if (DOM.addPairingNotes) DOM.addPairingNotes.value = '';
+  if (DOM.addPairingPreview) DOM.addPairingPreview.value = '';
+  showToast('Quick pick added');
+}
+
+function handleRemoveQuickPickPairing(key) {
+  if (!key) return;
+  const current = loadCustomFontPairings();
+  const filtered = current.filter((pair) => pairingKey(pair) !== key);
+  saveCustomFontPairings(filtered);
+  mergeCustomPairingsIntoCatalog();
+  renderQuickPickButtons();
+  renderCustomPairingsList();
+  showToast('Quick pick removed');
+}
+
+function setupCustomPairingControls() {
+  if (DOM.quickPickForm) {
+    DOM.quickPickForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      handleAddQuickPickPairing();
+    });
+  } else if (DOM.addPairingBtn) {
+    DOM.addPairingBtn.addEventListener('click', handleAddQuickPickPairing);
+  }
+  if (DOM.customPairingsList) {
+    DOM.customPairingsList.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target.closest('[data-remove-pairing]') : null;
+      if (!target) return;
+      const key = target.getAttribute('data-remove-pairing');
+      if (key) handleRemoveQuickPickPairing(key);
+    });
+  }
+  renderCustomPairingsList();
+}
 
 function getStoredFonts() {
   try {
@@ -3262,16 +3496,21 @@ function updateFontSuggestions() {
   const dl = document.getElementById('fontSuggestions');
   if (!dl) return;
   dl.innerHTML = '';
-  const defaults = ["'Comic Neue', cursive", "'Creepster', cursive", 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'];
-  defaults.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+  const suggestions = new Set(['Comic Neue', 'Creepster', 'Inter', 'Montserrat']);
   const fonts = getStoredFonts();
   fonts.forEach(f => {
     const fam = f.type === 'family' ? f.value : (f.label || '').trim();
-    if (fam) {
-      const o = document.createElement('option');
-      o.value = `'${fam}', cursive`;
-      dl.appendChild(o);
-    }
+    if (fam) suggestions.add(fam);
+  });
+  if (Array.isArray(fontCatalog.available)) {
+    fontCatalog.available.forEach((font) => {
+      if (font && font.name) suggestions.add(font.name);
+    });
+  }
+  Array.from(suggestions).sort((a, b) => a.localeCompare(b)).forEach((name) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    dl.appendChild(opt);
   });
 }
 
@@ -3484,6 +3723,8 @@ function renderQuickPickButtons() {
   }
   const seasonalWords = ["Christmas", "Holiday", "Spooky", "Valentine", "Easter", "New Year"];
   pairings.sort((a, b) => {
+    if (a.isCustom && !b.isCustom) return -1;
+    if (!a.isCustom && b.isCustom) return 1;
     const aSeason = a.preview && seasonalWords.some(w => a.preview.includes(w));
     const bSeason = b.preview && seasonalWords.some(w => b.preview.includes(w));
     if (aSeason === bSeason) return 0;
@@ -3497,7 +3738,7 @@ function renderQuickPickButtons() {
     card.className = 'quick-pick-card';
     const previewText = findPairingPreview(pair);
     card.innerHTML = `
-      <div class="quick-pick-label">Quick Pick</div>
+      <div class="quick-pick-label${pair.isCustom ? ' quick-pick-label-custom' : ''}">${pair.isCustom ? 'Custom quick pick' : 'Quick pick'}</div>
       <div class="quick-pick-title">${heading} + ${body}${pair.notes ? ` — ${pair.notes}` : ''}</div>
       <div class="quick-pick-preview" style="font-family: ${composeFontString(heading)};">${previewText}</div>
     `;
@@ -3549,10 +3790,13 @@ async function reloadFontPickerOptions(options = {}) {
     defaults: base.defaults || {},
     pairings: Array.isArray(base.pairings) ? base.pairings.slice() : []
   };
+  baseFontPairings = Array.isArray(fontCatalog.pairings) ? fontCatalog.pairings.slice() : [];
+  mergeCustomPairingsIntoCatalog();
   const href = buildGoogleFontsURL(fontCatalog.available);
   if (href) injectStylesheetOnce(href);
   populateFontPickerOptions(fontCatalog.available);
   renderQuickPickButtons();
+  renderCustomPairingsList();
   if (previous && previous.heading) ensureOptionExists(DOM.headingFontSelect, previous.heading);
   if (previous && previous.body) ensureOptionExists(DOM.bodyFontSelect, previous.body);
   const targetTheme = activeTheme || getSelectedThemeTarget();
@@ -3671,18 +3915,34 @@ const DEFAULT_FONTS_PAYLOAD = {
     { name: 'Creepster', weights: [400], preview: 'Spooky season starts now!' },
     { name: 'Nosifer', weights: [400], preview: 'Dripping thrills at Fletch Photobooth!' },
     { name: 'Montserrat', weights: [400, 600, 700], preview: 'Modern, clean, and easy to read.' },
+    { name: 'Inter', weights: [400, 600, 700], preview: 'Friendly and versatile for body copy.' },
+    { name: 'Source Sans 3', weights: [400, 600], preview: 'Reliable for long-form event details.' },
+    { name: 'Playfair Display', weights: [400, 600], preview: 'Elegant serif headlines for upscale events.' },
+    { name: 'Raleway', weights: [400, 600], preview: 'Sophisticated sans with personality.' },
+    { name: 'Lora', weights: [400, 600], preview: 'Warm serif that stays readable.' },
+    { name: 'Oswald', weights: [400, 600], preview: 'Tall, bold titles that grab attention.' },
+    { name: 'Poppins', weights: [400, 600], preview: 'Rounded geometric for friendly events.' },
+    { name: 'Lato', weights: [400, 700], preview: 'Balanced body font for signage.' },
     { name: 'Bangers', weights: [400], preview: "Let's make some noise tonight!" },
-    { name: 'Great Vibes', weights: [400], preview: 'Love is in the air.' }
+    { name: 'Great Vibes', weights: [400], preview: 'Love is in the air.' },
+    { name: 'Dancing Script', weights: [400, 700], preview: 'Handwritten flair for celebrations.' },
+    { name: 'Mountains of Christmas', weights: [400, 700], preview: 'Merry Christmas from Fletch Photobooth 🎄' }
   ],
   defaults: {
     heading: 'Comic Neue',
     body: 'Montserrat'
   },
   pairings: [
-    { heading: 'Creepster', body: 'Comic Neue', notes: 'Halloween ready mix', preview: 'Spooky season starts now!' },
-    { heading: 'Nosifer', body: 'Inter', notes: 'Dripping horror headline', preview: 'Dripping thrills at Fletch Photobooth!' },
+    { heading: 'Montserrat', body: 'Inter', notes: 'Modern sans combo', preview: 'Modern & clean for any celebration.' },
+    { heading: 'Playfair Display', body: 'Source Sans 3', notes: 'Serif headline with clean body', preview: 'Elegant invite vibes with Playfair Display.' },
+    { heading: 'Raleway', body: 'Lora', notes: 'Elegant sans meets warm serif', preview: 'Timeless look for weddings and galas.' },
+    { heading: 'Oswald', body: 'Montserrat', notes: 'Bold title with balanced body', preview: 'Big energy for school or sports events.' },
+    { heading: 'Poppins', body: 'Lato', notes: 'Friendly geometric pairing', preview: 'Bright, friendly, and easy to read.' },
+    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic headline with modern body', preview: 'Romance-ready script for special nights.' },
+    { heading: 'Dancing Script', body: 'Poppins', notes: 'Playful celebration mix', preview: 'Celebrate in style with Dancing Script!' },
     { heading: 'Bangers', body: 'Montserrat', notes: 'Bold energy + legible copy', preview: "Let's make some noise tonight!" },
-    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic headline with modern body', preview: 'Love is in the air.' }
+    { heading: 'Creepster', body: 'Inter', notes: 'Halloween-ready combo', preview: 'Spooky season starts now!' },
+    { heading: 'Mountains of Christmas', body: 'Inter', notes: 'Holiday preset', preview: 'Merry Christmas from Fletch Photobooth 🎄' }
   ]
 };
 
@@ -3812,16 +4072,20 @@ function renderQuickPicks(args) {
 }
 
 async function setupDualFontPicker(opts) {
-  const endpoint = opts.fontsEndpoint || '/api/fonts';
+  if (!opts || !opts.headingSelect || !opts.bodySelect) return;
+  const endpointRaw = (typeof opts.fontsEndpoint === 'string') ? opts.fontsEndpoint.trim() : '/api/fonts';
+  const endpoint = endpointRaw.length ? endpointRaw : null;
   let payload = null;
-  try {
-    const res = await fetch(endpoint, { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      payload = normalizeFontsPayload(data);
+  if (endpoint) {
+    try {
+      const res = await fetch(endpoint, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        payload = normalizeFontsPayload(data);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch fonts payload', e);
     }
-  } catch (e) {
-    console.warn('Failed to fetch fonts payload', e);
   }
   const effective = payload || normalizeFontsPayload(DEFAULT_FONTS_PAYLOAD) || DEFAULT_FONTS_PAYLOAD;
   const fonts = dedupeFontDefs(effective.available);
@@ -4746,6 +5010,13 @@ async function resolveBackgroundFromFolder(theme) {
   try {
     const path = resolveBackgroundFolderPath(theme);
     if (!path || !path.endsWith('/')) return '';
+    const cached = Array.isArray(theme && theme.backgroundsTmp) ? theme.backgroundsTmp.filter(Boolean) : [];
+    if (cached.length) return cached[0];
+    const manifestList = await resolveBackgroundListFromFolder(theme);
+    if (Array.isArray(manifestList) && manifestList.length) {
+      if (theme && typeof theme === 'object') theme.backgroundsTmp = manifestList.slice();
+      return manifestList[0];
+    }
     const names = ['background', 'bg', 'backdrop', 'wallpaper'];
     const exts = ['png', 'jpg', 'jpeg', 'webp'];
     const isFileProto = String(location.protocol).startsWith('file');
@@ -4774,6 +5045,8 @@ async function resolveBackgroundListFromFolder(theme) {
   try {
     const path = resolveBackgroundFolderPath(theme);
     if (!path || !path.endsWith('/')) return [];
+    const cached = Array.isArray(theme && theme.backgroundsTmp) ? theme.backgroundsTmp.filter(Boolean) : [];
+    if (cached.length) return cached.slice();
     // Only try fetching manifest under http(s). Browsers restrict file:// fetch.
     if (!String(location.protocol).startsWith('http')) return [];
     const manifestUrl = path + 'backgrounds.json';
@@ -4787,6 +5060,7 @@ async function resolveBackgroundListFromFolder(theme) {
         else if (it && typeof it === 'object' && typeof it.src === 'string') out.push(path + it.src);
       }
     }
+    if (theme && typeof theme === 'object') theme.backgroundsTmp = out.slice();
     return out;
   } catch (_) { return []; }
 }
