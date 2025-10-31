@@ -230,6 +230,10 @@ const DOM = {
   finalPreview: document.getElementById('finalPreview'),
   finalPreviewContent: document.getElementById('finalPreviewContent'),
   finalStrip: document.getElementById('finalStrip'),
+  boothGuide: document.getElementById('boothGuide'),
+  boothGuideStep: document.getElementById('boothGuideStepLabel'),
+  boothGuideTitle: document.getElementById('boothGuideTitle'),
+  boothGuideDesc: document.getElementById('boothGuideDesc'),
   qrCodeContainer: document.getElementById('qrCodeContainer'),
   qrCode: document.getElementById('qrCode'),
   lastShot: document.getElementById('lastShot'),
@@ -358,6 +362,53 @@ const SESSION_BUST = Date.now();
 function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
 
 const GLOBAL_LOGO_STORAGE_KEY = 'photoboothGlobalLogo';
+
+const GUIDE_STEPS = {
+  mode: {
+    step: 'Step 1',
+    title: 'Start',
+    desc: 'Single Photo or Photo Strip (3 photos)? Pick one to begin.'
+  },
+  templatePhoto: {
+    step: 'Step 2',
+    title: 'Pick a template',
+    desc: 'Choose a frame tile, or “No Overlay” for a clean look.'
+  },
+  templateStrip: {
+    step: 'Step 2',
+    title: 'Pick a template',
+    desc: 'Tap a strip layout tile to continue.'
+  },
+  ready: {
+    step: 'Step 3',
+    title: 'Get ready!',
+    desc: 'Center up and smile—tap Take Photo when everyone is set.'
+  },
+  share: {
+    step: 'Final',
+    title: 'Save & share',
+    desc: 'Scan the QR code or drop in an email to send your photo.'
+  }
+};
+let currentGuideStep = null;
+let lastNonShareGuideStep = null;
+
+function setGuideStep(key) {
+  if (!DOM.boothGuide) return;
+  const def = GUIDE_STEPS[key];
+  if (!def) {
+    DOM.boothGuide.classList.add('hidden');
+    currentGuideStep = null;
+    return;
+  }
+  if (currentGuideStep === key) return;
+  currentGuideStep = key;
+  if (key !== 'share') lastNonShareGuideStep = key;
+  DOM.boothGuide.classList.remove('hidden');
+  if (DOM.boothGuideStep) DOM.boothGuideStep.textContent = def.step || '';
+  if (DOM.boothGuideTitle) DOM.boothGuideTitle.textContent = def.title || '';
+  if (DOM.boothGuideDesc) DOM.boothGuideDesc.textContent = def.desc || '';
+}
 
 function renderMissingThumbnail(container, src) {
   if (!container) return;
@@ -1401,6 +1452,7 @@ function goAdmin() {
   document.body.classList.add('admin-open');
   document.documentElement.classList.add('admin-open');
   setBoothControlsVisible(true);
+  setGuideStep(null);
 }
 function applyThemeBackground(theme) {
   if (!theme) return;
@@ -1412,8 +1464,9 @@ function applyThemeBackground(theme) {
   }
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
 }
-function setMode(m) {
+function setMode(m, options = {}) {
   mode = m;
+  const skipGuide = options && options.skipGuide;
   DOM.videoWrap.className = 'view-landscape'; // Default to landscape
   // In photo mode, show capture button; strip mode hides it (auto flow)
   DOM.captureBtn.style.display = (mode === 'photo') ? 'inline-block' : 'none';
@@ -1426,6 +1479,9 @@ function setMode(m) {
     if (DOM.liveOverlay) DOM.liveOverlay.src = '';
   }
   renderOptions();
+  if (!skipGuide) {
+    setGuideStep(mode === 'photo' ? 'templatePhoto' : 'templateStrip');
+  }
 }
 function renderOptions() {
   const isPhoto = (mode === 'photo');
@@ -1444,6 +1500,8 @@ function renderOptions() {
     wrap.appendChild(img);
     wrap.title = 'No Overlay';
     wrap.onclick = () => {
+      container.querySelectorAll('.thumb').forEach(t => t.classList.remove('selected'));
+      wrap.classList.add('selected');
       selectedOverlay = null;
       if (DOM.liveOverlay) DOM.liveOverlay.src = '';
     };
@@ -1732,7 +1790,8 @@ function startBoothFlow() {
   setBoothControlsVisible(true);
   setCaptureAspect(null);
   showWelcome();
-  setMode('photo'); // Default to photo mode on start
+  setGuideStep('mode');
+  setMode('photo', { skipGuide: true }); // Default to photo mode on start
 }
 
 const startCameraFlow = (...args) => startCamera(...args);
@@ -1741,6 +1800,7 @@ const startBoothFromAdmin = (...args) => startBooth(...args);
 // Photo mode capture
 async function capturePhotoFlow() {
   lastCaptureFlow = capturePhotoFlow; // Store this function for retake
+  setGuideStep('ready');
   setBoothControlsVisible(false);
   const photo = await countdownAndSnap();
   const finalUrl = await finalizeToPrint(photo, selectedOverlay);
@@ -2002,6 +2062,7 @@ function createMaskedOverlayCanvas(img, hexColor, tolerance) {
 // Strip mode auto flow
 async function runStripSequence(template) {
   lastCaptureFlow = () => runStripSequence(template); // Store this function for retake
+  setGuideStep('ready');
   // 3 photos automatically with pauses
   const shots = [];
   const lastShotImg = document.getElementById('lastShot');
@@ -2038,6 +2099,11 @@ async function runStripSequence(template) {
   }
 }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setCountdownFullscreen(enabled) {
+  try {
+    document.body.classList.toggle('countdown-active', Boolean(enabled));
+  } catch (_) { }
+}
 async function showCountdown(text) {
   const co = DOM.countdownOverlay;
   co.textContent = text;
@@ -2047,10 +2113,16 @@ async function showCountdown(text) {
   await delay(200);
 }
 async function countdownAndSnap() {
-  for (let n = 3; n > 0; n--) { await showCountdown(n); }
-  const shot = drawToCanvasFromVideo();
-  triggerFlash();
-  return shot;
+  const fullscreen = (mode === 'photo');
+  if (fullscreen) setCountdownFullscreen(true);
+  try {
+    for (let n = 3; n > 0; n--) { await showCountdown(n); }
+    const shot = drawToCanvasFromVideo();
+    triggerFlash();
+    return shot;
+  } finally {
+    if (fullscreen) setCountdownFullscreen(false);
+  }
 }
 
 function triggerFlash() {
@@ -2270,6 +2342,7 @@ async function detectMaskRegions(img, hexColor, tolerance) {
 // Final preview
 function showFinal(url) {
   clearTimeout(hidePreviewTimer); // Clear any existing timer
+  setGuideStep('share');
   const img = DOM.finalStrip;
   const prevFit = img ? img.style.objectFit : '';
   if (img) img.style.objectFit = 'contain';
@@ -2489,6 +2562,12 @@ function hideFinal() {
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
   resetIdleTimer();
+  const fallbackGuide = mode === 'photo' ? 'templatePhoto' : 'templateStrip';
+  if (lastNonShareGuideStep) {
+    setGuideStep(lastNonShareGuideStep || fallbackGuide);
+  } else {
+    setGuideStep(fallbackGuide);
+  }
 }
 
 function retakePhoto() {
@@ -3930,23 +4009,36 @@ const DEFAULT_FONTS_PAYLOAD = {
     { name: 'Bangers', weights: [400], preview: "Let's make some noise tonight!" },
     { name: 'Great Vibes', weights: [400], preview: 'Love is in the air.' },
     { name: 'Dancing Script', weights: [400, 700], preview: 'Handwritten flair for celebrations.' },
-    { name: 'Mountains of Christmas', weights: [400, 700], preview: 'Merry Christmas from Fletch Photobooth 🎄' }
+    { name: 'Mountains of Christmas', weights: [400, 700], preview: 'Merry Christmas from Fletch Photobooth 🎄' },
+    { name: 'Roboto', weights: [400, 500, 700], preview: 'Ultra clear and neutral.' },
+    { name: 'Open Sans', weights: [400, 600, 700], preview: 'Highly legible on dark UIs.' },
+    { name: 'Abril Fatface', weights: [400], preview: 'Glam display for chic events.' },
+    { name: 'Crimson Text', weights: [400, 600, 700], preview: 'Classic bookish elegance.' },
+    { name: 'Work Sans', weights: [400, 600, 700], preview: 'Modern, friendly workhorse.' },
+    { name: 'Sniglet', weights: [400, 800], preview: 'Round and playful for kids.' },
+    { name: 'Cabin', weights: [400, 600, 700], preview: 'Warm, readable companion.' }
   ],
   defaults: {
     heading: 'Comic Neue',
     body: 'Montserrat'
   },
   pairings: [
-    { heading: 'Montserrat', body: 'Inter', notes: 'Modern sans combo', preview: 'Modern & clean for any celebration.' },
-    { heading: 'Playfair Display', body: 'Source Sans 3', notes: 'Serif headline with clean body', preview: 'Elegant invite vibes with Playfair Display.' },
-    { heading: 'Raleway', body: 'Lora', notes: 'Elegant sans meets warm serif', preview: 'Timeless look for weddings and galas.' },
-    { heading: 'Oswald', body: 'Montserrat', notes: 'Bold title with balanced body', preview: 'Big energy for school or sports events.' },
-    { heading: 'Poppins', body: 'Lato', notes: 'Friendly geometric pairing', preview: 'Bright, friendly, and easy to read.' },
-    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic headline with modern body', preview: 'Romance-ready script for special nights.' },
-    { heading: 'Dancing Script', body: 'Poppins', notes: 'Playful celebration mix', preview: 'Celebrate in style with Dancing Script!' },
-    { heading: 'Bangers', body: 'Montserrat', notes: 'Bold energy + legible copy', preview: "Let's make some noise tonight!" },
-    { heading: 'Creepster', body: 'Inter', notes: 'Halloween-ready combo', preview: 'Spooky season starts now!' },
-    { heading: 'Mountains of Christmas', body: 'Inter', notes: 'Holiday preset', preview: 'Merry Christmas from Fletch Photobooth 🎄' }
+    { heading: 'Montserrat', body: 'Inter', notes: 'Modern Minimalist', preview: 'Modern & clean for any celebration.' },
+    { heading: 'Roboto', body: 'Open Sans', notes: 'Ultra Readable', preview: 'Crystal-clear on dark backgrounds.' },
+    { heading: 'Raleway', body: 'Open Sans', notes: 'Minimal Harmony', preview: 'Sleek look for promos & tech.' },
+    { heading: 'Playfair Display', body: 'Source Sans 3', notes: 'Timeless Elegance (Weddings/Formal)', preview: 'A timeless moment captured by Fletch Photo.' },
+    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic Flow (Valentine’s/Weddings)', preview: 'Love is in the air at Fletch Photo.' },
+    { heading: 'Abril Fatface', body: 'Lato', notes: 'Chic Impact (Gala/NYE)', preview: 'Ring in the New Year with style ✨' },
+    { heading: 'Great Vibes', body: 'Lora', notes: 'Romantic Elegance (Weddings)', preview: 'Happily ever after starts here.' },
+    { heading: 'Oswald', body: 'Inter', notes: 'Grad Glory (Graduation)', preview: 'Congrats, Grad! 🎓' },
+    { heading: 'Dancing Script', body: 'Poppins', notes: 'Joyful Moments (Birthdays/Family)', preview: 'Happy Birthday from Fletch Photobooth!' },
+    { heading: 'Bangers', body: 'Montserrat', notes: 'Comic Energy (Kids/Spirit)', preview: "Let’s make some noise tonight!" },
+    { heading: 'Sniglet', body: 'Cabin', notes: 'Playtime Fun (Kids)', preview: 'Let’s celebrate with Fletch Photobooth!' },
+    { heading: 'Oswald', body: 'Montserrat', notes: 'Bold Statement (Sports/Birthdays)', preview: 'Big energy for team spirit.' },
+    { heading: 'Poppins', body: 'Lato', notes: 'Friendly Geometric (Elementary)', preview: 'Family Fun Night with Fletch Photo!' },
+    { heading: 'Creepster', body: 'Inter', notes: 'Spooky Season (Halloween)', preview: 'Spooky season starts now!' },
+    { heading: 'Mountains of Christmas', body: 'Inter', notes: 'Festive Cheer (Christmas)', preview: 'Merry Christmas from Fletch Photobooth 🎄' },
+    { heading: 'Raleway', body: 'Lora', notes: 'Warm Whispers (Thanksgiving/Fall)', preview: 'Give thanks with Fletch Photobooth.' }
   ]
 };
 
