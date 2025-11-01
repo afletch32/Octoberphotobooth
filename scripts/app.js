@@ -225,10 +225,6 @@ const DOM = {
   finalPreview: document.getElementById('finalPreview'),
   finalPreviewContent: document.getElementById('finalPreviewContent'),
   finalStrip: document.getElementById('finalStrip'),
-  boothGuide: document.getElementById('boothGuide'),
-  boothGuideStep: document.getElementById('boothGuideStepLabel'),
-  boothGuideTitle: document.getElementById('boothGuideTitle'),
-  boothGuideDesc: document.getElementById('boothGuideDesc'),
   qrCodeContainer: document.getElementById('qrCodeContainer'),
   qrCode: document.getElementById('qrCode'),
   lastShot: document.getElementById('lastShot'),
@@ -357,53 +353,6 @@ const SESSION_BUST = Date.now();
 function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
 
 const GLOBAL_LOGO_STORAGE_KEY = 'photoboothGlobalLogo';
-
-const GUIDE_STEPS = {
-  mode: {
-    step: 'Step 1',
-    title: 'Start',
-    desc: 'Single Photo or Photo Strip (3 photos)? Pick one to begin.'
-  },
-  templatePhoto: {
-    step: 'Step 2',
-    title: 'Pick a template',
-    desc: 'Choose a frame tile, or “No Overlay” for a clean look.'
-  },
-  templateStrip: {
-    step: 'Step 2',
-    title: 'Pick a template',
-    desc: 'Tap a strip layout tile to continue.'
-  },
-  ready: {
-    step: 'Step 3',
-    title: 'Get ready!',
-    desc: 'Center up and smile—tap Take Photo when everyone is set.'
-  },
-  share: {
-    step: 'Final',
-    title: 'Save & share',
-    desc: 'Scan the QR code or drop in an email to send your photo.'
-  }
-};
-let currentGuideStep = null;
-let lastNonShareGuideStep = null;
-
-function setGuideStep(key) {
-  if (!DOM.boothGuide) return;
-  const def = GUIDE_STEPS[key];
-  if (!def) {
-    DOM.boothGuide.classList.add('hidden');
-    currentGuideStep = null;
-    return;
-  }
-  if (currentGuideStep === key) return;
-  currentGuideStep = key;
-  if (key !== 'share') lastNonShareGuideStep = key;
-  DOM.boothGuide.classList.remove('hidden');
-  if (DOM.boothGuideStep) DOM.boothGuideStep.textContent = def.step || '';
-  if (DOM.boothGuideTitle) DOM.boothGuideTitle.textContent = def.title || '';
-  if (DOM.boothGuideDesc) DOM.boothGuideDesc.textContent = def.desc || '';
-}
 
 function renderMissingThumbnail(container, src) {
   if (!container) return;
@@ -1447,7 +1396,6 @@ function goAdmin() {
   document.body.classList.add('admin-open');
   document.documentElement.classList.add('admin-open');
   setBoothControlsVisible(true);
-  setGuideStep(null);
 }
 function applyThemeBackground(theme) {
   if (!theme) return;
@@ -1459,9 +1407,8 @@ function applyThemeBackground(theme) {
   }
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
 }
-function setMode(m, options = {}) {
+function setMode(m) {
   mode = m;
-  const skipGuide = options && options.skipGuide;
   DOM.videoWrap.className = 'view-landscape'; // Default to landscape
   // In photo mode, show capture button; strip mode hides it (auto flow)
   DOM.captureBtn.style.display = (mode === 'photo') ? 'inline-block' : 'none';
@@ -1474,9 +1421,6 @@ function setMode(m, options = {}) {
     if (DOM.liveOverlay) DOM.liveOverlay.src = '';
   }
   renderOptions();
-  if (!skipGuide) {
-    setGuideStep(mode === 'photo' ? 'templatePhoto' : 'templateStrip');
-  }
 }
 function renderOptions() {
   const isPhoto = (mode === 'photo');
@@ -1785,8 +1729,7 @@ function startBoothFlow() {
   setBoothControlsVisible(true);
   setCaptureAspect(null);
   showWelcome();
-  setGuideStep('mode');
-  setMode('photo', { skipGuide: true }); // Default to photo mode on start
+  setMode('photo'); // Default to photo mode on start
 }
 
 const startCameraFlow = (...args) => startCamera(...args);
@@ -1795,7 +1738,6 @@ const startBoothFromAdmin = (...args) => startBooth(...args);
 // Photo mode capture
 async function capturePhotoFlow() {
   lastCaptureFlow = capturePhotoFlow; // Store this function for retake
-  setGuideStep('ready');
   setBoothControlsVisible(false);
   const photo = await countdownAndSnap();
   const finalUrl = await finalizeToPrint(photo, selectedOverlay);
@@ -2057,7 +1999,6 @@ function createMaskedOverlayCanvas(img, hexColor, tolerance) {
 // Strip mode auto flow
 async function runStripSequence(template) {
   lastCaptureFlow = () => runStripSequence(template); // Store this function for retake
-  setGuideStep('ready');
   // 3 photos automatically with pauses
   const shots = [];
   const lastShotImg = document.getElementById('lastShot');
@@ -2094,11 +2035,6 @@ async function runStripSequence(template) {
   }
 }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-function setCountdownFullscreen(enabled) {
-  try {
-    document.body.classList.toggle('countdown-active', Boolean(enabled));
-  } catch (_) { }
-}
 async function showCountdown(text) {
   const co = DOM.countdownOverlay;
   co.textContent = text;
@@ -2108,16 +2044,10 @@ async function showCountdown(text) {
   await delay(200);
 }
 async function countdownAndSnap() {
-  const fullscreen = (mode === 'photo');
-  if (fullscreen) setCountdownFullscreen(true);
-  try {
-    for (let n = 3; n > 0; n--) { await showCountdown(n); }
-    const shot = drawToCanvasFromVideo();
-    triggerFlash();
-    return shot;
-  } finally {
-    if (fullscreen) setCountdownFullscreen(false);
-  }
+  for (let n = 3; n > 0; n--) { await showCountdown(n); }
+  const shot = drawToCanvasFromVideo();
+  triggerFlash();
+  return shot;
 }
 
 function triggerFlash() {
@@ -2337,7 +2267,6 @@ async function detectMaskRegions(img, hexColor, tolerance) {
 // Final preview
 function showFinal(url) {
   clearTimeout(hidePreviewTimer); // Clear any existing timer
-  setGuideStep('share');
   const img = DOM.finalStrip;
   const prevFit = img ? img.style.objectFit : '';
   if (img) img.style.objectFit = 'contain';
@@ -2557,12 +2486,6 @@ function hideFinal() {
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
   resetIdleTimer();
-  const fallbackGuide = mode === 'photo' ? 'templatePhoto' : 'templateStrip';
-  if (lastNonShareGuideStep) {
-    setGuideStep(lastNonShareGuideStep || fallbackGuide);
-  } else {
-    setGuideStep(fallbackGuide);
-  }
 }
 
 function retakePhoto() {
