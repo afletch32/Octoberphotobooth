@@ -2300,6 +2300,7 @@ function showFinal(url) {
   const qrCanvas = DOM.qrCode;
   const panel = DOM.finalPreview;
 
+  if (panel) panel.classList.remove('qr-ready');
   // Reset form from previous use
   DOM.emailInput.value = '';
   const sendBtn = DOM.sendBtn;
@@ -2328,6 +2329,7 @@ function showFinal(url) {
         if (DOM.shareLink) { DOM.shareLink.href = lastShareUrl; DOM.shareLink.textContent = lastShareUrl; }
         if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = 'flex';
         if (qrContainer) qrContainer.classList.remove('hidden');
+        if (panel) panel.classList.add('qr-ready');
         if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Link ready'; }
       } else {
         if (DOM.qrHint) { DOM.qrHint.textContent = 'QR disabled: Cloudinary link not available.'; DOM.qrHint.style.display = 'block'; }
@@ -2503,6 +2505,7 @@ async function downloadShareImage() {
 
 function hideFinal() {
   DOM.finalPreview.classList.remove('show');
+  DOM.finalPreview.classList.remove('qr-ready');
   DOM.qrCodeContainer.classList.add('hidden');
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = 'none';
   if (DOM.shareStatus) DOM.shareStatus.style.display = 'none';
