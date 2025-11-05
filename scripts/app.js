@@ -186,6 +186,9 @@ themes.spring = {
   }
 };
 
+const DEFAULT_EVENT_TITLE_SIZE = 1.8;
+const DEFAULT_WELCOME_TITLE_SIZE = 3.4;
+
 const BUILTIN_THEMES = JSON.parse(JSON.stringify(themes));
 const DEFAULT_THEME_KEY = 'general:basic';
 const BUILTIN_THEME_LOCATIONS = (() => {
@@ -251,6 +254,7 @@ const DOM = {
   themeEditorEditing: document.getElementById('themeEditorEditing'),
   themeName: document.getElementById('themeName'),
   eventNameInput: document.getElementById('eventNameInput'),
+  eventTitleSizeInput: document.getElementById('eventTitleSizeInput'),
   cloudNameInput: document.getElementById('cloudNameInput'),
   cloudPresetInput: document.getElementById('cloudPresetInput'),
   cloudFolderInput: document.getElementById('cloudFolderInput'),
@@ -304,6 +308,7 @@ const DOM = {
   themeTemplatesFolder: document.getElementById('themeTemplatesFolder'),
   themeWelcomeTitle: document.getElementById('themeWelcomeTitle'),
   themeWelcomePrompt: document.getElementById('themeWelcomePrompt'),
+  welcomeTitleSizeInput: document.getElementById('welcomeTitleSizeInput'),
   summaryBackground: document.getElementById('summaryBackground'),
   summaryLogo: document.getElementById('summaryLogo'),
   summaryOverlays: document.getElementById('summaryOverlays'),
@@ -474,6 +479,50 @@ function setupThemeEditorControls() {
   if (DOM.themeLogo) DOM.themeLogo.addEventListener('change', () => handleThemeAssetInputChange('logo'));
   if (DOM.themeOverlays) DOM.themeOverlays.addEventListener('change', () => handleThemeAssetInputChange('overlay'));
   if (DOM.themeTemplates) DOM.themeTemplates.addEventListener('change', () => handleThemeAssetInputChange('template'));
+  if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.addEventListener('input', handleWelcomeTitleInputChange);
+  if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.addEventListener('input', handleWelcomePromptInputChange);
+  if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.addEventListener('input', handleWelcomeTitleSizeInput);
+  if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.addEventListener('input', handleEventTitleSizeInput);
+}
+
+function handleEventTitleSizeInput() {
+  if (!DOM.eventTitleSizeInput) return;
+  const size = normalizeSizeValue(DOM.eventTitleSizeInput.value, DEFAULT_EVENT_TITLE_SIZE);
+  DOM.eventTitleSizeInput.value = formatSizeValue(size);
+  document.documentElement.style.setProperty('--event-title-size', `${size}em`);
+  if (activeTheme) activeTheme.eventTitleSize = size;
+}
+
+function handleWelcomeTitleSizeInput() {
+  if (!DOM.welcomeTitleSizeInput) return;
+  const size = normalizeSizeValue(DOM.welcomeTitleSizeInput.value, DEFAULT_WELCOME_TITLE_SIZE);
+  DOM.welcomeTitleSizeInput.value = formatSizeValue(size);
+  document.documentElement.style.setProperty('--welcome-title-size', `${size}em`);
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.titleSize = size;
+  }
+}
+
+function handleWelcomeTitleInputChange() {
+  const text = valueFromInput(DOM.themeWelcomeTitle);
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.title = text;
+  }
+  if (DOM.welcomeTitle) {
+    const fallback = DOM.eventTitle ? DOM.eventTitle.textContent : '';
+    DOM.welcomeTitle.textContent = text || fallback || '';
+  }
+}
+
+function handleWelcomePromptInputChange() {
+  const prompt = valueFromInput(DOM.themeWelcomePrompt);
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.prompt = prompt;
+  }
+  if (DOM.startButton) DOM.startButton.textContent = prompt || 'Touch to start';
 }
 
 function handleThemeAssetInputChange(kind) {
@@ -542,6 +591,7 @@ function setupEventNameInput() {
     if (DOM.eventTitle) {
       DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
     }
+    handleWelcomeTitleInputChange();
   });
 }
 
@@ -1008,6 +1058,7 @@ function applyThemeFontStyles(theme) {
   document.documentElement.style.setProperty('--font-heading', headingCss);
   document.documentElement.style.setProperty('--font-body', bodyCss);
   document.documentElement.style.setProperty('--font', bodyCss);
+  document.documentElement.style.setProperty('--countdown-font', headingCss || bodyCss || "'Comic Neue', cursive");
   document.body.style.fontFamily = bodyCss || 'montserrat, sans-serif';
   if (DOM.eventTitle) DOM.eventTitle.style.fontFamily = headingCss || bodyCss;
   if (DOM.welcomeTitle) DOM.welcomeTitle.style.fontFamily = headingCss || bodyCss;
@@ -1015,10 +1066,25 @@ function applyThemeFontStyles(theme) {
   ensureFontLoadedForFontString(bodyCss);
 }
 
+function applyHeadingSizes(theme) {
+  const eventSize = normalizeSizeValue(theme && theme.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
+  const welcomeSize = normalizeSizeValue(theme && theme.welcome && theme.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
+  if (theme) theme.eventTitleSize = eventSize;
+  if (theme) {
+    theme.welcome = theme.welcome || {};
+    theme.welcome.titleSize = welcomeSize;
+  }
+  document.documentElement.style.setProperty('--event-title-size', `${eventSize}em`);
+  document.documentElement.style.setProperty('--welcome-title-size', `${welcomeSize}em`);
+  if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
+}
+
 function applyThemeBasics(theme) {
   document.documentElement.style.setProperty('--accent', theme.accent || 'orange');
   document.documentElement.style.setProperty('--accent2', theme.accent2 || 'white');
   applyThemeFontStyles(theme);
+  applyHeadingSizes(theme);
   applyThemeBackground(theme);
 }
 
@@ -1196,6 +1262,18 @@ function applyThemeEditorBasics(theme) {
   if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = (theme.welcome && theme.welcome.prompt) || '';
   if (DOM.themeOverlaysFolder) DOM.themeOverlaysFolder.value = theme.overlaysFolder || '';
   if (DOM.themeTemplatesFolder) DOM.themeTemplatesFolder.value = theme.templatesFolder || '';
+  if (DOM.eventTitleSizeInput) {
+    const size = normalizeSizeValue(theme.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
+    DOM.eventTitleSizeInput.value = formatSizeValue(size);
+  }
+  if (DOM.welcomeTitleSizeInput) {
+    const size = normalizeSizeValue(theme.welcome && theme.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
+    DOM.welcomeTitleSizeInput.value = formatSizeValue(size);
+  }
+  handleWelcomeTitleInputChange();
+  handleWelcomePromptInputChange();
+  handleEventTitleSizeInput();
+  handleWelcomeTitleSizeInput();
 }
 
 function applyThemeEditorColors(theme) {
@@ -1912,6 +1990,22 @@ function drawImageContain(ctx, img, dx, dy, dw, dh) {
 function toNumber(val, fallback) {
   const num = Number(val);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizeSizeValue(raw, fallback) {
+  if (typeof raw === 'string') {
+    const cleaned = raw.replace(/[^0-9.]/g, '');
+    if (cleaned) raw = Number(cleaned);
+    else raw = NaN;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) && num > 0 ? num : fallback;
+}
+
+function formatSizeValue(num) {
+  if (!Number.isFinite(num) || num <= 0) return '';
+  const trimmed = num.toFixed(2).replace(/\.?0+$/, '');
+  return trimmed;
 }
 
 function detectDoubleColumnSlots(img, rows) {
@@ -4616,8 +4710,14 @@ function applyThemeBasicsFromEditor(target) {
   }
   target.font = composeFontString(picker.body || picker.heading || primaryFontFamily(target.font || '') || 'Comic Neue');
   target.welcome = target.welcome || {};
-  target.welcome.title = valueFromInput(DOM.themeWelcomeTitle) || target.welcome.title || '';
-  target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt) || target.welcome.prompt || '';
+  target.welcome.title = valueFromInput(DOM.themeWelcomeTitle);
+  target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt);
+  const eventSize = normalizeSizeValue(DOM.eventTitleSizeInput ? DOM.eventTitleSizeInput.value : '', normalizeSizeValue(target.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE));
+  target.eventTitleSize = eventSize;
+  if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  const welcomeSize = normalizeSizeValue(DOM.welcomeTitleSizeInput ? DOM.welcomeTitleSizeInput.value : '', normalizeSizeValue(target.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE));
+  target.welcome.titleSize = welcomeSize;
+  if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
 }
 
 function normalizeFolderInput(raw) {
@@ -4752,6 +4852,11 @@ function normalizeThemeObject(t) {
   if (!t.fontHeading && t.fontBody) t.fontHeading = t.fontBody;
   if (!t.fontBody && t.fontHeading) t.fontBody = t.fontHeading;
   if (!t.font || !t.font.trim()) t.font = t.fontBody || t.fontHeading || "'Comic Neue', cursive";
+  t.eventTitleSize = normalizeSizeValue(t.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
+  if (!t.welcome || typeof t.welcome !== 'object') t.welcome = {};
+  t.welcome.title = typeof t.welcome.title === 'string' ? t.welcome.title : '';
+  t.welcome.prompt = typeof t.welcome.prompt === 'string' ? t.welcome.prompt : '';
+  t.welcome.titleSize = normalizeSizeValue(t.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
 }
 function normalizeAllThemes() {
   const keys = Object.keys(themes || {});
