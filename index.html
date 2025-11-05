@@ -1249,6 +1249,9 @@
       justify-content: center;
       gap: 20px;
       text-align: center;
+      flex-wrap: wrap;
+      max-width: min(96vw, 1200px);
+      margin: 0 auto;
     }
 
     #finalPreview.show {
@@ -1267,11 +1270,16 @@
     #finalPreviewActions {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-width: min(90vw, 320px);
     }
 
     #qrCodeContainer {
       color: #fff;
       font-family: 'Comic Neue', cursive;
+      width: 100%;
+      max-width: 320px;
     }
 
     #qrCodeContainer h2 {
@@ -1281,6 +1289,8 @@
     #qrCode {
       border: 6px solid white;
       border-radius: 8px;
+      max-width: 100%;
+      height: auto;
     }
 
     #emailForm {
