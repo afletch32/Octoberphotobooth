@@ -272,8 +272,11 @@ const DOM = {
   headingFontSelect: document.getElementById('headingFontSelect'),
   bodyFontSelect: document.getElementById('bodyFontSelect'),
   fontPairingSelect: document.getElementById('fontPairingSelect'),
-  headingFontPreview: document.getElementById('headingFontPreview'),
-  bodyFontPreview: document.getElementById('bodyFontPreview'),
+  stylePreview: document.getElementById('stylePreview'),
+  stylePreviewHeading: document.getElementById('stylePreviewHeading'),
+  stylePreviewSubheading: document.getElementById('stylePreviewSubheading'),
+  stylePreviewBody: document.getElementById('stylePreviewBody'),
+  stylePreviewButton: document.getElementById('stylePreviewButton'),
   quickPicks: document.getElementById('quickPicks'),
   quickPicksToggle: document.getElementById('qpToggle'),
   addPairingHeading: document.getElementById('addPairingHeading'),
@@ -483,6 +486,14 @@ function setupThemeEditorControls() {
   if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.addEventListener('input', handleWelcomePromptInputChange);
   if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.addEventListener('input', handleWelcomeTitleSizeInput);
   if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.addEventListener('input', handleEventTitleSizeInput);
+  if (DOM.themeAccent) {
+    DOM.themeAccent.addEventListener('input', () => handleAccentInputChange('accent', { save: false }));
+    DOM.themeAccent.addEventListener('change', () => handleAccentInputChange('accent'));
+  }
+  if (DOM.themeAccent2) {
+    DOM.themeAccent2.addEventListener('input', () => handleAccentInputChange('accent2', { save: false }));
+    DOM.themeAccent2.addEventListener('change', () => handleAccentInputChange('accent2'));
+  }
 }
 
 function handleEventTitleSizeInput() {
@@ -491,6 +502,7 @@ function handleEventTitleSizeInput() {
   DOM.eventTitleSizeInput.value = formatSizeValue(size);
   document.documentElement.style.setProperty('--event-title-size', `${size}em`);
   if (activeTheme) activeTheme.eventTitleSize = size;
+  refreshStylePreviewText();
 }
 
 function handleWelcomeTitleSizeInput() {
@@ -502,6 +514,7 @@ function handleWelcomeTitleSizeInput() {
     activeTheme.welcome = activeTheme.welcome || {};
     activeTheme.welcome.titleSize = size;
   }
+  refreshStylePreviewText();
 }
 
 function handleWelcomeTitleInputChange() {
@@ -514,6 +527,7 @@ function handleWelcomeTitleInputChange() {
     const fallback = DOM.eventTitle ? DOM.eventTitle.textContent : '';
     DOM.welcomeTitle.textContent = text || fallback || '';
   }
+  refreshStylePreviewText();
 }
 
 function handleWelcomePromptInputChange() {
@@ -523,6 +537,27 @@ function handleWelcomePromptInputChange() {
     activeTheme.welcome.prompt = prompt;
   }
   if (DOM.startButton) DOM.startButton.textContent = prompt || 'Touch to start';
+  refreshStylePreviewText();
+}
+
+function handleAccentInputChange(kind, options = {}) {
+  const input = kind === 'accent' ? DOM.themeAccent : DOM.themeAccent2;
+  if (!input) return;
+  const value = input.value || '';
+  if (activeTheme) {
+    activeTheme[kind] = value;
+  }
+  const cssVar = kind === 'accent' ? '--accent' : '--accent2';
+  const fallback = value || (kind === 'accent' ? '#3f51b5' : '#ffffff');
+  document.documentElement.style.setProperty(cssVar, fallback);
+  if (activeTheme) {
+    if (options.save !== false) {
+      saveThemesToStorage();
+      syncThemeEditorSummary();
+    }
+    renderCurrentAssets(activeTheme);
+  }
+  refreshStylePreviewText();
 }
 
 function handleThemeAssetInputChange(kind) {
@@ -591,7 +626,7 @@ function setupEventNameInput() {
     if (DOM.eventTitle) {
       DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
     }
-    handleWelcomeTitleInputChange();
+    refreshStylePreviewText();
   });
 }
 
@@ -632,8 +667,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       headingSelect: DOM.headingFontSelect,
       bodySelect: DOM.bodyFontSelect,
       pairingSelect: DOM.fontPairingSelect,
-      headingPreview: DOM.headingFontPreview,
-      bodyPreview: DOM.bodyFontPreview,
       fontsEndpoint: canSyncRemote() ? '/api/fonts' : ''
     }).catch((err) => console.warn('Dual font picker failed to initialize', err));
   }
@@ -1064,20 +1097,17 @@ function applyThemeFontStyles(theme) {
   if (DOM.welcomeTitle) DOM.welcomeTitle.style.fontFamily = headingCss || bodyCss;
   ensureFontLoadedForFontString(headingCss);
   ensureFontLoadedForFontString(bodyCss);
+  refreshStylePreviewText();
 }
 
 function applyHeadingSizes(theme) {
   const eventSize = normalizeSizeValue(theme && theme.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
   const welcomeSize = normalizeSizeValue(theme && theme.welcome && theme.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
-  if (theme) theme.eventTitleSize = eventSize;
-  if (theme) {
-    theme.welcome = theme.welcome || {};
-    theme.welcome.titleSize = welcomeSize;
-  }
   document.documentElement.style.setProperty('--event-title-size', `${eventSize}em`);
   document.documentElement.style.setProperty('--welcome-title-size', `${welcomeSize}em`);
   if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
   if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
+  refreshStylePreviewText();
 }
 
 function applyThemeBasics(theme) {
@@ -1262,18 +1292,13 @@ function applyThemeEditorBasics(theme) {
   if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = (theme.welcome && theme.welcome.prompt) || '';
   if (DOM.themeOverlaysFolder) DOM.themeOverlaysFolder.value = theme.overlaysFolder || '';
   if (DOM.themeTemplatesFolder) DOM.themeTemplatesFolder.value = theme.templatesFolder || '';
-  if (DOM.eventTitleSizeInput) {
-    const size = normalizeSizeValue(theme.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
-    DOM.eventTitleSizeInput.value = formatSizeValue(size);
-  }
-  if (DOM.welcomeTitleSizeInput) {
-    const size = normalizeSizeValue(theme.welcome && theme.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
-    DOM.welcomeTitleSizeInput.value = formatSizeValue(size);
-  }
-  handleWelcomeTitleInputChange();
-  handleWelcomePromptInputChange();
-  handleEventTitleSizeInput();
-  handleWelcomeTitleSizeInput();
+  const eventSize = normalizeSizeValue(theme.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE);
+  const welcomeSize = normalizeSizeValue(theme.welcome && theme.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE);
+  document.documentElement.style.setProperty('--event-title-size', `${eventSize}em`);
+  document.documentElement.style.setProperty('--welcome-title-size', `${welcomeSize}em`);
+  if (DOM.eventTitleSizeInput) DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  if (DOM.welcomeTitleSizeInput) DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
+  refreshStylePreviewText();
 }
 
 function applyThemeEditorColors(theme) {
@@ -1466,6 +1491,14 @@ function renderCurrentAssets(theme) {
       const text = document.createElement('span');
       text.textContent = `${label}: ${hex}`;
       item.appendChild(sw); item.appendChild(text);
+      item.classList.add('clickable');
+      item.title = 'Click to adjust color';
+      item.addEventListener('click', () => {
+        const input = label.toLowerCase().includes('2') ? DOM.themeAccent2 : DOM.themeAccent;
+        if (input) {
+          if (typeof input.showPicker === 'function') input.showPicker(); else input.click();
+        }
+      });
       DOM.currentAccents.appendChild(item);
     };
     if (theme.accent) addColor('Accent', theme.accent);
@@ -3736,20 +3769,20 @@ function getFontPickerSelection() {
 }
 
 function updateFontPreviewElements(heading, body, options = {}) {
-  const headingPreview = DOM.headingFontPreview;
-  const bodyPreview = DOM.bodyFontPreview;
-  const headingText = options.headingPreviewText || getFontPreviewText(heading);
+  refreshStylePreviewText({ headingPreviewText: options.headingPreviewText || getFontPreviewText(heading), bodyPreviewText: options.bodyPreviewText || getFontPreviewText(body) });
+}
+
+function refreshStylePreviewText(options = {}) {
+  const heading = (DOM.headingFontSelect && DOM.headingFontSelect.value) || '';
+  const body = (DOM.bodyFontSelect && DOM.bodyFontSelect.value) || heading;
+  const headingText = valueFromInput(DOM.themeWelcomeTitle) || options.headingPreviewText || getFontPreviewText(heading);
   const bodyText = options.bodyPreviewText || getFontPreviewText(body);
-  if (headingPreview) {
-    headingPreview.style.fontFamily = composeFontString(heading || '');
-    const textNode = headingPreview.querySelector('.font-preview-text');
-    if (textNode) textNode.textContent = headingText;
-  }
-  if (bodyPreview) {
-    bodyPreview.style.fontFamily = composeFontString(body || '');
-    const textNode = bodyPreview.querySelector('.font-preview-text');
-    if (textNode) textNode.textContent = bodyText;
-  }
+  const eventName = valueFromInput(DOM.eventNameInput) || getFontPreviewText(heading || body);
+  const prompt = valueFromInput(DOM.themeWelcomePrompt) || 'Touch to start';
+  if (DOM.stylePreviewHeading) DOM.stylePreviewHeading.textContent = headingText || 'Welcome to the photobooth!';
+  if (DOM.stylePreviewSubheading) DOM.stylePreviewSubheading.textContent = eventName || 'Event Title';
+  if (DOM.stylePreviewBody) DOM.stylePreviewBody.textContent = bodyText || DEFAULT_FONT_PREVIEW;
+  if (DOM.stylePreviewButton) DOM.stylePreviewButton.textContent = prompt;
 }
 
 function setFontPickerSelection(heading, body, options = {}) {
@@ -4248,24 +4281,14 @@ async function setupDualFontPicker(opts) {
 
   if (opts.headingSelect) opts.headingSelect.value = defaultHeading;
   if (opts.bodySelect) opts.bodySelect.value = defaultBody;
-  if (opts.headingPreview) {
-    opts.headingPreview.style.fontFamily = `'${defaultHeading}', system-ui, sans-serif`;
-    opts.headingPreview.textContent = findFontPreview(fonts, defaultHeading);
-  }
-  if (opts.bodyPreview) {
-    opts.bodyPreview.style.fontFamily = `'${defaultBody}', system-ui, sans-serif`;
-    opts.bodyPreview.textContent = findFontPreview(fonts, defaultBody);
-  }
+  refreshStylePreviewText();
 
   if (opts.headingSelect) {
     opts.headingSelect.addEventListener('change', () => {
       const val = opts.headingSelect.value;
       setHeadingFont(val);
-      if (opts.headingPreview) {
-        opts.headingPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
-        opts.headingPreview.textContent = findFontPreview(fonts, val);
-      }
       if (opts.pairingSelect) opts.pairingSelect.value = '';
+      refreshStylePreviewText();
     });
   }
 
@@ -4273,11 +4296,8 @@ async function setupDualFontPicker(opts) {
     opts.bodySelect.addEventListener('change', () => {
       const val = opts.bodySelect.value;
       setBodyFont(val);
-      if (opts.bodyPreview) {
-        opts.bodyPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
-        opts.bodyPreview.textContent = findFontPreview(fonts, val);
-      }
       if (opts.pairingSelect) opts.pairingSelect.value = '';
+      refreshStylePreviewText();
     });
   }
 
@@ -4304,14 +4324,7 @@ async function setupDualFontPicker(opts) {
       setHeadingFont(h);
       setBodyFont(b);
       const headingPreviewText = findPairingPreview(pairing, fonts);
-      if (opts.headingPreview) {
-        opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
-        opts.headingPreview.textContent = headingPreviewText;
-      }
-      if (opts.bodyPreview) {
-        opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
-        opts.bodyPreview.textContent = findFontPreview(fonts, b);
-      }
+      refreshStylePreviewText({ headingPreviewText, bodyPreviewText: findFontPreview(fonts, b) });
     });
   }
 
@@ -4323,15 +4336,8 @@ async function setupDualFontPicker(opts) {
     setHeadingFont(h);
     setBodyFont(b);
     const bodyPreviewText = findFontPreview(fonts, b);
-    if (opts.headingPreview) {
-      opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
-      opts.headingPreview.textContent = previewText || findFontPreview(fonts, h);
-    }
-    if (opts.bodyPreview) {
-      opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
-      opts.bodyPreview.textContent = bodyPreviewText;
-    }
     if (opts.pairingSelect) opts.pairingSelect.value = '';
+    refreshStylePreviewText({ headingPreviewText: previewText || findFontPreview(fonts, h), bodyPreviewText: bodyPreviewText });
   };
 
   if (qpEl && pairings.length) {
@@ -4353,6 +4359,8 @@ async function setupDualFontPicker(opts) {
   } else if (qpToggle) {
     qpToggle.style.display = 'none';
   }
+
+  refreshStylePreviewText();
 }
 
 // --- Editing Existing Themes ---

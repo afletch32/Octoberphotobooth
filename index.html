@@ -559,6 +559,170 @@
       border-radius: 12px;
     }
 
+    .font-section {
+      margin-top: 16px;
+      padding: 14px;
+      background: #101217;
+      border: 1px solid #232734;
+      border-radius: 12px;
+    }
+
+    .font-section h3 {
+      margin: 0 0 12px;
+      font-size: 1.1em;
+      color: #eee;
+    }
+
+    .font-select-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .font-select-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .font-select-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+      width: 100%;
+    }
+
+    .font-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0 10px;
+    }
+
+    .font-url-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .style-preview {
+      margin-bottom: 18px;
+      padding: 18px;
+      background: #0b0f1a;
+      border: 1px solid #232734;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .style-preview-heading {
+      font-family: var(--font-heading);
+      font-size: var(--welcome-title-size, 3.4em);
+      color: var(--accent2);
+      margin: 0;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .style-preview-subheading {
+      font-family: var(--font-heading);
+      font-size: var(--event-title-size, 1.8em);
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .style-preview-body {
+      font-family: var(--font-body);
+      color: #d4d8eb;
+      margin: 0;
+    }
+
+    .style-preview-button {
+      align-self: flex-start;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      font-family: var(--font-heading);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .style-preview-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+    }
+
+    .style-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .style-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .style-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .style-control-group input,
+    .style-control-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .color-control-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .color-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .color-control-group input[type="color"] {
+      width: 100%;
+      height: 42px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .color-control-group input[type="color"]::-webkit-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-control-group input[type="color"]::-moz-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-item.clickable {
+      cursor: pointer;
+    }
+
     .dual-font-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -582,17 +746,10 @@
       color: #eee;
     }
 
-    .font-preview-box {
-      margin-top: 6px;
-      padding: 10px 12px;
-      background: #0b0d12;
-      border: 1px solid #1f2233;
-      border-radius: 8px;
-      min-height: 48px;
-      font-size: 1rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .font-preview-box,
+    .font-preview,
+    .font-current-previews {
+      display: none !important;
     }
 
     .quick-picks-header {
@@ -1508,16 +1665,6 @@
             <div id="themeQuickSelect" class="theme-quick-grid"></div>
             <label for="eventNameInput">Event Name</label>
             <input type="text" id="eventNameInput" placeholder="e.g., Halloween Dance 2025">
-            <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
-            <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
-            <hr class="font-divider">
-            <h3 style="margin:10px 0 6px; color:#ccc; font-size:1em; font-weight:600;">Welcome Screen</h3>
-            <label for="themeWelcomeTitle">Welcome Heading</label>
-            <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
-            <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
-            <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
-            <label for="themeWelcomePrompt">Start Button Text</label>
-            <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
             <div class="btn-row">
               <button type="button" onclick="exportCurrentEvent()">Export Event</button>
             </div>
@@ -1725,93 +1872,82 @@
         </details>
       </div>
       </div>
-      <div class="panel">
-        <h2>Font Library</h2>
-        <div class="font-picker">
-          <div class="font-row">
-            <label for="libraryHeadingFont">Heading Font</label>
-            <select id="libraryHeadingFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="headingPreview" class="font-preview font-heading">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
-            </div>
+      <details class="panel-section" open>
+        <summary>Theme Styling</summary>
+        <div class="section-content">
+          <div id="stylePreview" class="style-preview">
+            <h3 id="stylePreviewHeading" class="style-preview-heading">Welcome to the photobooth!</h3>
+            <p id="stylePreviewSubheading" class="style-preview-subheading">Event Title Sample</p>
+            <p id="stylePreviewBody" class="style-preview-body">Make every capture unforgettable.</p>
+            <button type="button" id="stylePreviewButton" class="style-preview-button">Touch to start</button>
           </div>
-          <div class="font-row">
-            <label for="libraryBodyFont">Body Font</label>
-            <select id="libraryBodyFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="bodyPreview" class="font-preview font-body">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
+          <div class="style-grid">
+            <div class="font-section fonts-main">
+              <div class="quick-picks-header">
+                <span>Quick Picks</span>
+                <button type="button" id="qpToggle" class="button-ghost">show all</button>
+              </div>
+              <div id="quickPicks" class="quick-picks-grid"></div>
+              <div class="style-control-group">
+                <label for="themeWelcomeTitle">Welcome Heading</label>
+                <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
+                <label for="themeWelcomePrompt">Start Button Text</label>
+                <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
+                <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
+                <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
+                <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
+                <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
+              </div>
+              <div class="font-select-group">
+                <label for="headingFontSelect">Heading Font</label>
+                <select id="headingFontSelect"></select>
+              </div>
+              <div class="font-select-group">
+                <label for="bodyFontSelect">Body Font</label>
+                <select id="bodyFontSelect"></select>
+              </div>
+              <div class="font-select-group">
+                <label for="fontPairingSelect">Pairing Suggestions</label>
+                <select id="fontPairingSelect"></select>
+              </div>
+              <div class="color-control-group">
+                <label for="themeAccent">Primary Accent</label>
+                <input type="color" id="themeAccent" value="#3f51b5">
+                <label for="themeAccent2">Secondary Accent</label>
+                <input type="color" id="themeAccent2" value="#ffffff">
+              </div>
             </div>
-          </div>
-          <div class="font-row">
-            <label for="libraryPairings">Recommended Pairings</label>
-            <select id="libraryPairings">
-              <option value="">Loading…</option>
-            </select>
-          </div>
-          <div>
-            <div class="font-quick-header">
-              <span>Quick Picks</span>
-              <button type="button" id="libraryQpToggle" class="font-quick-toggle">show all</button>
+            <div class="font-section fonts-add">
+              <h3>Add Fonts</h3>
+              <label for="addFontUrl">Google Fonts URL</label>
+              <div class="font-url-row">
+                <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&amp;display=swap">
+                <button type="button" onclick="addFontByUrl()">Add URL</button>
+              </div>
+              <small>Paste the full Google Fonts URL (including weights). Fonts load instantly for this device.</small>
+              <label for="addFontFamily" style="margin-top:12px; display:block;">Google Font Family (optional)</label>
+              <div class="font-url-row">
+                <input type="text" id="addFontFamily" placeholder="e.g., Pacifico">
+                <button type="button" onclick="addFontByFamily()">Add Family</button>
+              </div>
+              <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
+              <div class="quick-picks-add" style="margin-top:16px;">
+                <h4>Create a pairing</h4>
+                <form id="quickPickForm" class="quick-picks-form">
+                  <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
+                  <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
+                  <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
+                  <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
+                  <button type="submit" id="addPairingBtn">Add Pairing</button>
+                </form>
+                <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
+                <div id="customPairingsList" class="custom-pairings-list"></div>
+              </div>
+              <datalist id="fontSuggestions"></datalist>
             </div>
-            <div id="libraryQuickPicks" class="quick-picks"></div>
           </div>
         </div>
-        <hr class="font-divider">
-        <h3 style="margin-top:8px;">Add Custom Fonts</h3>
-        <label for="addFontFamily">Google Font Family:</label>
-        <input type="text" id="addFontFamily" placeholder="e.g., Pacifico"><button onclick="addFontByFamily()">Add</button><br />
-        <small>Tip: enter a Google Fonts family name (weights default).</small><br />
-        <label for="addFontUrl">Google Fonts URL:</label>
-        <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&display=swap"
-          style="width:60%"><button onclick="addFontByUrl()">Add URL</button>
-        <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
-        <div class="font-picker">
-          <h3>Font Pairings</h3>
-          <p class="font-picker-note">Pick a quick pairing or add your own combo. The selection updates the active theme immediately.</p>
-          <div class="font-current-previews">
-            <div class="font-preview-column">
-              <span class="font-preview-label">Heading preview</span>
-              <div id="headingFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
-            </div>
-            <div class="font-preview-column">
-              <span class="font-preview-label">Body preview</span>
-              <div id="bodyFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-select-legacy">
-            <label for="headingFontSelect">Heading Font</label>
-            <select id="headingFontSelect"></select>
-            <label for="bodyFontSelect">Body Font</label>
-            <select id="bodyFontSelect"></select>
-            <label for="fontPairingSelect">Pairing Suggestions</label>
-            <select id="fontPairingSelect"></select>
-          </div>
-          <div class="quick-picks-header">
-            <span>Quick Picks</span>
-            <button type="button" id="qpToggle" class="button-ghost">show all</button>
-          </div>
-          <div id="quickPicks" class="quick-picks-grid"></div>
-          <div class="quick-picks-add">
-            <h4>Add a quick pick</h4>
-            <form id="quickPickForm" class="quick-picks-form">
-              <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
-              <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
-              <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
-              <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
-              <button type="submit" id="addPairingBtn">Add Pairing</button>
-            </form>
-            <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
-            <div id="customPairingsList" class="custom-pairings-list"></div>
-          </div>
-          <datalist id="fontSuggestions"></datalist>
-        </div>
-      </div>
+      </details>
     </div>
   </div>
 
