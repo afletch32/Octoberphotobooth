@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1222">
-  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Comic+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts.css">
   <style>
     :root {
       --accent: rgb(212, 242, 217);
@@ -35,6 +35,18 @@
 
     .hidden {
       display: none !important;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     button {
@@ -1553,9 +1565,12 @@
           <summary>Current Assets</summary>
           <div class="section-content">
             <div class="asset-actions">
+              <button type="button" id="addBackgroundBtn">Add Background</button>
+              <button type="button" id="addOverlaysBtn">Add Overlays</button>
+              <button type="button" id="addTemplatesBtn">Add Templates</button>
               <button type="button" id="addLogoBtn">Add Logo</button>
             </div>
-            <div id="assetUploadInputs" class="hidden">
+            <div id="assetUploadInputs" class="visually-hidden">
               <input type="file" id="themeBackground" accept="image/*">
               <input type="file" id="themeLogo" accept="image/*">
               <input type="file" id="themeOverlays" accept="image/*" multiple>

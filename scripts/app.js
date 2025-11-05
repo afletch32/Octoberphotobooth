@@ -60,6 +60,7 @@ let themes = {
         accent: "#041E42",
         accent2: "white",
         font: "'Comic Neue', cursive",
+        backgroundFolder: "assets/Hawks/backgrounds/",
         background: "",
         logo: "",
         overlaysFolder: "assets/Hawks/overlays/",
@@ -284,6 +285,9 @@ const DOM = {
   themeCloneSection: document.getElementById('themeCloneSection'),
   themeCloneName: document.getElementById('themeCloneName'),
   cloneThemeBtn: document.getElementById('cloneThemeBtn'),
+  addBackgroundBtn: document.getElementById('addBackgroundBtn'),
+  addOverlaysBtn: document.getElementById('addOverlaysBtn'),
+  addTemplatesBtn: document.getElementById('addTemplatesBtn'),
   addLogoBtn: document.getElementById('addLogoBtn'),
   addFontFamily: document.getElementById('addFontFamily'),
   addFontUrl: document.getElementById('addFontUrl'),
@@ -456,6 +460,15 @@ function setupThemeEditorControls() {
   if (DOM.themeCloneName) DOM.themeCloneName.addEventListener('input', updateThemeEditorSummary);
   if (DOM.createThemeName) DOM.createThemeName.addEventListener('input', updateThemeEditorSummary);
   if (DOM.cloneThemeBtn) DOM.cloneThemeBtn.addEventListener('click', handleCloneTheme);
+  if (DOM.addBackgroundBtn && DOM.themeBackground) {
+    DOM.addBackgroundBtn.addEventListener('click', () => DOM.themeBackground.click());
+  }
+  if (DOM.addOverlaysBtn && DOM.themeOverlays) {
+    DOM.addOverlaysBtn.addEventListener('click', () => DOM.themeOverlays.click());
+  }
+  if (DOM.addTemplatesBtn && DOM.themeTemplates) {
+    DOM.addTemplatesBtn.addEventListener('click', () => DOM.themeTemplates.click());
+  }
   if (DOM.addLogoBtn && DOM.themeLogo) DOM.addLogoBtn.addEventListener('click', () => DOM.themeLogo.click());
   if (DOM.themeBackground) DOM.themeBackground.addEventListener('change', () => handleThemeAssetInputChange('background'));
   if (DOM.themeLogo) DOM.themeLogo.addEventListener('change', () => handleThemeAssetInputChange('logo'));
@@ -1483,10 +1496,17 @@ function renderOptions() {
 }
 
 async function setViewOrientation(imgSrc) {
-  const orientation = await getOrientationFromImage(imgSrc);
-  DOM.videoWrap.className = `view-${orientation}`;
-  setCaptureAspect(null);
-  updateCaptureAspect();
+  const aspect = await getAspectRatioFromImage(imgSrc);
+  if (aspect) {
+    const orientation = aspect > 1 ? 'landscape' : 'portrait';
+    DOM.videoWrap.className = `view-${orientation}`;
+    setCaptureAspect(aspect);
+  } else {
+    // fallback to default
+    DOM.videoWrap.className = 'view-landscape';
+    setCaptureAspect(null);
+    updateCaptureAspect();
+  }
 }
 
 function orientationFromTemplate(template) {
@@ -1844,10 +1864,16 @@ function loadImage(url) {
     img.src = url;
   });
 }
-async function getOrientationFromImage(imgSrc) {
-  const img = await loadImage(imgSrc);
-  if (img.naturalHeight > img.naturalWidth) return 'portrait';
-  return 'landscape';
+async function getAspectRatioFromImage(imgSrc) {
+  try {
+    const img = await loadImage(imgSrc);
+    if (img.naturalWidth && img.naturalHeight) {
+      return img.naturalWidth / img.naturalHeight;
+    }
+  } catch (e) {
+    console.error('Failed to get aspect ratio from image', imgSrc, e);
+  }
+  return null; // or a default value
 }
 
 async function applyOverlay(canvas, overlaySrc) {
@@ -4019,20 +4045,12 @@ function normalizeFontsPayload(raw) {
 }
 
 function buildGoogleFontsURL(fonts) {
-  const items = (Array.isArray(fonts) ? fonts : []).filter((font) => font && font.name);
-  if (!items.length) return '';
-  const fams = items.map((font) => {
-    const fam = encodeURIComponent(font.name).replace(/%20/g, '+');
-    const weights = Array.isArray(font.weights) && font.weights.length
-      ? Array.from(new Set(font.weights)).sort((a, b) => a - b)
-      : [400];
-    if (font.ital) {
-      const pairs = [...weights.map((w) => `0,${w}`), ...weights.map((w) => `1,${w}`)].join(';');
-      return `family=${fam}:ital,wght@${pairs}`;
-    }
-    return `family=${fam}:wght@${weights.join(';')}`;
-  }).join('&');
-  return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
+  // Local font files are bundled under /fonts and referenced via fonts.css,
+  // so there is no need to hit Google Fonts at runtime. Keeping this helper
+  // returning an empty string prevents unnecessary network requests while
+  // still allowing callers to guard on a falsy value.
+  void fonts;
+  return '';
 }
 
 function setHeadingFont(family) {
