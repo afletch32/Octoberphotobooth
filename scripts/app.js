@@ -4207,12 +4207,19 @@ function findFontPreview(fonts, name) {
 function renderQuickPicks(args) {
   const { container, pairings, fonts, apply } = args;
   container.innerHTML = '';
-  const seasonalWords = ['Christmas', 'Holiday', 'Spooky', 'Valentine', 'Easter', 'New Year'];
+  const priorityOrder = ['Halloween', 'Christmas', 'New Year', 'Fall', 'Thanksgiving', 'Valentine', 'Graduation'];
+  const seasonalWords = priorityOrder.map(word => word.toLowerCase());
+  const sortKey = (pair) => {
+    if (!pair || !pair.notes) return Number.MAX_SAFE_INTEGER;
+    const note = pair.notes.toLowerCase();
+    const idx = seasonalWords.findIndex((word) => note.includes(word));
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+  };
   const sorted = [...pairings].sort((a, b) => {
-    const aSeason = a && a.preview && seasonalWords.some((w) => a.preview.includes(w));
-    const bSeason = b && b.preview && seasonalWords.some((w) => b.preview.includes(w));
-    if (aSeason === bSeason) return 0;
-    return aSeason ? -1 : 1;
+    const aKey = sortKey(a);
+    const bKey = sortKey(b);
+    if (aKey === bKey) return (a && a.heading || '').localeCompare(b && b.heading || '');
+    return aKey - bKey;
   });
   sorted.forEach((pairing) => {
     if (!pairing || !pairing.heading || !pairing.body) return;

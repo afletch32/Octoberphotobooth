@@ -1593,11 +1593,22 @@
 
     .quick-picks {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 10px;
-      max-height: 220px;
+      max-height: 260px;
       overflow: hidden;
       transition: max-height 0.3s ease;
+      position: relative;
+      z-index: 0;
+    }
+
+    .quick-picks::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: #101217;
+      border-radius: 12px;
+      z-index: -1;
     }
 
     .quick-picks.expanded {
@@ -1789,6 +1800,82 @@
             </div>
           </div>
         </details>
+        <details class="panel-section" open>
+          <summary>Theme Styling</summary>
+          <div class="section-content">
+            <div id="stylePreview" class="style-preview">
+              <h3 id="stylePreviewHeading" class="style-preview-heading">Welcome to the photobooth!</h3>
+              <p id="stylePreviewSubheading" class="style-preview-subheading">Event Title Sample</p>
+              <p id="stylePreviewBody" class="style-preview-body">Make every capture unforgettable.</p>
+              <button type="button" id="stylePreviewButton" class="style-preview-button">Touch to start</button>
+            </div>
+            <div class="style-grid">
+              <div class="font-section fonts-main">
+                <div class="quick-picks-header">
+                  <span>Quick Picks</span>
+                  <button type="button" id="qpToggle" class="button-ghost">show all</button>
+                </div>
+                <div id="quickPicks" class="quick-picks-grid"></div>
+                <div class="style-control-group">
+                  <label for="themeWelcomeTitle">Welcome Heading</label>
+                  <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
+                  <label for="themeWelcomePrompt">Start Button Text</label>
+                  <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
+                  <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
+                  <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
+                  <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
+                  <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
+                </div>
+                <div class="font-select-group">
+                  <label for="headingFontSelect">Heading Font</label>
+                  <select id="headingFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="bodyFontSelect">Body Font</label>
+                  <select id="bodyFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="fontPairingSelect">Pairing Suggestions</label>
+                  <select id="fontPairingSelect"></select>
+                </div>
+                <div class="color-control-group">
+                  <label for="themeAccent">Primary Accent</label>
+                  <input type="color" id="themeAccent" value="#3f51b5">
+                  <label for="themeAccent2">Secondary Accent</label>
+                  <input type="color" id="themeAccent2" value="#ffffff">
+                </div>
+              </div>
+              <div class="font-section fonts-add">
+                <h3>Add Fonts</h3>
+                <label for="addFontUrl">Google Fonts URL</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&amp;display=swap">
+                  <button type="button" onclick="addFontByUrl()">Add URL</button>
+                </div>
+                <small>Paste the full Google Fonts URL (including weights). Fonts load instantly for this device.</small>
+                <label for="addFontFamily" style="margin-top:12px; display:block;">Google Font Family (optional)</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontFamily" placeholder="e.g., Pacifico">
+                  <button type="button" onclick="addFontByFamily()">Add Family</button>
+                </div>
+                <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
+                <div class="quick-picks-add" style="margin-top:16px;">
+                  <h4>Create a pairing</h4>
+                  <form id="quickPickForm" class="quick-picks-form">
+                    <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
+                    <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
+                    <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
+                    <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
+                    <button type="submit" id="addPairingBtn">Add Pairing</button>
+                  </form>
+                  <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
+                  <div id="customPairingsList" class="custom-pairings-list"></div>
+                </div>
+                <datalist id="fontSuggestions"></datalist>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
       <div id="toast" role="status" aria-live="polite"></div>
       <div class="admin-right panel">
@@ -1870,84 +1957,6 @@
             </details>
           </div>
         </details>
-      </div>
-      </div>
-      <details class="panel-section" open>
-        <summary>Theme Styling</summary>
-        <div class="section-content">
-          <div id="stylePreview" class="style-preview">
-            <h3 id="stylePreviewHeading" class="style-preview-heading">Welcome to the photobooth!</h3>
-            <p id="stylePreviewSubheading" class="style-preview-subheading">Event Title Sample</p>
-            <p id="stylePreviewBody" class="style-preview-body">Make every capture unforgettable.</p>
-            <button type="button" id="stylePreviewButton" class="style-preview-button">Touch to start</button>
-          </div>
-          <div class="style-grid">
-            <div class="font-section fonts-main">
-              <div class="quick-picks-header">
-                <span>Quick Picks</span>
-                <button type="button" id="qpToggle" class="button-ghost">show all</button>
-              </div>
-              <div id="quickPicks" class="quick-picks-grid"></div>
-              <div class="style-control-group">
-                <label for="themeWelcomeTitle">Welcome Heading</label>
-                <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
-                <label for="themeWelcomePrompt">Start Button Text</label>
-                <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
-                <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
-                <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
-                <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
-                <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
-              </div>
-              <div class="font-select-group">
-                <label for="headingFontSelect">Heading Font</label>
-                <select id="headingFontSelect"></select>
-              </div>
-              <div class="font-select-group">
-                <label for="bodyFontSelect">Body Font</label>
-                <select id="bodyFontSelect"></select>
-              </div>
-              <div class="font-select-group">
-                <label for="fontPairingSelect">Pairing Suggestions</label>
-                <select id="fontPairingSelect"></select>
-              </div>
-              <div class="color-control-group">
-                <label for="themeAccent">Primary Accent</label>
-                <input type="color" id="themeAccent" value="#3f51b5">
-                <label for="themeAccent2">Secondary Accent</label>
-                <input type="color" id="themeAccent2" value="#ffffff">
-              </div>
-            </div>
-            <div class="font-section fonts-add">
-              <h3>Add Fonts</h3>
-              <label for="addFontUrl">Google Fonts URL</label>
-              <div class="font-url-row">
-                <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&amp;display=swap">
-                <button type="button" onclick="addFontByUrl()">Add URL</button>
-              </div>
-              <small>Paste the full Google Fonts URL (including weights). Fonts load instantly for this device.</small>
-              <label for="addFontFamily" style="margin-top:12px; display:block;">Google Font Family (optional)</label>
-              <div class="font-url-row">
-                <input type="text" id="addFontFamily" placeholder="e.g., Pacifico">
-                <button type="button" onclick="addFontByFamily()">Add Family</button>
-              </div>
-              <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
-              <div class="quick-picks-add" style="margin-top:16px;">
-                <h4>Create a pairing</h4>
-                <form id="quickPickForm" class="quick-picks-form">
-                  <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
-                  <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
-                  <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
-                  <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
-                  <button type="submit" id="addPairingBtn">Add Pairing</button>
-                </form>
-                <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
-                <div id="customPairingsList" class="custom-pairings-list"></div>
-              </div>
-              <datalist id="fontSuggestions"></datalist>
-            </div>
-          </div>
-        </div>
-      </details>
     </div>
   </div>
 
