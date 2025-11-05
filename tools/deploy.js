@@ -6,7 +6,7 @@ if (process.env.CF_PAGES) {
   process.exit(0);
 }
 
-const project = process.env.CF_PAGES_PROJECT || 'fletcherphotobooth';
+const project = process.env.CF_PAGES_PROJECT || 'octoberphotobooth';
 const args = ['pages','deploy','.', '--project-name', project];
 
 const p = spawn('npx', ['wrangler', ...args], { stdio:'inherit', shell:true });
