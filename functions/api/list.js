@@ -8,6 +8,4 @@ export async function onRequestGet({ request, env }) {
     const files = (list.objects || []).map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded, url: `/files/${encodeURIComponent(o.key)}` }));
     return new Response(JSON.stringify({ files }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
-}
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { 'Con

@@ -11,6 +11,4 @@ export async function onRequestGet({ params, env }) {
     headers.set('Cache-Control', obj.httpMetadata?.cacheControl || 'public, max-age=31536000, immutable');
     return new Response(obj.body, { status: 200, headers });
   } catch (e) {
-    return new Response('Error', { status: 500 });
-  }
-}
+    return ne
