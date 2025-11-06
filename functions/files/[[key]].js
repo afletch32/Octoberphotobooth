@@ -1,8 +1,9 @@
 export async function onRequestGet({ params, env }) {
   try {
-    if (!env.ASSETS) return new Response('R2 not configured', { status: 500 });
+    const bucket = env.ASSETS || env.PHOTOS_BUCKET;
+    if (!bucket) return new Response('R2 not configured', { status: 500 });
     const key = Array.isArray(params.key) ? params.key.join('/') : params.key;
-    const obj = await env.ASSETS.get(key);
+    const obj = await bucket.get(key);
     if (!obj) return new Response('Not found', { status: 404 });
     const headers = new Headers();
     const ct = obj.httpMetadata?.contentType || 'application/octet-stream';

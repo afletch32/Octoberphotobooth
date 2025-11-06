@@ -48,11 +48,12 @@ export async function onRequestGet({ env }) {
     }
 
     // Test R2 (ASSETS) with a head/list call if possible
-    if (!env.ASSETS) {
-      out.ASSETS = { ok: false, error: 'Missing binding ASSETS (R2)' };
+    const assetsBinding = env.ASSETS || env.PHOTOS_BUCKET;
+    if (!assetsBinding) {
+      out.ASSETS = { ok: false, error: 'Missing binding for R2 (expected ASSETS or PHOTOS_BUCKET)' };
     } else {
       try {
-        const list = await env.ASSETS.list({ prefix: '' , limit: 1 });
+        const list = await assetsBinding.list({ prefix: '' , limit: 1 });
         out.ASSETS = { ok: true, listed: Array.isArray(list.objects) };
       } catch (e) {
         out.ASSETS = { ok: false, error: String(e) };
