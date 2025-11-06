@@ -22,4 +22,6 @@ export async function onRequestPost({ request, env }) {
     const url = `/files/${encodeURIComponent(key)}`;
     return new Response(JSON.stringify({ ok: true, url, key }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e) {
-    return new Response(JSON.stringify({ ok: false, error: String(e) }), { s
+    return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+}
