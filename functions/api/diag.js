@@ -3,7 +3,7 @@ export async function onRequestGet({ env }) {
   try {
     // Test THEMES_KV
     if (!env.THEMES_KV) {
-      // Allow fallback to FONTS_KV for themes
+      // Allow fallback to FONTS_KV for themes checks when THEMES_KV is missing
       if (env.FONTS_KV) {
         const k = `diag:themes:${Date.now()}`;
         try {

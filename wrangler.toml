@@ -1,0 +1,22 @@
+name = "photobooth-pages"
+compatibility_date = "2024-10-01"
+
+# Directory containing your static build output (adjust if you build elsewhere)
+pages_build_output_dir = "./public"
+
+# Cloudflare Pages Functions live here
+pages_functions_dir = "./functions"
+
+# KV namespaces for fonts and themes data
+[[kv_namespaces]]
+binding = "FONTS_KV"
+id = "622b021e6ed14205af232416f61b91f8"
+
+[[kv_namespaces]]
+binding = "THEMES_KV"
+id = "9bf1e03c07b747caa51bf6d6ebac6c35"
+
+# R2 bucket for uploaded assets
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "photos"
