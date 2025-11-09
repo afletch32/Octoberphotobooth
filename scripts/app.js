@@ -237,6 +237,10 @@ const DOM = {
   videoContainer: document.getElementById("videoContainer"),
   video: document.getElementById("video"),
   liveOverlay: document.getElementById("liveOverlay"),
+  zoomControl: document.getElementById("zoomControl"),
+  zoomSlider: document.getElementById("zoomSlider"),
+  zoomValue: document.getElementById("zoomValue"),
+  zoomHint: document.getElementById("zoomHint"),
   captureBtn: document.getElementById("captureBtn"),
   countdownOverlay: document.getElementById("countdownOverlay"),
   flashOverlay: document.getElementById("flashOverlay"),
@@ -319,12 +323,12 @@ const DOM = {
   themeLogo: document.getElementById("themeLogo"),
   themeOverlays: document.getElementById("themeOverlays"),
   themeOverlaysFolderPicker: document.getElementById(
-    "themeOverlaysFolderPicker"
+    "themeOverlaysFolderPicker",
   ),
   themeOverlaysFolder: document.getElementById("themeOverlaysFolder"),
   themeTemplates: document.getElementById("themeTemplates"),
   themeTemplatesFolderPicker: document.getElementById(
-    "themeTemplatesFolderPicker"
+    "themeTemplatesFolderPicker",
   ),
   themeTemplatesFolder: document.getElementById("themeTemplatesFolder"),
   themeWelcomeTitle: document.getElementById("themeWelcomeTitle"),
@@ -378,6 +382,16 @@ let lastShareUrl = null; // Public share URL served by SW
 let demoMode = false; // Allows running from file:// without camera
 let captureAspectRatio = null; // Override capture aspect (width/height) when set
 let createThemeAssets = null; // Temporary storage for create-from-folder workflow
+let activeVideoTrack = null;
+const DEFAULT_ZOOM_VALUE = 1;
+const FALLBACK_ZOOM_RANGE = { min: 1, max: 2.5, step: 0.05 };
+let zoomState = {
+  mode: "none",
+  min: DEFAULT_ZOOM_VALUE,
+  max: DEFAULT_ZOOM_VALUE,
+  step: 0.01,
+  value: DEFAULT_ZOOM_VALUE,
+};
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
 function withBust(src) {
@@ -490,7 +504,7 @@ function setupFinalPreviewListeners() {
 function setupThemeEditorControls() {
   if (DOM.themeEditorModeSelect)
     DOM.themeEditorModeSelect.addEventListener("change", (e) =>
-      setThemeEditorMode(e.target.value)
+      setThemeEditorMode(e.target.value),
     );
   if (DOM.themeName)
     DOM.themeName.addEventListener("input", updateThemeEditorSummary);
@@ -502,71 +516,73 @@ function setupThemeEditorControls() {
     DOM.cloneThemeBtn.addEventListener("click", handleCloneTheme);
   if (DOM.addBackgroundBtn && DOM.themeBackground) {
     DOM.addBackgroundBtn.addEventListener("click", () =>
-      DOM.themeBackground.click()
+      DOM.themeBackground.click(),
     );
   }
   if (DOM.addOverlaysBtn && DOM.themeOverlays) {
     DOM.addOverlaysBtn.addEventListener("click", () =>
-      DOM.themeOverlays.click()
+      DOM.themeOverlays.click(),
     );
   }
   if (DOM.addTemplatesBtn && DOM.themeTemplates) {
     DOM.addTemplatesBtn.addEventListener("click", () =>
-      DOM.themeTemplates.click()
+      DOM.themeTemplates.click(),
     );
   }
   if (DOM.addLogoBtn && DOM.themeLogo)
     DOM.addLogoBtn.addEventListener("click", () => DOM.themeLogo.click());
   if (DOM.themeBackground)
     DOM.themeBackground.addEventListener("change", () =>
-      handleThemeAssetInputChange("background")
+      handleThemeAssetInputChange("background"),
     );
   if (DOM.themeLogo)
     DOM.themeLogo.addEventListener("change", () =>
-      handleThemeAssetInputChange("logo")
+      handleThemeAssetInputChange("logo"),
     );
   if (DOM.themeOverlays)
     DOM.themeOverlays.addEventListener("change", () =>
-      handleThemeAssetInputChange("overlay")
+      handleThemeAssetInputChange("overlay"),
     );
   if (DOM.themeTemplates)
     DOM.themeTemplates.addEventListener("change", () =>
-      handleThemeAssetInputChange("template")
+      handleThemeAssetInputChange("template"),
     );
   if (DOM.themeWelcomeTitle)
     DOM.themeWelcomeTitle.addEventListener(
       "input",
-      handleWelcomeTitleInputChange
+      handleWelcomeTitleInputChange,
     );
   if (DOM.themeWelcomePrompt)
     DOM.themeWelcomePrompt.addEventListener(
       "input",
-      handleWelcomePromptInputChange
+      handleWelcomePromptInputChange,
     );
   if (DOM.welcomeTitleSizeInput)
     DOM.welcomeTitleSizeInput.addEventListener(
       "input",
-      handleWelcomeTitleSizeInput
+      handleWelcomeTitleSizeInput,
     );
+  if (DOM.zoomSlider)
+    DOM.zoomSlider.addEventListener("input", handleZoomSliderInput);
   if (DOM.eventTitleSizeInput)
     DOM.eventTitleSizeInput.addEventListener(
       "input",
-      handleEventTitleSizeInput
+      handleEventTitleSizeInput,
     );
   if (DOM.themeAccent) {
     DOM.themeAccent.addEventListener("input", () =>
-      handleAccentInputChange("accent", { save: false })
+      handleAccentInputChange("accent", { save: false }),
     );
     DOM.themeAccent.addEventListener("change", () =>
-      handleAccentInputChange("accent")
+      handleAccentInputChange("accent"),
     );
   }
   if (DOM.themeAccent2) {
     DOM.themeAccent2.addEventListener("input", () =>
-      handleAccentInputChange("accent2", { save: false })
+      handleAccentInputChange("accent2", { save: false }),
     );
     DOM.themeAccent2.addEventListener("change", () =>
-      handleAccentInputChange("accent2")
+      handleAccentInputChange("accent2"),
     );
   }
 }
@@ -575,7 +591,7 @@ function handleEventTitleSizeInput() {
   if (!DOM.eventTitleSizeInput) return;
   const size = normalizeSizeValue(
     DOM.eventTitleSizeInput.value,
-    DEFAULT_EVENT_TITLE_SIZE
+    DEFAULT_EVENT_TITLE_SIZE,
   );
   DOM.eventTitleSizeInput.value = formatSizeValue(size);
   document.documentElement.style.setProperty("--event-title-size", `${size}em`);
@@ -587,12 +603,12 @@ function handleWelcomeTitleSizeInput() {
   if (!DOM.welcomeTitleSizeInput) return;
   const size = normalizeSizeValue(
     DOM.welcomeTitleSizeInput.value,
-    DEFAULT_WELCOME_TITLE_SIZE
+    DEFAULT_WELCOME_TITLE_SIZE,
   );
   DOM.welcomeTitleSizeInput.value = formatSizeValue(size);
   document.documentElement.style.setProperty(
     "--welcome-title-size",
-    `${size}em`
+    `${size}em`,
   );
   if (activeTheme) {
     activeTheme.welcome = activeTheme.welcome || {};
@@ -612,6 +628,13 @@ function handleWelcomeTitleInputChange() {
     DOM.welcomeTitle.textContent = text || fallback || "";
   }
   refreshStylePreviewText();
+}
+
+function handleZoomSliderInput(event) {
+  if (!event || !event.target) return;
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value)) return;
+  setZoomLevel(value);
 }
 
 function handleWelcomePromptInputChange() {
@@ -652,7 +675,7 @@ function handleThemeAssetInputChange(kind) {
   else if (kind === "template") input = DOM.themeTemplates;
   if (!input || !input.files || input.files.length === 0) return;
   updateSelectedTheme(kind).catch((err) =>
-    console.error("Failed to update theme assets:", err)
+    console.error("Failed to update theme assets:", err),
   );
 }
 
@@ -660,20 +683,20 @@ function setupCreateThemeModalControls() {
   if (DOM.createThemeDropZone) {
     DOM.createThemeDropZone.addEventListener(
       "dragover",
-      handleCreateThemeDragOver
+      handleCreateThemeDragOver,
     );
     DOM.createThemeDropZone.addEventListener(
       "dragleave",
-      handleCreateThemeDragLeave
+      handleCreateThemeDragLeave,
     );
     DOM.createThemeDropZone.addEventListener("drop", handleCreateThemeDrop);
     DOM.createThemeDropZone.addEventListener("click", () =>
-      DOM.createThemeFolderInput?.click()
+      DOM.createThemeFolderInput?.click(),
     );
   }
   if (DOM.createThemeBrowseBtn)
     DOM.createThemeBrowseBtn.addEventListener("click", () =>
-      DOM.createThemeFolderInput?.click()
+      DOM.createThemeFolderInput?.click(),
     );
   if (DOM.createThemeFolderInput)
     DOM.createThemeFolderInput.addEventListener("change", (e) => {
@@ -700,7 +723,7 @@ function setupOfflineControls() {
       setOfflinePref(DOM.offlineModeToggle.checked);
       updatePendingUI();
       showToast(
-        DOM.offlineModeToggle.checked ? "Offline mode ON" : "Offline mode OFF"
+        DOM.offlineModeToggle.checked ? "Offline mode ON" : "Offline mode OFF",
       );
     });
   }
@@ -710,7 +733,7 @@ function setupOfflineControls() {
     DOM.forceCameraFileToggle.addEventListener("change", () => {
       localStorage.setItem(
         "forceCameraOnFile",
-        DOM.forceCameraFileToggle.checked ? "true" : "false"
+        DOM.forceCameraFileToggle.checked ? "true" : "false",
       );
     });
   }
@@ -722,12 +745,12 @@ function setupFolderPickers() {
   if (DOM.themeOverlaysFolderPicker)
     DOM.themeOverlaysFolderPicker.addEventListener(
       "change",
-      handleOverlayFolderPick
+      handleOverlayFolderPick,
     );
   if (DOM.themeTemplatesFolderPicker)
     DOM.themeTemplatesFolderPicker.addEventListener(
       "change",
-      handleTemplateFolderPick
+      handleTemplateFolderPick,
     );
 }
 
@@ -760,7 +783,7 @@ function init() {
   setupEventNameInput();
   loadCloudinarySettings();
   setThemeEditorMode(
-    DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit"
+    DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit",
   );
   loadEmailJsSettings();
   updatePendingUI();
@@ -783,7 +806,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   goAdmin(); // Start on admin screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
-    document.addEventListener(evt, resetIdleTimer)
+    document.addEventListener(evt, resetIdleTimer),
   );
   resetIdleTimer();
   init();
@@ -794,7 +817,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       pairingSelect: DOM.fontPairingSelect,
       fontsEndpoint: canSyncRemote() ? "/api/fonts" : "",
     }).catch((err) =>
-      console.warn("Dual font picker failed to initialize", err)
+      console.warn("Dual font picker failed to initialize", err),
     );
   }
   setupInstallPrompt();
@@ -803,8 +826,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // --- Remote sync (Cloudflare Pages Functions) ---
-const REMOTE_SYNC_ALLOWLIST = [/\.pages\.dev$/i, /\.workers\.dev$/i];
-const REMOTE_SYNC_BLOCKLIST = [/github\.io$/i];
+// Allow syncing on Pages, Workers, GitHub Pages, and local hosts
+const REMOTE_SYNC_ALLOWLIST = [
+  /\.pages\.dev$/i,
+  /\.workers\.dev$/i,
+  /\.github\.io$/i,
+  /localhost$/,
+  /^127\.0\.0\.1$/,
+];
+const REMOTE_SYNC_BLOCKLIST = [/staging-only\.fletchphoto\.internal$/i];
 
 function resolveRemoteSyncOverride() {
   try {
@@ -896,7 +926,7 @@ function mergeFonts(a, b) {
           out.push(f);
         }
       } catch (_) {}
-    }
+    },
   );
   return out;
 }
@@ -1023,17 +1053,17 @@ function saveEmailJsSettings() {
   if (DOM.emailJsPublic)
     localStorage.setItem(
       "emailJsPublic",
-      (DOM.emailJsPublic.value || "").trim()
+      (DOM.emailJsPublic.value || "").trim(),
     );
   if (DOM.emailJsService)
     localStorage.setItem(
       "emailJsService",
-      (DOM.emailJsService.value || "").trim()
+      (DOM.emailJsService.value || "").trim(),
     );
   if (DOM.emailJsTemplate)
     localStorage.setItem(
       "emailJsTemplate",
-      (DOM.emailJsTemplate.value || "").trim()
+      (DOM.emailJsTemplate.value || "").trim(),
     );
   loadEmailJsSettings();
   showToast("Email settings saved");
@@ -1193,7 +1223,7 @@ function renderThemeQuickSelect(selectEl = DOM.eventSelect) {
   if (!container || !selectEl) return;
   container.innerHTML = "";
   const options = Array.from(selectEl.options || []).filter(
-    (opt) => opt && opt.value
+    (opt) => opt && opt.value,
   );
   if (!options.length) {
     container.classList.add("hidden");
@@ -1256,7 +1286,7 @@ function resolvePreferredThemeKey(preferredKey) {
   if (hasKey(preferredKey)) return preferredKey;
   if (hasKey(DEFAULT_THEME_KEY)) return DEFAULT_THEME_KEY;
   const generalOption = options.find(
-    (opt) => typeof opt.value === "string" && opt.value.startsWith("general:")
+    (opt) => typeof opt.value === "string" && opt.value.startsWith("general:"),
   );
   if (generalOption) return generalOption.value;
   const generalStandalone = options.find((opt) => opt.value === "general");
@@ -1306,7 +1336,7 @@ function applyThemeFontStyles(theme) {
   document.documentElement.style.setProperty("--font", bodyCss);
   document.documentElement.style.setProperty(
     "--countdown-font",
-    headingCss || bodyCss || "'Comic Neue', cursive"
+    headingCss || bodyCss || "'Comic Neue', cursive",
   );
   document.body.style.fontFamily = bodyCss || "montserrat, sans-serif";
   if (DOM.eventTitle) DOM.eventTitle.style.fontFamily = headingCss || bodyCss;
@@ -1320,19 +1350,19 @@ function applyThemeFontStyles(theme) {
 function applyHeadingSizes(theme) {
   const eventSize = normalizeSizeValue(
     theme && theme.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE
+    DEFAULT_EVENT_TITLE_SIZE,
   );
   const welcomeSize = normalizeSizeValue(
     theme && theme.welcome && theme.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE
+    DEFAULT_WELCOME_TITLE_SIZE,
   );
   document.documentElement.style.setProperty(
     "--event-title-size",
-    `${eventSize}em`
+    `${eventSize}em`,
   );
   document.documentElement.style.setProperty(
     "--welcome-title-size",
-    `${welcomeSize}em`
+    `${welcomeSize}em`,
   );
   if (DOM.eventTitleSizeInput)
     DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
@@ -1344,11 +1374,11 @@ function applyHeadingSizes(theme) {
 function applyThemeBasics(theme) {
   document.documentElement.style.setProperty(
     "--accent",
-    theme.accent || "orange"
+    theme.accent || "orange",
   );
   document.documentElement.style.setProperty(
     "--accent2",
-    theme.accent2 || "white"
+    theme.accent2 || "white",
   );
   applyThemeFontStyles(theme);
   applyHeadingSizes(theme);
@@ -1516,7 +1546,7 @@ function updateThemeEditorSummary() {
   if (DOM.themeEditorActive) {
     DOM.themeEditorActive.textContent = describeActiveTheme(
       eventTheme,
-      eventKey
+      eventKey,
     );
   }
   if (DOM.themeEditorEditing) {
@@ -1584,19 +1614,19 @@ function applyThemeEditorBasics(theme) {
     DOM.themeTemplatesFolder.value = theme.templatesFolder || "";
   const eventSize = normalizeSizeValue(
     theme.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE
+    DEFAULT_EVENT_TITLE_SIZE,
   );
   const welcomeSize = normalizeSizeValue(
     theme.welcome && theme.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE
+    DEFAULT_WELCOME_TITLE_SIZE,
   );
   document.documentElement.style.setProperty(
     "--event-title-size",
-    `${eventSize}em`
+    `${eventSize}em`,
   );
   document.documentElement.style.setProperty(
     "--welcome-title-size",
-    `${welcomeSize}em`
+    `${welcomeSize}em`,
   );
   if (DOM.eventTitleSizeInput)
     DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
@@ -1679,7 +1709,7 @@ function renderCurrentAssets(theme) {
     list,
     withBadge = false,
     kind = "",
-    allowReorder = true
+    allowReorder = true,
   ) => {
     if (!wrap) return;
     wrap.innerHTML = "";
@@ -1701,7 +1731,7 @@ function renderCurrentAssets(theme) {
       btn.onclick = () => {
         if (
           !confirm(
-            fromFolder ? "Hide this item for this theme?" : "Remove this item?"
+            fromFolder ? "Hide this item for this theme?" : "Remove this item?",
           )
         )
           return;
@@ -1875,17 +1905,21 @@ function renderCurrentAssets(theme) {
     getTemplateList(theme),
     true,
     "template",
-    false
+    false,
   );
 }
 
+function setAdminMode(isOpen) {
+  const open = !!isOpen;
+  document.body.classList.toggle("admin-open", open);
+  document.documentElement.classList.toggle("admin-open", open);
+}
 function goAdmin() {
   hideFinal();
   if (DOM.welcomeScreen) DOM.welcomeScreen.classList.add("faded");
   DOM.boothScreen.classList.add("hidden");
   DOM.adminScreen.classList.remove("hidden");
-  document.body.classList.add("admin-open");
-  document.documentElement.classList.add("admin-open");
+  setAdminMode(true);
   setBoothControlsVisible(true);
 }
 function applyThemeBackground(theme) {
@@ -2071,20 +2105,23 @@ async function getStripTemplateMetrics(template) {
     0,
     Math.min(
       0.5,
-      toNumber(template && (template.headerPct || template.header_percent), 0.2)
-    )
+      toNumber(
+        template && (template.headerPct || template.header_percent),
+        0.2,
+      ),
+    ),
   );
   const columnPadPct = Math.max(
     0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055))
+    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
   );
   const slotSpacingPct = Math.max(
     0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022))
+    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
   );
   const footerPct = Math.max(
     0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03))
+    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
   );
   metrics.headerPct = headerPct;
   metrics.columnPadPct = columnPadPct;
@@ -2173,18 +2210,30 @@ function showWelcome() {
   }
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
+  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
+  if (!ws) return;
+  DOM.welcomeScreen = ws;
+  setBoothControlsVisible(true);
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  setAdminMode(false);
   ws.classList.add("faded");
   // show the video smoothly
-  DOM.video.classList.remove("hidden");
-  DOM.video.classList.add("active");
+  let video = DOM.video || document.getElementById("video");
+  if (video) {
+    DOM.video = video;
+    video.classList.remove("hidden");
+    video.classList.add("active");
+  }
 
   // After the welcome screen is hidden, select the first option if in photo mode.
   // This ensures the UI is visible and ready for interaction.
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
-      const firstThumb = DOM.options.querySelector(".thumb");
+      let options = DOM.options || document.getElementById("options");
+      if (options) DOM.options = options;
+      const firstThumb = options && options.querySelector(".thumb");
       if (firstThumb) firstThumb.click();
     }
   }
@@ -2207,7 +2256,7 @@ async function startCamera(autoStartBooth = false) {
     ) {
       isStartingCamera = false;
       const useDemo = confirm(
-        "Camera access is not available when opened from a file.\n\nUse Demo Mode instead? (You can still test overlays, templates, and email.)"
+        "Camera access is not available when opened from a file.\n\nUse Demo Mode instead? (You can still test overlays, templates, and email.)",
       );
       if (useDemo) {
         demoMode = true;
@@ -2215,7 +2264,7 @@ async function startCamera(autoStartBooth = false) {
         else showToast("Demo mode enabled");
       } else {
         alert(
-          "To use the camera, open the app over HTTPS (e.g., Cloudflare Pages URL) or a local HTTPS server."
+          "To use the camera, open the app over HTTPS (e.g., Cloudflare Pages URL) or a local HTTPS server.",
         );
       }
       return;
@@ -2223,6 +2272,8 @@ async function startCamera(autoStartBooth = false) {
 
     if (stream) {
       // Camera already available; only proceed to booth if requested
+      setupZoomControls(stream);
+      refreshVideoTransform();
       if (autoStartBooth) startBoothFlow();
       showToast("Camera is ready");
       isStartingCamera = false;
@@ -2239,7 +2290,7 @@ async function startCamera(autoStartBooth = false) {
           ? "\n\nTip: Open the app over HTTPS (GitHub Pages or Cloudflare Pages) to enable the camera."
           : "";
       const useDemo = confirm(
-        `Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`
+        `Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`,
       );
       if (useDemo) {
         demoMode = true;
@@ -2247,7 +2298,7 @@ async function startCamera(autoStartBooth = false) {
         else showToast("Demo mode enabled");
       } else {
         alert(
-          "To use the camera, switch to a supported browser over HTTPS or connect a camera device."
+          "To use the camera, switch to a supported browser over HTTPS or connect a camera device.",
         );
       }
       return;
@@ -2259,8 +2310,9 @@ async function startCamera(autoStartBooth = false) {
         stream = s;
         if (DOM.video) {
           DOM.video.srcObject = s;
-          DOM.video.style.transform = "scaleX(-1)";
+          refreshVideoTransform();
         }
+        setupZoomControls(stream);
         showToast("Camera permission granted");
         if (autoStartBooth) startBoothFlow();
       })
@@ -2268,7 +2320,7 @@ async function startCamera(autoStartBooth = false) {
         console.error("Camera Error:", err);
         alert(
           "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\nError: " +
-            err.message
+            err.message,
         );
       })
       .finally(() => {
@@ -2289,6 +2341,7 @@ function startBoothFlow() {
   allowRetake = DOM.allowRetakes.checked;
   DOM.adminScreen.classList.add("hidden");
   DOM.boothScreen.classList.remove("hidden");
+  setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
   showWelcome();
@@ -2297,6 +2350,192 @@ function startBoothFlow() {
 
 const startCameraFlow = (...args) => startCamera(...args);
 const startBoothFromAdmin = (...args) => startBooth(...args);
+
+function setupZoomControls(camStream) {
+  const slider = DOM.zoomSlider;
+  const control = DOM.zoomControl;
+  if (!slider || !control) return;
+  control.classList.remove("hidden");
+  if (!camStream || typeof camStream.getVideoTracks !== "function") {
+    slider.disabled = true;
+    if (DOM.zoomHint) DOM.zoomHint.textContent = "Camera not ready";
+    return;
+  }
+  const tracks = camStream.getVideoTracks();
+  activeVideoTrack = tracks && tracks[0] ? tracks[0] : null;
+  if (!activeVideoTrack) {
+    slider.disabled = true;
+    if (DOM.zoomHint) DOM.zoomHint.textContent = "Camera not ready";
+    return;
+  }
+  slider.disabled = false;
+  const capabilities = getTrackCapabilities(activeVideoTrack);
+  const zoomCaps = capabilities && capabilities.zoom;
+  const hasHardwareZoom =
+    zoomCaps &&
+    Number.isFinite(zoomCaps.max) &&
+    Number.isFinite(zoomCaps.min) &&
+    zoomCaps.max > zoomCaps.min;
+  if (!hasHardwareZoom) {
+    const preserved =
+      zoomState.mode === "digital"
+        ? clamp(zoomState.value, FALLBACK_ZOOM_RANGE.min, FALLBACK_ZOOM_RANGE.max)
+        : DEFAULT_ZOOM_VALUE;
+    switchToDigitalZoom(preserved);
+    return;
+  }
+  const min = Math.max(1, Number(zoomCaps.min) || 1);
+  const max = Math.max(min, Number(zoomCaps.max) || min);
+  const step = Math.max(
+    0.01,
+    Number(zoomCaps.step) || (max - min) / 100 || 0.01,
+  );
+  const settings =
+    typeof activeVideoTrack.getSettings === "function"
+      ? activeVideoTrack.getSettings()
+      : {};
+  const preferred =
+    zoomState.mode === "hardware" ? clamp(zoomState.value, min, max) : null;
+  const startingZoom = clamp(
+    Number(settings && settings.zoom) || preferred || min,
+    min,
+    max,
+  );
+  zoomState = {
+    mode: "hardware",
+    min,
+    max,
+    step,
+    value: startingZoom,
+  };
+  slider.min = min;
+  slider.max = max;
+  slider.step = step;
+  slider.value = startingZoom;
+  if (DOM.zoomHint) DOM.zoomHint.textContent = "Using optical zoom";
+  updateZoomValueReadout(startingZoom);
+  refreshVideoTransform();
+}
+
+function setZoomLevel(value) {
+  const slider = DOM.zoomSlider;
+  if (!slider) return;
+  if (zoomState.mode === "none") {
+    switchToDigitalZoom(value || DEFAULT_ZOOM_VALUE);
+    return;
+  }
+  const min =
+    typeof zoomState.min === "number" ? zoomState.min : FALLBACK_ZOOM_RANGE.min;
+  const max =
+    typeof zoomState.max === "number" && zoomState.max >= min
+      ? zoomState.max
+      : Math.max(min, FALLBACK_ZOOM_RANGE.max);
+  const clamped = clamp(Number(value), min, max);
+  zoomState.value = clamped;
+  slider.value = clamped;
+  updateZoomValueReadout(clamped);
+  if (zoomState.mode === "hardware") {
+    applyHardwareZoom(clamped);
+  } else {
+    refreshVideoTransform();
+  }
+}
+
+async function applyHardwareZoom(value) {
+  if (!activeVideoTrack) {
+    switchToDigitalZoom(value);
+    return;
+  }
+  const attempts = [{ advanced: [{ zoom: value }] }, { zoom: value }];
+  let lastError = null;
+  for (const constraint of attempts) {
+    try {
+      await activeVideoTrack.applyConstraints(constraint);
+      refreshVideoTransform();
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  console.warn("Hardware zoom unavailable, falling back to digital zoom", lastError);
+  switchToDigitalZoom(value);
+}
+
+function switchToDigitalZoom(preferredValue = DEFAULT_ZOOM_VALUE) {
+  const slider = DOM.zoomSlider;
+  if (!slider) return;
+  const value = clamp(
+    Number(preferredValue),
+    FALLBACK_ZOOM_RANGE.min,
+    FALLBACK_ZOOM_RANGE.max,
+  );
+  zoomState = {
+    mode: "digital",
+    min: FALLBACK_ZOOM_RANGE.min,
+    max: FALLBACK_ZOOM_RANGE.max,
+    step: FALLBACK_ZOOM_RANGE.step,
+    value,
+  };
+  slider.min = zoomState.min;
+  slider.max = zoomState.max;
+  slider.step = zoomState.step;
+  slider.value = value;
+  slider.disabled = false;
+  if (DOM.zoomControl) DOM.zoomControl.classList.remove("hidden");
+  if (DOM.zoomHint)
+    DOM.zoomHint.textContent = "Digital zoom (crops both preview and capture)";
+  updateZoomValueReadout(value);
+  refreshVideoTransform();
+}
+
+function updateZoomValueReadout(value) {
+  if (!DOM.zoomValue) return;
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    DOM.zoomValue.textContent = "1x";
+    return;
+  }
+  const formatted = num.toFixed(2).replace(/\.?0+$/, "");
+  DOM.zoomValue.textContent = `${formatted}x`;
+}
+
+function refreshVideoTransform() {
+  if (!DOM.video) return;
+  const factor = getDigitalZoomFactor();
+  const scalePart = factor > 1 ? ` scale(${factor})` : "";
+  const transform = `scaleX(-1)${scalePart}`;
+  DOM.video.style.transform = transform;
+  DOM.video.style.webkitTransform = transform;
+}
+
+function getDigitalZoomFactor() {
+  if (zoomState.mode !== "digital") return 1;
+  const value = Number(zoomState.value);
+  return Number.isFinite(value) && value > 1 ? value : 1;
+}
+
+function applyDigitalZoomCrop(sx, sy, sWidth, sHeight) {
+  const factor = getDigitalZoomFactor();
+  if (factor <= 1) return { sx, sy, sWidth, sHeight };
+  const zoomedWidth = sWidth / factor;
+  const zoomedHeight = sHeight / factor;
+  return {
+    sx: sx + (sWidth - zoomedWidth) / 2,
+    sy: sy + (sHeight - zoomedHeight) / 2,
+    sWidth: zoomedWidth,
+    sHeight: zoomedHeight,
+  };
+}
+
+function getTrackCapabilities(track) {
+  if (!track || typeof track.getCapabilities !== "function") return null;
+  try {
+    return track.getCapabilities();
+  } catch (err) {
+    console.warn("Unable to read media track capabilities", err);
+    return null;
+  }
+}
 
 // Photo mode capture
 async function capturePhotoFlow() {
@@ -2352,6 +2591,11 @@ function drawToCanvasFromVideo() {
     }
     sx = (videoW - sWidth) / 2;
     sy = (videoH - sHeight) / 2;
+    const portraitCrop = applyDigitalZoomCrop(sx, sy, sWidth, sHeight);
+    sx = portraitCrop.sx;
+    sy = portraitCrop.sy;
+    sWidth = portraitCrop.sWidth;
+    sHeight = portraitCrop.sHeight;
 
     c.width = sWidth;
     c.height = sHeight;
@@ -2372,6 +2616,11 @@ function drawToCanvasFromVideo() {
     }
     sx = (videoW - sWidth) / 2;
     sy = (videoH - sHeight) / 2;
+    const landscapeCrop = applyDigitalZoomCrop(sx, sy, sWidth, sHeight);
+    sx = landscapeCrop.sx;
+    sy = landscapeCrop.sy;
+    sWidth = landscapeCrop.sWidth;
+    sHeight = landscapeCrop.sHeight;
 
     c.width = sWidth;
     c.height = sHeight;
@@ -2471,6 +2720,11 @@ function drawImageContain(ctx, img, dx, dy, dw, dh) {
 function toNumber(val, fallback) {
   const num = Number(val);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function clamp(val, min, max) {
+  if (!Number.isFinite(val)) return min;
+  return Math.min(Math.max(val, min), max);
 }
 
 function normalizeSizeValue(raw, fallback) {
@@ -2610,9 +2864,8 @@ async function runStripSequence(template) {
   // 3 photos automatically with pauses
   const shots = [];
   const lastShotImg = document.getElementById("lastShot");
-  const { state: previewState, prevAspect } = await prepareStripCapture(
-    template
-  );
+  const { state: previewState, prevAspect } =
+    await prepareStripCapture(template);
   let previewRestored = false;
   setBoothControlsVisible(false);
   if (lastShotImg) lastShotImg.style.display = "none";
@@ -2737,7 +2990,7 @@ async function composeStrip(template, photos) {
     const regions = await detectMaskRegions(
       bg,
       SPOT_MASK.color,
-      SPOT_MASK.tolerance
+      SPOT_MASK.tolerance,
     );
     const max = Math.min(photos.length, regions.length);
     for (let i = 0; i < max; i++) {
@@ -2748,7 +3001,7 @@ async function composeStrip(template, photos) {
     const masked = createMaskedOverlayCanvas(
       bg,
       SPOT_MASK.color,
-      SPOT_MASK.tolerance
+      SPOT_MASK.tolerance,
     );
     drawImageContain(ctx, masked, 0, 0, targetW, targetH);
   } else if (template.layout === "custom" && template.slots) {
@@ -2809,20 +3062,23 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
     0,
     Math.min(
       0.5,
-      toNumber(template && (template.headerPct || template.header_percent), 0.2)
-    )
+      toNumber(
+        template && (template.headerPct || template.header_percent),
+        0.2,
+      ),
+    ),
   );
   const columnPadPct = Math.max(
     0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055))
+    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
   );
   const slotSpacingPct = Math.max(
     0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022))
+    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
   );
   const footerPct = Math.max(
     0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03))
+    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
   );
 
   const columnW = canvas.width / cols;
@@ -3154,7 +3410,7 @@ async function publishShareImage(dataUrl) {
       if (evSlug) form.append("folder", `${base}/${evSlug}`);
       const resp = await fetch(
         `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
-        { method: "POST", body: form }
+        { method: "POST", body: form },
       );
       const json = await resp.json();
       if (json && json.secure_url) return json.secure_url;
@@ -3170,7 +3426,7 @@ async function publishShareImage(dataUrl) {
     await Promise.race([
       navigator.serviceWorker.ready,
       new Promise((_, rej) =>
-        setTimeout(() => rej(new Error("sw-timeout")), 2000)
+        setTimeout(() => rej(new Error("sw-timeout")), 2000),
       ),
     ]);
   } catch (_e) {}
@@ -3333,7 +3589,7 @@ function sendEmail(event) {
       sendBtn.textContent = "Failed!";
       sendBtn.disabled = false;
       alert("Email failed: " + errMsg);
-    }
+    },
   );
 
   recordAnalytics("email", email);
@@ -3477,7 +3733,7 @@ async function makeAvailableOffline() {
     !location.protocol.startsWith("http")
   ) {
     alert(
-      "Offline caching requires HTTPS and a service worker. Open your Cloudflare URL."
+      "Offline caching requires HTTPS and a service worker. Open your Cloudflare URL.",
     );
     return;
   }
@@ -3489,10 +3745,10 @@ async function makeAvailableOffline() {
       const bgList = Array.isArray(theme.backgroundsTmp)
         ? theme.backgroundsTmp
         : Array.isArray(theme.backgrounds)
-        ? theme.backgrounds
-        : theme.background
-        ? [theme.background]
-        : [];
+          ? theme.backgrounds
+          : theme.background
+            ? [theme.background]
+            : [];
       bgList.filter(Boolean).forEach((u) => urls.add(u));
       // Logo
       if (theme.logo) urls.add(theme.logo);
@@ -3526,7 +3782,7 @@ async function makeAvailableOffline() {
         } catch (_) {
           fail++;
         }
-      })
+      }),
     );
     showToast(`Cached ${ok} assets${fail ? `, failed ${fail}` : ""}`);
   } catch (e) {
@@ -3560,7 +3816,7 @@ function toggleAnalytics() {
 function clearAnalytics() {
   if (
     confirm(
-      "Are you sure you want to delete all analytics data? This cannot be undone."
+      "Are you sure you want to delete all analytics data? This cannot be undone.",
     )
   ) {
     localStorage.removeItem("photoboothAnalytics");
@@ -3627,21 +3883,21 @@ function saveTheme() {
     filePromises.push(
       uploadAsset(backgroundFile, "backgrounds").then((url) => {
         if (url) newTheme.background = url;
-      })
+      }),
     );
   }
   if (logoFile) {
     filePromises.push(
       uploadAsset(logoFile, "logo").then((url) => {
         if (url) newTheme.logo = url;
-      })
+      }),
     );
   }
   for (const file of overlayFiles) {
     filePromises.push(
       uploadAsset(file, "overlays").then((url) => {
         if (url) newTheme.overlays.push(url);
-      })
+      }),
     );
   }
   if (overlaysFolder) {
@@ -3653,7 +3909,7 @@ function saveTheme() {
     filePromises.push(
       uploadAsset(file, "templates").then((url) => {
         if (url) newTheme.templates.push({ src: url, layout: "double_column" });
-      })
+      }),
     );
   }
   if (templatesFolder) {
@@ -3727,7 +3983,7 @@ async function uploadAsset(file, kind) {
       const folder = `${base}/${evSlug}/${kind || "misc"}`;
       const fname = `${kind || "file"}-${hash}.${extFromName(
         file && file.name,
-        "png"
+        "png",
       )}`;
       const wrapped = new File([file], fname, {
         type: file.type || "application/octet-stream",
@@ -3737,7 +3993,7 @@ async function uploadAsset(file, kind) {
       form.append("folder", folder);
       const resp = await fetch(
         `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
-        { method: "POST", body: form }
+        { method: "POST", body: form },
       );
       const json = await resp.json();
       if (json && json.secure_url) {
@@ -4044,7 +4300,7 @@ function fixBuiltinThemePlacements(target) {
         delete sub[subKey];
         if (!target[loc.root])
           target[loc.root] = cloneThemeValue(
-            BUILTIN_THEMES[loc.root] || { name: loc.root }
+            BUILTIN_THEMES[loc.root] || { name: loc.root },
           );
         if (!target[loc.root][loc.bucket]) target[loc.root][loc.bucket] = {};
         const base =
@@ -4053,7 +4309,7 @@ function fixBuiltinThemePlacements(target) {
             : null;
         target[loc.root][loc.bucket][subKey] = mergeThemeLeaf(
           base,
-          currentTheme
+          currentTheme,
         );
       }
     }
@@ -4078,8 +4334,8 @@ function mergeStoredThemes(base, stored) {
       const bucketKey = storedGroup.themes
         ? "themes"
         : storedGroup.holidays
-        ? "holidays"
-        : null;
+          ? "holidays"
+          : null;
       const baseGroup = base[key];
       if (bucketKey) {
         if (!baseGroup || typeof baseGroup !== "object") {
@@ -4092,7 +4348,7 @@ function mergeStoredThemes(base, stored) {
         for (const subKey of Object.keys(storedBucket)) {
           baseBucket[subKey] = mergeThemeLeaf(
             baseBucket[subKey],
-            storedBucket[subKey]
+            storedBucket[subKey],
           );
         }
         for (const prop of Object.keys(storedGroup)) {
@@ -4149,7 +4405,7 @@ async function handleOverlayFolderPick(e) {
     return;
   }
   const files = Array.from(e.target.files || []).filter((f) =>
-    /^image\//i.test(f.type)
+    /^image\//i.test(f.type),
   );
   if (!files.length) {
     e.target.value = "";
@@ -4159,7 +4415,7 @@ async function handleOverlayFolderPick(e) {
   const promises = files.map((f) =>
     uploadAsset(f, "overlays").then((u) => {
       if (u) target.overlays.push(u);
-    })
+    }),
   );
   await Promise.all(promises);
   try {
@@ -4181,7 +4437,7 @@ async function handleTemplateFolderPick(e) {
     return;
   }
   const files = Array.from(e.target.files || []).filter((f) =>
-    /^image\//i.test(f.type)
+    /^image\//i.test(f.type),
   );
   if (!files.length) {
     e.target.value = "";
@@ -4191,7 +4447,7 @@ async function handleTemplateFolderPick(e) {
   const promises = files.map((f) =>
     uploadAsset(f, "templates").then((u) => {
       if (u) target.templates.push({ src: u, layout: "double_column" });
-    })
+    }),
   );
   await Promise.all(promises);
   try {
@@ -4236,7 +4492,7 @@ function normalizePairingDef(def) {
 
 function pairingKey(def) {
   return `${normalizePairingField(
-    def.heading
+    def.heading,
   ).toLowerCase()}::${normalizePairingField(def.body).toLowerCase()}`;
 }
 
@@ -4244,7 +4500,7 @@ function loadCustomFontPairings() {
   if (customFontPairings.length) return customFontPairings.slice();
   try {
     const raw = JSON.parse(
-      localStorage.getItem(CUSTOM_PAIRINGS_STORAGE_KEY) || "[]"
+      localStorage.getItem(CUSTOM_PAIRINGS_STORAGE_KEY) || "[]",
     );
     if (Array.isArray(raw)) {
       customFontPairings = raw.map(normalizePairingDef).filter(Boolean);
@@ -4264,7 +4520,7 @@ function saveCustomFontPairings(list) {
   try {
     localStorage.setItem(
       CUSTOM_PAIRINGS_STORAGE_KEY,
-      JSON.stringify(customFontPairings)
+      JSON.stringify(customFontPairings),
     );
   } catch (_) {}
 }
@@ -4353,10 +4609,10 @@ function handleAddQuickPickPairing() {
     return;
   }
   const notes = normalizePairingField(
-    DOM.addPairingNotes && DOM.addPairingNotes.value
+    DOM.addPairingNotes && DOM.addPairingNotes.value,
   );
   const preview = normalizePairingField(
-    DOM.addPairingPreview && DOM.addPairingPreview.value
+    DOM.addPairingPreview && DOM.addPairingPreview.value,
   );
   const candidate = normalizePairingDef({ heading, body, notes, preview });
   if (!candidate) return;
@@ -4479,7 +4735,7 @@ function ensureFontLoaded(family, storeIfNew = false) {
   const id = "gf-" + slugifyFontName(fam);
   if (!document.getElementById(id)) {
     const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
-      fam
+      fam,
     ).replace(/%20/g, "+")}&display=swap`;
     const link = document.createElement("link");
     link.id = id;
@@ -4492,7 +4748,7 @@ function ensureFontLoaded(family, storeIfNew = false) {
     if (
       !fonts.find(
         (f) =>
-          f.type === "family" && f.value.toLowerCase() === fam.toLowerCase()
+          f.type === "family" && f.value.toLowerCase() === fam.toLowerCase(),
       )
     ) {
       fonts.push({ type: "family", value: fam });
@@ -4588,7 +4844,7 @@ function renderCurrentFonts() {
     return;
   }
   const parts = fonts.map((f) =>
-    f.type === "family" ? f.value : f.label || "Custom URL"
+    f.type === "family" ? f.value : f.label || "Custom URL",
   );
   DOM.currentFonts.textContent = `Available fonts: ${parts.join(", ")}`;
 }
@@ -4618,7 +4874,7 @@ function loadFontsFromStorage() {
 function injectStylesheetOnce(href) {
   if (!href) return;
   const existing = Array.from(
-    document.querySelectorAll('link[rel="stylesheet"]')
+    document.querySelectorAll('link[rel="stylesheet"]'),
   );
   if (existing.some((l) => l instanceof HTMLLinkElement && l.href === href))
     return;
@@ -4648,7 +4904,7 @@ function findPairingPreview(pairing, fonts = fontCatalog.available) {
     const normalized = normalizeFontFamilyName(heading);
     const match = fonts.find(
       (font) =>
-        font && normalizeFontFamilyName(font.name || font.value) === normalized
+        font && normalizeFontFamilyName(font.name || font.value) === normalized,
     );
     if (match && match.preview) return match.preview;
   }
@@ -4680,7 +4936,7 @@ function populateFontPickerOptions(fonts) {
 function ensureOptionExists(select, family) {
   if (!select || !family) return;
   const exists = Array.from(select.options).some(
-    (opt) => opt.value.toLowerCase() === family.toLowerCase()
+    (opt) => opt.value.toLowerCase() === family.toLowerCase(),
   );
   if (!exists) {
     const opt = document.createElement("option");
@@ -4863,10 +5119,10 @@ function renderQuickPickButtons() {
         pair.isCustom ? " quick-pick-label-custom" : ""
       }">${pair.isCustom ? "Custom quick pick" : "Quick pick"}</div>
       <div class="quick-pick-title">${heading} + ${body}${
-      pair.notes ? ` — ${pair.notes}` : ""
-    }</div>
+        pair.notes ? ` — ${pair.notes}` : ""
+      }</div>
       <div class="quick-pick-preview" style="font-family: ${composeFontString(
-        heading
+        heading,
       )};">${previewText}</div>
     `;
     card.addEventListener("click", () => {
@@ -4924,7 +5180,7 @@ async function reloadFontPickerOptions(options = {}) {
         ital: !!font.ital,
         preview: font.preview || DEFAULT_FONT_PREVIEW,
       });
-    }
+    },
   );
   fontCatalog = {
     available: merged,
@@ -4984,7 +5240,7 @@ function attachFontPickerListeners() {
       if (!value) return;
       const [heading, body] = value.split("|");
       const pairing = (fontCatalog.pairings || []).find(
-        (p) => p.heading === heading && p.body === body
+        (p) => p.heading === heading && p.body === body,
       );
       applyFontSelection(heading, body, {
         keepPairing: true,
@@ -5332,7 +5588,7 @@ function normalizeFontsPayload(raw) {
   if (Array.isArray(raw)) {
     const converted = raw
       .filter(
-        (item) => item && typeof item === "object" && item.type === "family"
+        (item) => item && typeof item === "object" && item.type === "family",
       )
       .map((item) => ({
         name: normalizeFontFamilyName(item.value),
@@ -5398,7 +5654,7 @@ function setBodyFont(family) {
 function findFontPreview(fonts, name) {
   const clean = normalizeFontFamilyName(name);
   const match = (Array.isArray(fonts) ? fonts : []).find(
-    (f) => normalizeFontFamilyName(f.name) === clean
+    (f) => normalizeFontFamilyName(f.name) === clean,
   );
   return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW;
 }
@@ -5453,7 +5709,7 @@ function renderQuickPicks(args) {
       }
     `;
     card.addEventListener("click", () =>
-      apply(pairing.heading, pairing.body, headingPreview)
+      apply(pairing.heading, pairing.body, headingPreview),
     );
     container.appendChild(card);
   });
@@ -5504,7 +5760,7 @@ async function setupDualFontPicker(opts) {
   populate(opts.bodySelect);
 
   const storedHeading = normalizeFontFamilyName(
-    localStorage.getItem("font.heading")
+    localStorage.getItem("font.heading"),
   );
   const storedBody = normalizeFontFamilyName(localStorage.getItem("font.body"));
   const defaultHeading =
@@ -5679,21 +5935,21 @@ function describeThemeUpdate(changes, reason) {
     parts.push(
       `Added ${changes.backgroundsAdded} background${
         changes.backgroundsAdded === 1 ? "" : "s"
-      }`
+      }`,
     );
   }
   if (changes.overlaysAdded) {
     parts.push(
       `Added ${changes.overlaysAdded} overlay${
         changes.overlaysAdded === 1 ? "" : "s"
-      }`
+      }`,
     );
   }
   if (changes.templatesAdded) {
     parts.push(
       `Added ${changes.templatesAdded} template${
         changes.templatesAdded === 1 ? "" : "s"
-      }`
+      }`,
     );
   }
   if (changes.logoUrl) {
@@ -5774,13 +6030,13 @@ function updateCreateThemeSummary() {
   } = createThemeAssets;
   if (backgrounds.length)
     parts.push(
-      `${backgrounds.length} background${backgrounds.length === 1 ? "" : "s"}`
+      `${backgrounds.length} background${backgrounds.length === 1 ? "" : "s"}`,
     );
   if (overlays.length)
     parts.push(`${overlays.length} overlay${overlays.length === 1 ? "" : "s"}`);
   if (templates.length)
     parts.push(
-      `${templates.length} template${templates.length === 1 ? "" : "s"}`
+      `${templates.length} template${templates.length === 1 ? "" : "s"}`,
     );
   if (logos.length)
     parts.push(`${logos.length} logo${logos.length === 1 ? "" : "s"}`);
@@ -5845,7 +6101,7 @@ async function extractFilesFromDataTransfer(dataTransfer) {
   if (!dataTransfer) return files;
   if (dataTransfer.items && dataTransfer.items.length) {
     const items = Array.from(dataTransfer.items).filter(
-      (item) => item.kind === "file"
+      (item) => item.kind === "file",
     );
     const nested = await Promise.all(
       items.map(async (item) => {
@@ -5855,7 +6111,7 @@ async function extractFilesFromDataTransfer(dataTransfer) {
         }
         const file = item.getAsFile();
         return file ? [file] : [];
-      })
+      }),
     );
     nested.forEach((list) => files.push(...list));
   } else if (dataTransfer.files && dataTransfer.files.length) {
@@ -5877,7 +6133,7 @@ function readAllDirectoryEntries(reader) {
             readEntries();
           }
         },
-        () => resolve(entries)
+        () => resolve(entries),
       );
     };
     readEntries();
@@ -5887,7 +6143,7 @@ function readAllDirectoryEntries(reader) {
 async function traverseFileEntry(entry, path = "") {
   if (entry.isFile) {
     const file = await new Promise((resolve, reject) =>
-      entry.file(resolve, reject)
+      entry.file(resolve, reject),
     ).catch(() => null);
     if (!file) return [];
     file._relativePath = path + entry.name;
@@ -5896,7 +6152,7 @@ async function traverseFileEntry(entry, path = "") {
   if (entry.isDirectory) {
     const entries = await readAllDirectoryEntries(entry.createReader());
     const nested = await Promise.all(
-      entries.map((ent) => traverseFileEntry(ent, path + entry.name + "/"))
+      entries.map((ent) => traverseFileEntry(ent, path + entry.name + "/")),
     );
     return nested.flat();
   }
@@ -5938,7 +6194,7 @@ async function confirmCreateTheme() {
   newTheme.templatesFolder = "";
   newTheme.welcome = mergePlainObject(
     baseTheme.welcome || {},
-    newTheme.welcome || {}
+    newTheme.welcome || {},
   );
   newTheme.welcome.title = newTheme.welcome.title || name;
 
@@ -5951,7 +6207,7 @@ async function confirmCreateTheme() {
         ensureArray(newTheme, "backgrounds");
         newTheme.backgrounds.push(url);
         if (!newTheme.background) newTheme.background = url;
-      })
+      }),
     );
   });
   assets.overlays.forEach((file) => {
@@ -5960,7 +6216,7 @@ async function confirmCreateTheme() {
         if (!url) return;
         ensureArray(newTheme, "overlays");
         newTheme.overlays.push(url);
-      })
+      }),
     );
   });
   assets.templates.forEach((file) => {
@@ -5969,7 +6225,7 @@ async function confirmCreateTheme() {
         if (!url) return;
         ensureArray(newTheme, "templates");
         newTheme.templates.push({ src: url, layout: "double_column" });
-      })
+      }),
     );
   });
   if (assets.logos.length) {
@@ -5977,7 +6233,7 @@ async function confirmCreateTheme() {
     tasks.push(
       uploadAsset(logoFile, "logo").then((url) => {
         if (url) newTheme.logo = url;
-      })
+      }),
     );
   }
 
@@ -6022,7 +6278,7 @@ function handleCloneTheme() {
   cloned.name = name;
   cloned.welcome = mergePlainObject(
     activeTheme.welcome || {},
-    cloned.welcome || {}
+    cloned.welcome || {},
   );
   if (cloned.welcome) cloned.welcome.title = cloned.welcome.title || name;
 
@@ -6075,21 +6331,21 @@ function applyThemeBasicsFromEditor(target) {
     picker.body ||
       picker.heading ||
       primaryFontFamily(target.font || "") ||
-      "Comic Neue"
+      "Comic Neue",
   );
   target.welcome = target.welcome || {};
   target.welcome.title = valueFromInput(DOM.themeWelcomeTitle);
   target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt);
   const eventSize = normalizeSizeValue(
     DOM.eventTitleSizeInput ? DOM.eventTitleSizeInput.value : "",
-    normalizeSizeValue(target.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE)
+    normalizeSizeValue(target.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE),
   );
   target.eventTitleSize = eventSize;
   if (DOM.eventTitleSizeInput)
     DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
   const welcomeSize = normalizeSizeValue(
     DOM.welcomeTitleSizeInput ? DOM.welcomeTitleSizeInput.value : "",
-    normalizeSizeValue(target.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE)
+    normalizeSizeValue(target.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE),
   );
   target.welcome.titleSize = welcomeSize;
   if (DOM.welcomeTitleSizeInput)
@@ -6149,7 +6405,7 @@ async function uploadThemeAssetsFromEditor(target) {
           delete target.backgroundIndex;
         } else target.background = url;
         backgroundsAdded += 1;
-      })
+      }),
     );
   }
 
@@ -6161,7 +6417,7 @@ async function uploadThemeAssetsFromEditor(target) {
         if (!url) return;
         target.logo = url;
         logoUrl = url;
-      })
+      }),
     );
   }
 
@@ -6177,7 +6433,7 @@ async function uploadThemeAssetsFromEditor(target) {
           if (!url) return;
           target.overlays.push(url);
           overlaysAdded += 1;
-        })
+        }),
       );
     });
   }
@@ -6194,7 +6450,7 @@ async function uploadThemeAssetsFromEditor(target) {
           if (!url) return;
           target.templates.push({ src: url, layout: "double_column" });
           templatesAdded += 1;
-        })
+        }),
       );
     });
   }
@@ -6249,14 +6505,14 @@ function normalizeThemeObject(t) {
   const list = Array.isArray(t.backgrounds)
     ? t.backgrounds.filter(Boolean)
     : t.background
-    ? [t.background]
-    : [];
+      ? [t.background]
+      : [];
   if (Array.isArray(t.backgrounds)) {
     t.backgrounds = arrayUniqueStrings(list);
     if (typeof t.backgroundIndex === "number") {
       t.backgroundIndex = Math.min(
         Math.max(t.backgroundIndex, 0),
-        Math.max(t.backgrounds.length - 1, 0)
+        Math.max(t.backgrounds.length - 1, 0),
       );
     }
   } else if (
@@ -6276,7 +6532,7 @@ function normalizeThemeObject(t) {
     t.font = t.fontBody || t.fontHeading || "'Comic Neue', cursive";
   t.eventTitleSize = normalizeSizeValue(
     t.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE
+    DEFAULT_EVENT_TITLE_SIZE,
   );
   if (!t.welcome || typeof t.welcome !== "object") t.welcome = {};
   t.welcome.title = typeof t.welcome.title === "string" ? t.welcome.title : "";
@@ -6284,7 +6540,7 @@ function normalizeThemeObject(t) {
     typeof t.welcome.prompt === "string" ? t.welcome.prompt : "";
   t.welcome.titleSize = normalizeSizeValue(
     t.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE
+    DEFAULT_WELCOME_TITLE_SIZE,
   );
 }
 function normalizeAllThemes() {
@@ -6357,7 +6613,7 @@ function setGlobalLogo(logo, options = {}) {
   if (!options.skipSave) saveThemesToStorage();
   if (!options.quiet)
     showToast(
-      value ? "Logo applied to all themes" : "Logo cleared for all themes"
+      value ? "Logo applied to all themes" : "Logo cleared for all themes",
     );
 }
 
@@ -6371,7 +6627,7 @@ function updateCurrentThemeFont() {
   applyFontSelection(
     selection.heading || selection.body,
     selection.body || selection.heading,
-    { keepPairing: true }
+    { keepPairing: true },
   );
 }
 
@@ -6835,14 +7091,14 @@ function rebuildManifestsUI() {
   alert(
     "To rebuild overlays/templates/backgrounds manifests, run:\n\n" +
       cmd +
-      "\n\nThen deploy: npm run deploy or use Deploy Now (Git hooks)."
+      "\n\nThen deploy: npm run deploy or use Deploy Now (Git hooks).",
   );
 }
 function saveDeploySettings() {
   if (DOM.deployHookUrl)
     localStorage.setItem(
       "deployHookUrl",
-      (DOM.deployHookUrl.value || "").trim()
+      (DOM.deployHookUrl.value || "").trim(),
     );
   showToast("Deploy hook saved");
 }
@@ -6883,7 +7139,7 @@ function copyShipCmd() {
 function getOverlayList(theme) {
   if (!theme || typeof theme !== "object") return [];
   const removed = new Set(
-    Array.isArray(theme.overlaysRemoved) ? theme.overlaysRemoved : []
+    Array.isArray(theme.overlaysRemoved) ? theme.overlaysRemoved : [],
   );
   const folderArr = Array.isArray(theme.overlaysTmp)
     ? theme.overlaysTmp
@@ -6907,7 +7163,7 @@ function getOverlayList(theme) {
 function getTemplateList(theme) {
   if (!theme || typeof theme !== "object") return [];
   const removed = new Set(
-    Array.isArray(theme.templatesRemoved) ? theme.templatesRemoved : []
+    Array.isArray(theme.templatesRemoved) ? theme.templatesRemoved : [],
   );
   const folderArr = Array.isArray(theme.templatesTmp)
     ? theme.templatesTmp
