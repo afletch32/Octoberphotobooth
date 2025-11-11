@@ -1,3 +1,6 @@
 photobooth_system_fixed.code-workspace
 localhost+2.pem
 localhost+2-key.pem
+node_modules/
+.DS_Store
+/package-lock.json

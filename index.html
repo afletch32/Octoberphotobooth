@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,15 +12,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1222">
-  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Comic+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts.css">
   <style>
     :root {
       --accent: rgb(212, 242, 217);
       --accent2: white;
       --font-heading: 'Comic Neue', cursive;
       --font-body: 'Comic Neue', cursive;
-    }
-
+      --font: var(--font-body);
+      --countdown-font: 'Creepster', cursive;
+      --event-title-size: 1.8em;
+      --welcome-title-size: 3.4em;
+    }    
     body,
     html {
       margin: 0;
@@ -34,6 +37,18 @@
 
     .hidden {
       display: none !important;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     button {
@@ -124,6 +139,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     .admin-container {
@@ -149,12 +165,14 @@
       margin: 0 0 10px;
       font-size: 1.4em;
       color: var(--accent2);
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     .panel h3 {
       margin: 10px 0 6px;
       font-size: 1.05em;
       color: #ddd;
+      font-family: var(--font-heading, 'Comic Neue', cursive);
     }
 
     details.panel-section {
@@ -532,6 +550,283 @@
       font-size: .9em;
     }
 
+    .font-picker {
+      margin-top: 16px;
+      padding: 14px;
+      background: #101217;
+      border: 1px solid #232734;
+      border-radius: 12px;
+    }
+
+    .font-section {
+      margin-top: 16px;
+      padding: 14px;
+      background: #101217;
+      border: 1px solid #232734;
+      border-radius: 12px;
+    }
+
+    .font-section h3 {
+      margin: 0 0 12px;
+      font-size: 1.1em;
+      color: #eee;
+    }
+
+    .font-select-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .font-select-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .font-select-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+      width: 100%;
+    }
+
+    .font-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0 10px;
+    }
+
+    .font-url-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .style-preview {
+      margin-bottom: 18px;
+      padding: 18px;
+      background: #0b0f1a;
+      border: 1px solid #232734;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .style-preview-heading {
+      font-family: var(--font-heading);
+      font-size: var(--welcome-title-size, 3.4em);
+      color: var(--accent2);
+      margin: 0;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .style-preview-subheading {
+      font-family: var(--font-heading);
+      font-size: var(--event-title-size, 1.8em);
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .style-preview-body {
+      font-family: var(--font-body);
+      color: #d4d8eb;
+      margin: 0;
+    }
+
+    .style-preview-button {
+      align-self: flex-start;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      font-family: var(--font-heading);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .style-preview-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+    }
+
+    .style-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .style-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .style-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .style-control-group input,
+    .style-control-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .color-control-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .color-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .color-control-group input[type="color"] {
+      width: 100%;
+      height: 42px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .color-control-group input[type="color"]::-webkit-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-control-group input[type="color"]::-moz-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-item.clickable {
+      cursor: pointer;
+    }
+
+    .dual-font-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .dual-font-column label {
+      display: block;
+      font-size: .9em;
+      color: #bbb;
+      margin-bottom: 4px;
+    }
+
+    .font-picker select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .font-preview-box,
+    .font-preview,
+    .font-current-previews {
+      display: none !important;
+    }
+
+    .quick-picks-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      font-size: .95em;
+      color: #bbb;
+    }
+
+    .quick-picks-grid {
+      display: grid;
+      gap: 10px;
+      max-height: 220px;
+      overflow: hidden;
+    }
+
+    .quick-pick-card {
+      background: #121522;
+      border: 1px solid #1f2536;
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #eef;
+      text-align: left;
+      font-size: .95em;
+      line-height: 1.4;
+      transition: background .2s ease, transform .1s ease;
+    }
+
+    .quick-pick-card:hover {
+      background: #1b2032;
+      transform: translateY(-1px);
+    }
+
+    .quick-pick-label {
+      font-size: .75em;
+      opacity: .7;
+      margin-bottom: 4px;
+    }
+
+    .quick-pick-fonts {
+      font-size: .9em;
+    }
+
+    .quick-pick-heading {
+      font-weight: 600;
+    }
+
+    .quick-pick-preview {
+      margin-top: 4px;
+      font-size: 1.05em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .quick-pick-notes {
+      margin-top: 4px;
+      font-size: .8em;
+      opacity: .7;
+    }
+
+    button.button-ghost {
+      margin: 0;
+      padding: 0;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: .9em;
+      cursor: pointer;
+    }
+
+    button.button-ghost:hover {
+      text-decoration: underline;
+    }
+
     /* Toast */
     #toast {
       position: absolute;
@@ -579,7 +874,7 @@
     }
 
     #eventTitle {
-      font-size: 1.8em;
+      font-size: var(--event-title-size, 1.8em);
       flex: 1;
       text-align: center;
       font-family: var(--font);
@@ -645,11 +940,52 @@
       box-shadow: 0 0 18px #000;
     }
 
+    #zoomControl {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #zoomControl .zoom-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    #zoomValue {
+      font-size: 0.9em;
+      color: var(--accent);
+    }
+
+    #zoomSlider {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    #zoomHint {
+      margin: 0;
+      font-size: 0.8em;
+      color: #b6c1d2;
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
+      position: relative;
+      gap: 12px;
     }
 
     #videoContainer {
@@ -668,6 +1004,9 @@
       opacity: 0;
       transition: opacity 500ms ease;
       object-fit: cover;
+      transform-origin: center;
+      -webkit-transform: scaleX(-1);
+      transform: scaleX(-1);
     }
 
     #lastShot {
@@ -680,6 +1019,9 @@
       border-radius: 6px;
       pointer-events: none;
       display: none;
+      transform-origin: center;
+      -webkit-transform: scaleX(1) !important;
+      transform: scaleX(1) !important;
     }
 
     #liveOverlay {
@@ -691,11 +1033,13 @@
       pointer-events: none;
       border-radius: 6px;
       object-fit: cover;
+      -webkit-transform: scaleX(1) !important;
+      transform: scaleX(1) !important;
     }
 
     .view-landscape #videoContainer {
       max-height: 88vh;
-      max-width: 70vw;
+      max-width: 80vw;
       aspect-ratio: 16 / 9;
     }
 
@@ -722,11 +1066,53 @@
 
     #captureBtn {
       display: none;
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      position: relative;
       z-index: 5;
+      align-self: center;
+    }
+
+    @media (max-width: 1100px) {
+      #boothMain {
+        flex-direction: column;
+        align-items: center;
+      }
+      #options,
+      #controls {
+        width: 100%;
+        max-height: none;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 6px;
+      }
+      #options {
+        order: 3;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      #controls {
+        order: 2;
+      }
+      #options .thumb {
+        max-width: 110px;
+        margin: 0 6px;
+      }
+      #videoWrap {
+        order: 1;
+        width: 100%;
+      }
+      #videoContainer {
+        width: 100%;
+        max-width: 680px;
+      }
+      .view-landscape #videoContainer {
+        max-width: min(92vw, 680px);
+      }
+      #captureBtn {
+        margin-bottom: 8px;
+      }
     }
 
     /* shown in photo mode only */
@@ -805,7 +1191,7 @@
     #welcomeOverlay h1 {
       font-family: 'Bangers', cursive;
       letter-spacing: 1px;
-      font-size: 3.4em;
+      font-size: var(--welcome-title-size, 3.4em);
       margin: 0;
       color: var(--accent2);
     }
@@ -959,7 +1345,7 @@
       align-items: center;
       justify-content: center;
       font-size: clamp(6rem, 20vw, 18rem);
-      font-family: 'Creepster', cursive;
+      font-family: var(--countdown-font, 'Creepster', cursive);
       color: var(--accent);
       text-shadow: 6px 6px 18px #000;
       z-index: 20;
@@ -1060,6 +1446,9 @@
       justify-content: center;
       gap: 20px;
       text-align: center;
+      flex-wrap: wrap;
+      max-width: min(96vw, 1200px);
+      margin: 0 auto;
     }
 
     #finalPreview.show {
@@ -1075,14 +1464,24 @@
       box-shadow: 0 10px 30px #000;
     }
 
+    #finalPreview.qr-ready #finalStrip {
+      max-width: min(70vw, 640px);
+      max-height: 80vh;
+    }
+
     #finalPreviewActions {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-width: min(90vw, 320px);
     }
 
     #qrCodeContainer {
       color: #fff;
       font-family: 'Comic Neue', cursive;
+      width: 100%;
+      max-width: 320px;
     }
 
     #qrCodeContainer h2 {
@@ -1092,6 +1491,8 @@
     #qrCode {
       border: 6px solid white;
       border-radius: 8px;
+      max-width: 100%;
+      height: auto;
     }
 
     #emailForm {
@@ -1229,11 +1630,22 @@
 
     .quick-picks {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 10px;
-      max-height: 220px;
+      max-height: 260px;
       overflow: hidden;
       transition: max-height 0.3s ease;
+      position: relative;
+      z-index: 0;
+    }
+
+    .quick-picks::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: #101217;
+      border-radius: 12px;
+      z-index: -1;
     }
 
     .quick-picks.expanded {
@@ -1298,6 +1710,7 @@
           <div class="section-content">
             <label for="eventSelect">Choose Event</label>
             <select id="eventSelect"></select>
+            <div id="themeQuickSelect" class="theme-quick-grid"></div>
             <label for="eventNameInput">Event Name</label>
             <input type="text" id="eventNameInput" placeholder="e.g., Halloween Dance 2025">
             <div class="btn-row">
@@ -1376,11 +1789,11 @@
           <div class="section-content">
             <div class="asset-actions">
               <button type="button" id="addBackgroundBtn">Add Background</button>
-              <button type="button" id="addOverlayBtn">Add Overlay</button>
-              <button type="button" id="addTemplateBtn">Add Template</button>
+              <button type="button" id="addOverlaysBtn">Add Overlays</button>
+              <button type="button" id="addTemplatesBtn">Add Templates</button>
               <button type="button" id="addLogoBtn">Add Logo</button>
             </div>
-            <div id="assetUploadInputs" class="hidden">
+            <div id="assetUploadInputs" class="visually-hidden">
               <input type="file" id="themeBackground" accept="image/*">
               <input type="file" id="themeLogo" accept="image/*">
               <input type="file" id="themeOverlays" accept="image/*" multiple>
@@ -1424,6 +1837,82 @@
             </div>
           </div>
         </details>
+        <details class="panel-section" open>
+          <summary>Theme Styling</summary>
+          <div class="section-content">
+            <div id="stylePreview" class="style-preview">
+              <h3 id="stylePreviewHeading" class="style-preview-heading">Welcome to the photobooth!</h3>
+              <p id="stylePreviewSubheading" class="style-preview-subheading">Event Title Sample</p>
+              <p id="stylePreviewBody" class="style-preview-body">Make every capture unforgettable.</p>
+              <button type="button" id="stylePreviewButton" class="style-preview-button">Touch to start</button>
+            </div>
+            <div class="style-grid">
+              <div class="font-section fonts-main">
+                <div class="quick-picks-header">
+                  <span>Quick Picks</span>
+                  <button type="button" id="qpToggle" class="button-ghost">show all</button>
+                </div>
+                <div id="quickPicks" class="quick-picks-grid"></div>
+                <div class="style-control-group">
+                  <label for="themeWelcomeTitle">Welcome Heading</label>
+                  <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
+                  <label for="themeWelcomePrompt">Start Button Text</label>
+                  <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
+                  <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
+                  <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
+                  <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
+                  <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
+                </div>
+                <div class="font-select-group">
+                  <label for="headingFontSelect">Heading Font</label>
+                  <select id="headingFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="bodyFontSelect">Body Font</label>
+                  <select id="bodyFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="fontPairingSelect">Pairing Suggestions</label>
+                  <select id="fontPairingSelect"></select>
+                </div>
+                <div class="color-control-group">
+                  <label for="themeAccent">Primary Accent</label>
+                  <input type="color" id="themeAccent" value="#3f51b5">
+                  <label for="themeAccent2">Secondary Accent</label>
+                  <input type="color" id="themeAccent2" value="#ffffff">
+                </div>
+              </div>
+              <div class="font-section fonts-add">
+                <h3>Add Fonts</h3>
+                <label for="addFontUrl">Google Fonts URL</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&amp;display=swap">
+                  <button type="button" onclick="addFontByUrl()">Add URL</button>
+                </div>
+                <small>Paste the full Google Fonts URL (including weights). Fonts load instantly for this device.</small>
+                <label for="addFontFamily" style="margin-top:12px; display:block;">Google Font Family (optional)</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontFamily" placeholder="e.g., Pacifico">
+                  <button type="button" onclick="addFontByFamily()">Add Family</button>
+                </div>
+                <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
+                <div class="quick-picks-add" style="margin-top:16px;">
+                  <h4>Create a pairing</h4>
+                  <form id="quickPickForm" class="quick-picks-form">
+                    <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
+                    <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
+                    <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
+                    <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
+                    <button type="submit" id="addPairingBtn">Add Pairing</button>
+                  </form>
+                  <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
+                  <div id="customPairingsList" class="custom-pairings-list"></div>
+                </div>
+                <datalist id="fontSuggestions"></datalist>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
       <div id="toast" role="status" aria-live="polite"></div>
       <div class="admin-right panel">
@@ -1450,109 +1939,61 @@
           <input type="file" id="importZip" class="hidden" accept=".zip" onchange="handleImportZip()">
         </div>
 
-          <h3 style="margin-top:14px;">Deploy</h3>
-          <small style="display:block; color:#aaa; margin-bottom:6px;">Option A (Git projects): create a Cloudflare
-            Pages Deploy Hook and paste it here. Clicking Deploy Now will trigger a new build.</small>
-          <label for="deployHookUrl">Deploy Hook URL</label>
-          <input type="text" id="deployHookUrl"
-            placeholder="https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/...">
-          <div class="icon-tiles" style="margin-top:6px;">
-            <button class="icon-tile" onclick="triggerDeployHook()" aria-label="Deploy Now">
-              <span class="icon-glyph" aria-hidden="true">🚀</span>
-              <span class="icon-label">Deploy</span>
-            </button>
-            <button class="icon-tile" onclick="saveDeploySettings()" aria-label="Save Deploy Hook"
-              title="Save Deploy Hook">
-              <span class="icon-glyph" aria-hidden="true">💾</span>
-              <span class="icon-label">Save</span>
-            </button>
+        <details class="admin-help">
+          <summary>Help &amp; How-To</summary>
+          <div class="admin-help-content">
+            <section class="help-block">
+              <h3>Deploy</h3>
+              <small>Option A (Git projects): create a Cloudflare Pages Deploy Hook and paste it here. Clicking Deploy
+                Now will trigger a new build.</small>
+              <label for="deployHookUrl" class="help-field">
+                Deploy Hook URL
+                <input type="text" id="deployHookUrl"
+                  placeholder="https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/...">
+              </label>
+              <div class="icon-tiles" style="margin-top:6px;">
+                <button class="icon-tile" onclick="triggerDeployHook()" aria-label="Deploy Now">
+                  <span class="icon-glyph" aria-hidden="true">🚀</span>
+                  <span class="icon-label">Deploy</span>
+                </button>
+                <button class="icon-tile" onclick="saveDeploySettings()" aria-label="Save Deploy Hook"
+                  title="Save Deploy Hook">
+                  <span class="icon-glyph" aria-hidden="true">💾</span>
+                  <span class="icon-label">Save</span>
+                </button>
+              </div>
+            </section>
+            <details class="help-block">
+              <summary>How to enable one-click deploy (Git)</summary>
+              <ol>
+                <li>Cloudflare → Pages → your Git project → Settings → Build &amp; deploy.</li>
+                <li>Framework preset: None.</li>
+                <li>Build command: <code id="buildCmdText">npm ci &amp;&amp; node tools/update-manifests.js &amp;&amp; echo skip</code> <button
+                    type="button" onclick="copyBuildCmd()">Copy</button></li>
+                <li>Build output directory: <code>.</code></li>
+                <li>Settings → Deploy Hooks → Create hook → copy URL and paste above → Save.</li>
+                <li>Click “Deploy Now” anytime to rebuild + publish.</li>
+              </ol>
+            </details>
+            <details class="help-block">
+              <summary>Direct upload (no Git)</summary>
+              <div>
+                <p>Run this one command from the project folder:</p>
+                <p><code id="shipCmdText">npm run ship</code> <button type="button" onclick="copyShipCmd()">Copy</button></p>
+                <p>It rebuilds manifests and deploys to your Pages project.</p>
+                <p>Prefer a desktop button? In Finder, right‑click <code>Ship.command</code> → Open. First time run: <code>chmod +x Ship.command</code>. Drag it to the Dock or make an alias.</p>
+              </div>
+            </details>
+            <details class="help-block">
+              <summary>QR / Email (Cloudinary)</summary>
+              <p>Enter Cloudinary Cloud Name + Unsigned Upload Preset in Admin → Email/Cloudinary, check “Use Cloudinary for share links”, then Save. QR will always point to a public URL.</p>
+            </details>
+            <details class="help-block">
+              <summary>After deploy</summary>
+              <p>Hard refresh the app (DevTools → Application → Service Workers → Unregister → reload). If you added files, click “Make Available Offline” to recache.</p>
+            </details>
           </div>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">How to enable one‑click deploy (Git)</summary>
-            <ol style="margin:6px 0 0 16px; color:#bbb;">
-              <li>Cloudflare → Pages → your Git project → Settings → Build & deploy.</li>
-              <li>Framework preset: None.</li>
-              <li>Build command: <code
-                  id="buildCmdText">npm ci &amp;&amp; node tools/update-manifests.js &amp;&amp; echo skip</code> <button
-                  type="button" onclick="copyBuildCmd()">Copy</button></li>
-              <li>Build output directory: <code>.</code></li>
-              <li>Then: Settings → Deploy Hooks → Create hook → Copy URL and paste above → Save.</li>
-              <li>Now click “Deploy Now” here anytime to rebuild + publish.</li>
-            </ol>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">Direct Upload (no Git)</summary>
-            <div style="color:#bbb; margin-left:16px;">
-              <div>Run this one command from the project folder:</div>
-              <div style="margin-top:4px;"><code id="shipCmdText">npm run ship</code> <button type="button"
-                  onclick="copyShipCmd()">Copy</button></div>
-              <div style="margin-top:6px;">It rebuilds manifests and deploys to your Pages project.</div>
-              <div style="margin-top:8px;">Prefer a desktop button? In Finder, right‑click <code>Ship.command</code> in
-                this folder → Open. The first time, run this once in Terminal: <code>chmod +x Ship.command</code>. You
-                can drag it to the Dock or make an alias on the Desktop.</div>
-            </div>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">QR/Email (Cloudinary)</summary>
-            <div style="color:#bbb; margin-left:16px;">
-              Enter Cloudinary Cloud Name + Unsigned Upload Preset in Admin → Email/Cloudinary, check “Use Cloudinary
-              for share links”, then Save. QR will always point to a public URL.
-            </div>
-          </details>
-          <details style="margin-top:8px;">
-            <summary style="cursor:pointer; color:#ddd;">After deploy</summary>
-            <div style="color:#bbb; margin-left:16px;">Hard refresh the app (DevTools → Application → Service Workers →
-              Unregister → reload). If you added files, click “Make Available Offline” to recache.</div>
-          </details>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Font Library</h2>
-        <div class="font-picker">
-          <div class="font-row">
-            <label for="headingFont">Heading Font</label>
-            <select id="headingFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="headingPreview" class="font-preview font-heading">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-row">
-            <label for="bodyFont">Body Font</label>
-            <select id="bodyFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="bodyPreview" class="font-preview font-body">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-row">
-            <label for="pairings">Recommended Pairings</label>
-            <select id="pairings">
-              <option value="">Loading…</option>
-            </select>
-          </div>
-          <div>
-            <div class="font-quick-header">
-              <span>Quick Picks</span>
-              <button type="button" id="qpToggle" class="font-quick-toggle">show all</button>
-            </div>
-            <div id="quickPicks" class="quick-picks"></div>
-          </div>
-        </div>
-        <hr class="font-divider">
-        <h3 style="margin-top:8px;">Add Custom Fonts</h3>
-        <label for="addFontFamily">Google Font Family:</label>
-        <input type="text" id="addFontFamily" placeholder="e.g., Pacifico"><button onclick="addFontByFamily()">Add</button><br />
-        <small>Tip: enter a Google Fonts family name (weights default).</small><br />
-        <label for="addFontUrl">Google Fonts URL:</label>
-        <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&display=swap"
-          style="width:60%"><button onclick="addFontByUrl()">Add URL</button>
-        <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
-      </div>
+        </details>
     </div>
   </div>
 
@@ -1584,6 +2025,14 @@
           </div>
           <span>Photo Strip</span>
         </button>
+        <div id="zoomControl" class="hidden">
+          <div class="zoom-header">
+            <span>Zoom</span>
+            <span id="zoomValue">1.0x</span>
+          </div>
+          <input type="range" id="zoomSlider" min="1" max="2" step="0.01" value="1" disabled>
+          <p id="zoomHint">Adjust framing without moving the booth.</p>
+        </div>
       </div>
     </div>
     <div id="countdownOverlay"></div>
