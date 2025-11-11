@@ -229,6 +229,8 @@ const DOM = {
   boothControls: document.getElementById("controls"),
   eventSelect: document.getElementById("eventSelect"),
   allowRetakes: document.getElementById("allowRetakes"),
+  boomerangDurationInput: document.getElementById("boomerangDuration"),
+  video360DurationInput: document.getElementById("video360Duration"),
   analyticsData: document.getElementById("analyticsData"),
   logo: document.getElementById("logo"),
   eventTitle: document.getElementById("eventTitle"),
@@ -242,6 +244,7 @@ const DOM = {
   zoomValue: document.getElementById("zoomValue"),
   zoomHint: document.getElementById("zoomHint"),
   captureBtn: document.getElementById("captureBtn"),
+  modeDurationHint: document.getElementById("modeDurationHint"),
   countdownOverlay: document.getElementById("countdownOverlay"),
   flashOverlay: document.getElementById("flashOverlay"),
   finalPreview: document.getElementById("finalPreview"),
@@ -392,6 +395,15 @@ let zoomState = {
   step: 0.01,
   value: DEFAULT_ZOOM_VALUE,
 };
+const MODE_DURATION_STORAGE_KEY = "photoboothModeDurations";
+const DEFAULT_MODE_DURATIONS = { boomerang: 6, video360: 12 };
+const MODE_LABELS = {
+  photo: "Single Photo",
+  strip: "Photo Strip",
+  boomerang: "Boomerang",
+  video360: "360 Video",
+};
+let modeDurations = loadModeDurations();
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
 function withBust(src) {
@@ -401,6 +413,182 @@ function withBust(src) {
   } catch (_) {
     return src;
   }
+}
+
+function sanitizeDuration(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  const clamped = Math.min(600, Math.max(1, num));
+  const rounded = Math.round(clamped * 10) / 10;
+  return rounded;
+}
+
+function loadModeDurations() {
+  const result = {};
+  for (const [key, val] of Object.entries(DEFAULT_MODE_DURATIONS)) {
+    const sanitized = sanitizeDuration(val);
+    result[key] = sanitized;
+  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem(MODE_DURATION_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          for (const [key, val] of Object.entries(parsed)) {
+            if (val === null) {
+              result[key] = null;
+            } else {
+              result[key] = sanitizeDuration(val);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to load mode durations", err);
+  }
+  return result;
+}
+
+function saveModeDurations() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const payload = {};
+    if (modeDurations && typeof modeDurations === "object") {
+      for (const [key, val] of Object.entries(modeDurations)) {
+        if (val === null) {
+          payload[key] = null;
+          continue;
+        }
+        const sanitized = sanitizeDuration(val);
+        if (sanitized === null) {
+          payload[key] = null;
+          continue;
+        }
+        const defaultVal = sanitizeDuration(DEFAULT_MODE_DURATIONS[key]);
+        if (
+          defaultVal !== null &&
+          Math.abs(defaultVal - sanitized) < 1e-9
+        ) {
+          continue; // avoid storing defaults explicitly
+        }
+        payload[key] = sanitized;
+      }
+    }
+    localStorage.setItem(MODE_DURATION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("Failed to save mode durations", err);
+  }
+}
+
+function getModeDurationSeconds(modeKey) {
+  if (!modeDurations || typeof modeDurations !== "object") {
+    modeDurations = loadModeDurations();
+  }
+  if (
+    modeDurations &&
+    Object.prototype.hasOwnProperty.call(modeDurations, modeKey)
+  ) {
+    return sanitizeDuration(modeDurations[modeKey]);
+  }
+  return sanitizeDuration(DEFAULT_MODE_DURATIONS[modeKey]);
+}
+
+function updateModeDurationInputs() {
+  const applyValue = (input, modeKey) => {
+    if (!input) return;
+    const raw =
+      modeDurations && Object.prototype.hasOwnProperty.call(modeDurations, modeKey)
+        ? modeDurations[modeKey]
+        : DEFAULT_MODE_DURATIONS[modeKey];
+    const sanitized = sanitizeDuration(raw);
+    if (sanitized === null) {
+      input.value = "";
+    } else {
+      input.value = sanitized;
+    }
+  };
+  applyValue(DOM.boomerangDurationInput, "boomerang");
+  applyValue(DOM.video360DurationInput, "video360");
+}
+
+function setModeDuration(modeKey, seconds, options = {}) {
+  if (!modeDurations || typeof modeDurations !== "object") {
+    modeDurations = loadModeDurations();
+  }
+  const sanitized = sanitizeDuration(seconds);
+  if (sanitized === null) {
+    modeDurations[modeKey] = null;
+  } else {
+    modeDurations[modeKey] = sanitized;
+  }
+  if (options.save !== false) {
+    saveModeDurations();
+  }
+  updateModeDurationInputs();
+  updateModeDurationHint();
+  return sanitized;
+}
+
+function formatDuration(seconds) {
+  const value = sanitizeDuration(seconds);
+  if (value === null) return "";
+  if (value >= 60) {
+    const minutes = Math.floor(value / 60);
+    const remainderRaw = Math.round((value - minutes * 60) * 10) / 10;
+    if (remainderRaw === 0) return `${minutes}m`;
+    if (Math.abs(remainderRaw - Math.round(remainderRaw)) < 1e-9)
+      return `${minutes}m ${Math.round(remainderRaw)}s`;
+    return `${minutes}m ${remainderRaw.toFixed(1)}s`;
+  }
+  if (Math.abs(value - Math.round(value)) < 1e-9) {
+    return `${Math.round(value)}s`;
+  }
+  return `${value.toFixed(1)}s`;
+}
+
+function updateModeDurationHint() {
+  const hint = DOM.modeDurationHint;
+  if (!hint) return;
+  const seconds = getModeDurationSeconds(mode);
+  if (!seconds) {
+    hint.textContent = "";
+    hint.classList.add("hidden");
+    return;
+  }
+  const label = MODE_LABELS[mode] || MODE_LABELS.photo || "";
+  const durationText = formatDuration(seconds);
+  hint.textContent = label ? `${label} • ${durationText}` : durationText;
+  hint.classList.remove("hidden");
+}
+
+function setupModeDurationControls() {
+  const pairs = [
+    { el: DOM.boomerangDurationInput, key: "boomerang" },
+    { el: DOM.video360DurationInput, key: "video360" },
+  ];
+  pairs.forEach(({ el, key }) => {
+    if (!el) return;
+    const handleInput = () => {
+      const value = el.value.trim();
+      if (!value) {
+        setModeDuration(key, null);
+        return;
+      }
+      const sanitized = setModeDuration(key, value);
+      if (sanitized === null) {
+        el.value = "";
+      } else if (sanitized !== Number(value)) {
+        el.value = sanitized;
+      }
+    };
+    el.addEventListener("change", handleInput);
+    el.addEventListener("blur", handleInput);
+  });
+  updateModeDurationInputs();
+  updateModeDurationHint();
 }
 
 const GLOBAL_LOGO_STORAGE_KEY = "photoboothGlobalLogo";
@@ -781,6 +969,7 @@ function init() {
   setupFolderPickers();
   setupCustomPairingControls();
   setupEventNameInput();
+  setupModeDurationControls();
   loadCloudinarySettings();
   setThemeEditorMode(
     DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit",
@@ -1937,9 +2126,10 @@ function applyThemeBackground(theme) {
 function setMode(m) {
   mode = m;
   DOM.videoWrap.className = "view-landscape"; // Default to landscape
-  // In photo mode, show capture button; strip mode hides it (auto flow)
-  DOM.captureBtn.style.display = mode === "photo" ? "inline-block" : "none";
-  if (mode === "photo") {
+  const showCaptureBtn = mode !== "strip";
+  if (DOM.captureBtn)
+    DOM.captureBtn.style.display = showCaptureBtn ? "inline-block" : "none";
+  if (mode === "photo" || mode === "boomerang" || mode === "video360") {
     setCaptureAspect(null);
   }
   // In strip mode, ensure no photo overlay is shown over the template preview
@@ -1948,15 +2138,17 @@ function setMode(m) {
     if (DOM.liveOverlay) DOM.liveOverlay.src = "";
   }
   renderOptions();
+  updateModeDurationHint();
 }
 function renderOptions() {
-  const isPhoto = mode === "photo";
-  const templates = isPhoto ? [] : getTemplateList(activeTheme);
-  const list = isPhoto ? getOverlayList(activeTheme) : templates;
+  const overlayModes =
+    mode === "photo" || mode === "boomerang" || mode === "video360";
+  const templates = overlayModes ? [] : getTemplateList(activeTheme);
+  const list = overlayModes ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
   container.innerHTML = "";
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
-  if (isPhoto) {
+  if (overlayModes) {
     const wrap = document.createElement("div");
     wrap.className = "thumb";
     const img = document.createElement("img");
@@ -1978,7 +2170,7 @@ function renderOptions() {
     container.appendChild(wrap);
   }
   list.forEach((srcOrObj, idx) => {
-    const src = isPhoto
+    const src = overlayModes
       ? typeof srcOrObj === "string"
         ? srcOrObj
         : srcOrObj.src
@@ -1997,7 +2189,7 @@ function renderOptions() {
         .querySelectorAll(".thumb")
         .forEach((t) => t.classList.remove("selected"));
       wrap.classList.add("selected");
-      if (isPhoto) {
+      if (overlayModes) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
         setViewOrientation(src);
@@ -7252,6 +7444,7 @@ Object.assign(window, {
   sendPendingNow,
   sendTestEmail,
   setMode,
+  setModeDuration,
   syncNow,
   toggleAnalytics,
   triggerDeployHook,

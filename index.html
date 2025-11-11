@@ -978,6 +978,37 @@
       color: #b6c1d2;
     }
 
+    .mode-duration-settings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mode-duration-settings label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85em;
+      letter-spacing: 0.03em;
+    }
+
+    .mode-duration-settings input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(12, 16, 35, 0.9);
+      color: inherit;
+      font-size: 1em;
+    }
+
+    .mode-duration-note {
+      font-size: 0.78em;
+      color: #9ea9c7;
+      margin-top: -4px;
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
@@ -986,6 +1017,28 @@
       align-items: center;
       position: relative;
       gap: 12px;
+    }
+
+    .mode-duration-hint {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent2);
+      font-size: 0.95em;
+    }
+
+    .mode-duration-hint span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     #videoContainer {
@@ -1720,6 +1773,17 @@
               <input type="checkbox" id="allowRetakes" checked>
               Allow Retakes
             </label>
+            <div class="mode-duration-settings">
+              <label for="boomerangDuration">
+                Boomerang Duration (sec)
+                <input type="number" id="boomerangDuration" min="1" max="300" step="1" placeholder="6">
+              </label>
+              <label for="video360Duration">
+                360 Video Duration (sec)
+                <input type="number" id="video360Duration" min="1" max="600" step="1" placeholder="12">
+              </label>
+            </div>
+            <p class="mode-duration-note">Displayed to guests so they know how long each capture mode runs.</p>
             <div class="btn-row">
               <button id="startCameraButton" class="primary">Start Camera</button>
               <button id="startBoothButton">Start Booth</button>
@@ -2009,6 +2073,7 @@
         <div id="videoContainer"><video id="video" class="hidden" autoplay playsinline muted></video><img
             id="lastShot" /><img id="liveOverlay" /></div>
         <button id="captureBtn" class="primary" onclick="capturePhotoFlow()">Take Photo</button>
+        <div id="modeDurationHint" class="mode-duration-hint hidden" aria-live="polite"></div>
       </div>
       <div id="controls">
         <button class="mode-btn" onclick="setMode('photo')">
