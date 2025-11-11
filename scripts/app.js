@@ -1,3 +1,5 @@
+import { captureBoomerang, captureStitched360, mediaRecorderSupported } from './booth/video.js';
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -225,6 +227,7 @@ const DOM = {
   finalPreview: document.getElementById('finalPreview'),
   finalPreviewContent: document.getElementById('finalPreviewContent'),
   finalStrip: document.getElementById('finalStrip'),
+  finalVideo: document.getElementById('finalVideo'),
   qrCodeContainer: document.getElementById('qrCodeContainer'),
   qrCode: document.getElementById('qrCode'),
   lastShot: document.getElementById('lastShot'),
@@ -348,8 +351,40 @@ let lastShareUrl = null; // Public share URL served by SW
 let demoMode = false; // Allows running from file:// without camera
 let captureAspectRatio = null; // Override capture aspect (width/height) when set
 let createThemeAssets = null; // Temporary storage for create-from-folder workflow
+let currentFinalAsset = null;
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
+
+const MODE_BEHAVIOR = {
+  photo: {
+    id: 'photo',
+    captureLabel: 'Take Photo',
+    showCaptureButton: true,
+    handler: () => capturePhotoFlow(),
+    requiresRecorder: false
+  },
+  strip: {
+    id: 'strip',
+    captureLabel: 'Take Photo',
+    showCaptureButton: false,
+    handler: () => { },
+    requiresRecorder: false
+  },
+  boomerang: {
+    id: 'boomerang',
+    captureLabel: 'Capture Boomerang',
+    showCaptureButton: true,
+    handler: () => captureBoomerangFlow(),
+    requiresRecorder: true
+  },
+  video360: {
+    id: 'video360',
+    captureLabel: 'Start 360 Capture',
+    showCaptureButton: true,
+    handler: () => captureVideo360Flow(),
+    requiresRecorder: true
+  }
+};
 function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
 
 const GLOBAL_LOGO_STORAGE_KEY = 'photoboothGlobalLogo';
@@ -1410,9 +1445,18 @@ function applyThemeBackground(theme) {
 function setMode(m) {
   mode = m;
   DOM.videoWrap.className = 'view-landscape'; // Default to landscape
-  // In photo mode, show capture button; strip mode hides it (auto flow)
-  DOM.captureBtn.style.display = (mode === 'photo') ? 'inline-block' : 'none';
-  if (mode === 'photo') {
+  const behavior = MODE_BEHAVIOR[mode] || MODE_BEHAVIOR.photo;
+  if (DOM.captureBtn) {
+    const showCapture = !!behavior.showCaptureButton;
+    DOM.captureBtn.style.display = showCapture ? 'inline-block' : 'none';
+    DOM.captureBtn.textContent = behavior.captureLabel || 'Capture';
+    DOM.captureBtn.onclick = showCapture ? () => behavior.handler() : null;
+    const requiresRecorder = showCapture && behavior.requiresRecorder;
+    const unsupported = requiresRecorder && !mediaRecorderSupported() && !demoMode;
+    DOM.captureBtn.disabled = unsupported;
+    DOM.captureBtn.title = unsupported ? 'Video capture not supported in this browser' : '';
+  }
+  if (mode === 'photo' || mode === 'boomerang' || mode === 'video360') {
     setCaptureAspect(null);
   }
   // In strip mode, ensure no photo overlay is shown over the template preview
@@ -1423,13 +1467,13 @@ function setMode(m) {
   renderOptions();
 }
 function renderOptions() {
-  const isPhoto = (mode === 'photo');
-  const templates = isPhoto ? [] : getTemplateList(activeTheme);
-  const list = isPhoto ? getOverlayList(activeTheme) : templates;
+  const overlayModes = (mode === 'photo' || mode === 'boomerang' || mode === 'video360');
+  const templates = overlayModes ? [] : getTemplateList(activeTheme);
+  const list = overlayModes ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
   container.innerHTML = '';
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
-  if (isPhoto) {
+  if (overlayModes) {
     const wrap = document.createElement('div');
     wrap.className = 'thumb';
     const img = document.createElement('img');
@@ -1462,7 +1506,7 @@ function renderOptions() {
     wrap.onclick = async () => {
       container.querySelectorAll('.thumb').forEach(t => t.classList.remove('selected'));
       wrap.classList.add('selected');
-      if (isPhoto) {
+      if (overlayModes) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
         setViewOrientation(src);
@@ -1744,6 +1788,100 @@ async function capturePhotoFlow() {
   showFinal(finalUrl);
   recordAnalytics('photo', selectedOverlay);
   addToGallery(finalUrl);
+}
+
+async function captureBoomerangFlow() {
+  lastCaptureFlow = captureBoomerangFlow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const captureFrame = async () => {
+        const frame = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+        return frame;
+      };
+      const clip = await captureBoomerang({ captureFrame });
+      const poster = clip.poster || ((clip.url || '').startsWith('data:') ? clip.url : '');
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster: poster || '',
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('boomerang', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('Boomerang capture failed', e);
+    showToast('Boomerang capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
+}
+
+async function captureVideo360Flow() {
+  lastCaptureFlow = captureVideo360Flow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode || !stream) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const clip = await captureStitched360({ stream });
+      let poster = '';
+      try {
+        const thumb = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(thumb, selectedOverlay);
+        poster = thumb.toDataURL('image/png');
+      } catch (posterErr) {
+        console.warn('Failed to capture poster frame', posterErr);
+      }
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster,
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('video360', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('360 capture failed', e);
+    showToast('Video capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
 }
 function drawToCanvasFromVideo() {
   const v = DOM.video;
@@ -2043,8 +2181,14 @@ async function showCountdown(text) {
   co.classList.remove('show');
   await delay(200);
 }
+async function runCaptureCountdown() {
+  for (let n = 3; n > 0; n--) {
+    // eslint-disable-next-line no-await-in-loop
+    await showCountdown(n);
+  }
+}
 async function countdownAndSnap() {
-  for (let n = 3; n > 0; n--) { await showCountdown(n); }
+  await runCaptureCountdown();
   const shot = drawToCanvasFromVideo();
   triggerFlash();
   return shot;
@@ -2265,11 +2409,62 @@ async function detectMaskRegions(img, hexColor, tolerance) {
 }
 
 // Final preview
-function showFinal(url) {
+function normalizeFinalAsset(input) {
+  if (!input) return null;
+  if (typeof input === 'string') {
+    const mime = input.startsWith('data:') ? input.slice(5, input.indexOf(';') > -1 ? input.indexOf(';') : undefined) : 'image/png';
+    return { type: 'image', url: input, poster: input, mimeType: mime };
+  }
+  const asset = { ...input };
+  if (!asset.type) {
+    asset.type = (asset.mimeType && asset.mimeType.startsWith('video/')) ? 'video' : 'image';
+  }
+  if (asset.type === 'image' && !asset.poster) {
+    asset.poster = asset.url;
+  }
+  return asset;
+}
+
+function showFinal(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset) return;
+  currentFinalAsset = asset;
   clearTimeout(hidePreviewTimer); // Clear any existing timer
   const img = DOM.finalStrip;
   const prevFit = img ? img.style.objectFit : '';
   if (img) img.style.objectFit = 'contain';
+  if (img && asset.type === 'image') {
+    img.classList.remove('hidden');
+    img.style.display = 'block';
+    img.src = asset.url;
+  } else if (img) {
+    img.style.display = asset.poster ? 'block' : 'none';
+    if (asset.poster) img.src = asset.poster;
+    img.classList.add('hidden');
+  }
+  const videoEl = DOM.finalVideo;
+  if (videoEl) {
+    if (asset.type === 'video') {
+      videoEl.classList.remove('hidden');
+      videoEl.style.display = 'block';
+      try { videoEl.pause(); } catch (_) { }
+      videoEl.removeAttribute('src');
+      videoEl.load();
+      videoEl.src = asset.url;
+      if (asset.poster) videoEl.poster = asset.poster; else videoEl.removeAttribute('poster');
+      videoEl.loop = true;
+      videoEl.muted = true;
+      videoEl.controls = true;
+      videoEl.load();
+      try { videoEl.play().catch(() => { }); } catch (_) { }
+    } else {
+      try { videoEl.pause(); } catch (_) { }
+      videoEl.classList.add('hidden');
+      videoEl.style.display = 'none';
+      videoEl.removeAttribute('src');
+      videoEl.load();
+    }
+  }
   const qrContainer = DOM.qrCodeContainer;
   const qrCanvas = DOM.qrCode;
   const panel = DOM.finalPreview;
@@ -2284,7 +2479,6 @@ function showFinal(url) {
   DOM.retakeBtn.disabled = !lastCaptureFlow;
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = 'block';
 
-  img.src = url;
   const offline = offlineModeActive();
   // Default: hide QR/link until we have a public URL
   if (qrContainer) qrContainer.classList.add('hidden');
@@ -2295,7 +2489,7 @@ function showFinal(url) {
     // Prepare a public Cloudinary link, then show QR when ready
     lastShareUrl = null;
     if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Preparing link…'; DOM.shareStatus.style.display = 'inline-flex'; }
-    publishShareImage(url).then((publicUrl) => {
+    publishShareAsset(asset).then((publicUrl) => {
       lastShareUrl = (publicUrl && /^https?:/i.test(publicUrl)) ? publicUrl : null;
       if (lastShareUrl) {
         renderQrCode(qrCanvas, lastShareUrl);
@@ -2386,35 +2580,55 @@ function exportCurrentEvent() {
   showToast('Event exported');
 }
 
-async function publishShareImage(dataUrl) {
-  // Convert data URL to Blob once
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
+async function publishShareAsset(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return null;
+  let blob = asset.blob || null;
+  if (!blob) {
+    try {
+      const response = await fetch(asset.url);
+      blob = await response.blob();
+    } catch (e) {
+      console.warn('Failed to fetch asset for sharing', e);
+      return null;
+    }
+  }
 
-  // 1) Prefer Cloudinary if configured (cross-device HTTPS link)
+  const isVideo = asset.type === 'video' || (blob.type && blob.type.startsWith('video/'));
   const cfg = getCloudinaryConfig();
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
       const form = new FormData();
-      // Provide a meaningful filename so Cloudinary can use it as the base public_id
       const evSlug = (typeof getCurrentEventSlug === 'function') ? getCurrentEventSlug() : '';
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const baseName = `${evSlug || 'photo'}-${ts}.png`;
-      const file = new File([blob], baseName, { type: blob.type || 'image/png' });
+      const base = (cfg.folderBase || 'photobooth/events').replace(/\/$/, '');
+      const ext = (() => {
+        if (blob.type) {
+          const parts = blob.type.split('/');
+          if (parts[1]) return parts[1].split(';')[0];
+        }
+        return isVideo ? 'webm' : 'png';
+      })();
+      const baseName = `${evSlug || 'capture'}-${ts}.${ext}`;
+      const file = new File([blob], baseName, { type: blob.type || (isVideo ? 'video/webm' : 'image/png') });
       form.append('file', file);
       form.append('upload_preset', cfg.preset);
-      // Put each event's images into its own folder
-      const base = (cfg.folderBase || 'photobooth/events').replace(/\/$/, '');
       if (evSlug) form.append('folder', `${base}/${evSlug}`);
-      const resp = await fetch(`https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`, { method: 'POST', body: form });
+      const resourceType = isVideo ? 'video' : 'image';
+      const endpoint = `https://api.cloudinary.com/v1_1/${cfg.cloud}/${resourceType}/upload`;
+      const resp = await fetch(endpoint, { method: 'POST', body: form });
       const json = await resp.json();
       if (json && json.secure_url) return json.secure_url;
     } catch (e) { console.warn('Cloudinary upload failed', e); }
   }
 
-  // 2) Otherwise try Service Worker (works on same device/origin after SW installs)
   if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return null;
-  try { await Promise.race([navigator.serviceWorker.ready, new Promise((_, rej) => setTimeout(() => rej(new Error('sw-timeout')), 2000))]); } catch (_e) { }
+  try {
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('sw-timeout')), 2000))
+    ]);
+  } catch (_e) { }
   const reg = await navigator.serviceWorker.getRegistration();
   const active = reg?.active || navigator.serviceWorker.controller;
   if (!active) return null;
@@ -2428,8 +2642,13 @@ async function publishShareImage(dataUrl) {
   return null;
 }
 
+function getActiveAsset() {
+  return normalizeFinalAsset(currentFinalAsset);
+}
+
 async function openShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
     // Ensure the asset is retrievable (esp. right after SW publish) and open a stable blob URL
@@ -2446,7 +2665,12 @@ async function openShareLink() {
   }
 }
 async function copyShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
+  if (!url) {
+    showToast('No link available');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(url);
     showToast('Link copied');
@@ -2454,8 +2678,9 @@ async function copyShareLink() {
     showToast('Copy failed');
   }
 }
-async function downloadShareImage() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+async function downloadShareAsset() {
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
     const resp = await fetch(url, { cache: 'reload' });
@@ -2464,7 +2689,17 @@ async function downloadShareImage() {
     const objUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objUrl;
-    a.download = 'photobooth.png';
+    const isVideo = asset && asset.type === 'video';
+    const ext = (() => {
+      const mime = (asset && asset.mimeType) || (blob && blob.type) || '';
+      if (mime.includes('mp4')) return 'mp4';
+      if (mime.includes('webm')) return 'webm';
+      if (mime.includes('gif')) return 'gif';
+      if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
+      if (mime.includes('png')) return 'png';
+      return isVideo ? 'webm' : 'png';
+    })();
+    a.download = `photobooth.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2482,10 +2717,17 @@ function hideFinal() {
   if (DOM.shareStatus) DOM.shareStatus.style.display = 'none';
   DOM.retakeBtn.style.display = 'none';
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = 'none';
+  if (DOM.finalVideo) {
+    try { DOM.finalVideo.pause(); } catch (_) { }
+    DOM.finalVideo.removeAttribute('src');
+    DOM.finalVideo.load();
+    DOM.finalVideo.classList.add('hidden');
+  }
   lastCaptureFlow = null; // Clear the stored flow
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
   resetIdleTimer();
+  currentFinalAsset = null;
 }
 
 function retakePhoto() {
@@ -2497,10 +2739,26 @@ function retakePhoto() {
 function exitFinalPreview() {
   hideFinal();
 }
-function addToGallery(url) {
-  const img = new Image();
-  img.src = url;
-  DOM.gallery.appendChild(img);
+function addToGallery(assetOrUrl) {
+  if (!DOM.gallery) return;
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return;
+  if (asset.type === 'video') {
+    const video = document.createElement('video');
+    video.src = asset.url;
+    if (asset.poster) video.poster = asset.poster;
+    video.muted = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.controls = false;
+    video.className = 'gallery-video';
+    DOM.gallery.appendChild(video);
+  } else {
+    const img = new Image();
+    img.src = asset.url;
+    DOM.gallery.appendChild(img);
+  }
 }
 
 function cancelHideTimer() {
@@ -2521,12 +2779,13 @@ function sendEmail(event) {
   cancelHideTimer();
   const email = DOM.emailInput.value;
   const sendBtn = DOM.sendBtn;
-  const imgUrl = DOM.finalStrip && DOM.finalStrip.src;
+  const asset = getActiveAsset();
+  const imgUrl = asset ? (asset.poster || (asset.type === 'image' ? asset.url : '')) : '';
   const offline = offlineModeActive();
 
   if (offline) {
     // Queue locally for later sending
-    const ok = queuePendingEmail(email, imgUrl);
+    const ok = queuePendingEmail(email, asset);
     if (ok) {
       sendBtn.textContent = 'Queued';
       updatePendingUI();
@@ -2543,7 +2802,7 @@ function sendEmail(event) {
   const cfg = getEmailJsConfig();
   const templateParams = {
     to_email: email,
-    photo_url: lastShareUrl || imgUrl,
+    photo_url: lastShareUrl || (asset && asset.type === 'video' ? imgUrl : (asset && asset.url)) || imgUrl,
     link_url: lastShareUrl || '',
     image_data_url: imgUrl
   };
@@ -2603,10 +2862,19 @@ function getOfflinePref() { return localStorage.getItem('offlineMode') === 'true
 function setOfflinePref(v) { localStorage.setItem('offlineMode', v ? 'true' : 'false'); }
 function getPending() { try { return JSON.parse(localStorage.getItem('photoboothPending') || '[]'); } catch (_) { return []; } }
 function setPending(arr) { localStorage.setItem('photoboothPending', JSON.stringify(arr || [])); }
-function queuePendingEmail(email, dataUrl) {
+function queuePendingEmail(email, asset) {
   try {
     const q = getPending();
-    q.push({ id: Date.now().toString(36), email, image: dataUrl, createdAt: new Date().toISOString(), event: DOM.eventSelect && DOM.eventSelect.value });
+    const normalized = normalizeFinalAsset(asset);
+    const imageData = normalized ? (normalized.type === 'image' ? normalized.url : (normalized.poster || '')) : '';
+    q.push({
+      id: Date.now().toString(36),
+      email,
+      image: imageData,
+      assetType: normalized ? normalized.type : 'image',
+      createdAt: new Date().toISOString(),
+      event: DOM.eventSelect && DOM.eventSelect.value
+    });
     setPending(q); return true;
   } catch (e) { return false; }
 }
@@ -2631,7 +2899,10 @@ async function sendPendingNow() {
     try {
       // Try to publish to Cloudinary/SW for a link if available
       let share = null;
-      try { share = await publishShareImage(item.image); } catch (_) { }
+      try {
+        const pendingAsset = item.image ? { type: 'image', url: item.image, poster: item.image } : null;
+        if (pendingAsset) share = await publishShareAsset(pendingAsset);
+      } catch (_) { }
       const params = {
         to_email: item.email,
         photo_url: share || item.image,
@@ -5260,13 +5531,15 @@ Object.assign(window, {
   appendEmailText,
   cancelHideTimer,
   capturePhotoFlow,
+  captureBoomerangFlow,
+  captureVideo360Flow,
   clearAnalytics,
   closeConfirm,
   confirmTemplate,
   copyBuildCmd,
   copyShareLink,
   copyShipCmd,
-  downloadShareImage,
+  downloadShareAsset,
   exitFinalPreview,
   exportCurrentEvent,
   exportThemes,

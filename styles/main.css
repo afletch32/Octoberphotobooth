@@ -778,11 +778,16 @@
       background: rgba(0, 0, 0, 0.6);
     }
 
-    #gallery img {
+    #gallery img,
+    #gallery .gallery-video {
       max-width: 120px;
       margin: 5px;
       border-radius: 6px;
       border: 2px solid #fff;
+    }
+
+    #gallery .gallery-video {
+      background: #000;
     }
 
     /* Welcome */
@@ -1095,12 +1100,17 @@
       pointer-events: auto;
     }
 
-    #finalStrip {
+    #finalStrip,
+    #finalVideo {
       max-height: 92vh;
       max-width: 92vw;
       border: 8px solid #fff;
       border-radius: 12px;
       box-shadow: 0 10px 30px #000;
+    }
+
+    #finalVideo {
+      background: #000;
     }
 
     #finalPreviewActions {
@@ -1152,7 +1162,8 @@
         gap: 18px;
       }
 
-      #finalStrip {
+      #finalStrip,
+      #finalVideo {
         max-width: 88vw;
       }
 
@@ -1177,7 +1188,8 @@
         padding: 12px;
       }
 
-      #finalStrip {
+      #finalStrip,
+      #finalVideo {
         border-width: 6px;
       }
 

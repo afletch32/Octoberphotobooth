@@ -1783,7 +1783,7 @@
       <div id="videoWrap" class="view-landscape">
         <div id="videoContainer"><video id="video" class="hidden" autoplay playsinline muted></video><img
             id="lastShot" /><img id="liveOverlay" /></div>
-        <button id="captureBtn" class="primary" onclick="capturePhotoFlow()">Take Photo</button>
+        <button id="captureBtn" class="primary">Take Photo</button>
       </div>
       <div id="controls">
         <button class="mode-btn" onclick="setMode('photo')">
@@ -1800,6 +1800,22 @@
           </div>
           <span>Photo Strip</span>
         </button>
+        <button class="mode-btn" onclick="setMode('boomerang')">
+          <div class="mode-btn-icon">
+            <div class="photo-rep"></div>
+            <div class="photo-rep"></div>
+          </div>
+          <span>Boomerang</span>
+        </button>
+        <button class="mode-btn" onclick="setMode('video360')">
+          <div class="mode-btn-icon">
+            <div class="photo-rep"></div>
+            <div class="photo-rep"></div>
+            <div class="photo-rep"></div>
+            <div class="photo-rep"></div>
+          </div>
+          <span>360 Video</span>
+        </button>
       </div>
     </div>
     <div id="countdownOverlay"></div>
@@ -1807,6 +1823,7 @@
     <div id="finalPreview">
       <div id="finalPreviewContent">
         <img id="finalStrip" />
+        <video id="finalVideo" class="hidden" playsinline loop muted controls></video>
         <div id="finalPreviewActions">
           <div id="qrCodeContainer" class="hidden">
             <h2 style="display:flex; align-items:center; gap:10px;">Scan to Download <span id="shareStatus"
@@ -1819,7 +1836,7 @@
                 style="color: var(--accent2); word-break: break-all;"></a>
               <button type="button" onclick="openShareLink()">Open</button>
               <button type="button" onclick="copyShareLink()">Copy</button>
-              <button type="button" onclick="downloadShareImage()">Download</button>
+              <button type="button" onclick="downloadShareAsset()">Download</button>
             </div>
             <form id="emailForm" onsubmit="sendEmail(event)">
               <input type="email" id="emailInput" placeholder="your@email.com" required onfocus="cancelHideTimer()"
