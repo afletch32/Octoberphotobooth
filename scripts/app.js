@@ -1,3 +1,5 @@
+import { applyEnhancements } from './photoEnhancer.js';
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
@@ -528,6 +530,16 @@ function setupEventNameInput() {
       DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
     }
   });
+}
+
+function enhanceCapturedCanvas(canvas) {
+  try {
+    const enhanced = applyEnhancements(canvas);
+    return enhanced || canvas;
+  } catch (err) {
+    console.warn('Enhancement pipeline failed', err);
+    return canvas;
+  }
 }
 
 function init() {
@@ -1633,7 +1645,8 @@ async function capturePhotoFlow() {
   lastCaptureFlow = capturePhotoFlow; // Store this function for retake
   setBoothControlsVisible(false);
   const photo = await countdownAndSnap();
-  const finalUrl = await finalizeToPrint(photo, selectedOverlay);
+  const enhancedPhoto = enhanceCapturedCanvas(photo);
+  const finalUrl = await finalizeToPrint(enhancedPhoto, selectedOverlay);
   showFinal(finalUrl);
   recordAnalytics('photo', selectedOverlay);
   addToGallery(finalUrl);
@@ -1902,11 +1915,12 @@ async function runStripSequence(template) {
   for (let i = 0; i < 3; i++) {
     if (lastShotImg) lastShotImg.style.display = 'none';
     const snap = await countdownAndSnap();
-    shots.push(snap);
+    const enhancedSnap = enhanceCapturedCanvas(snap);
+    shots.push(enhancedSnap);
     if (i < 2) {
       try {
         if (lastShotImg) {
-          lastShotImg.src = snap.toDataURL('image/png');
+          lastShotImg.src = (enhancedSnap || snap).toDataURL('image/png');
           lastShotImg.style.display = 'block';
           await delay(1200);
           lastShotImg.style.display = 'none';
