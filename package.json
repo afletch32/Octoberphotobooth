@@ -6,6 +6,7 @@
     "update-manifests": "node tools/update-manifests.js",
     "update-manifests:hawks": "node tools/update-manifests.js assets/Hawks",
     "deploy": "node tools/deploy.js",
-    "ship": "node tools/update-manifests.js && node tools/deploy.js"
+    "ship": "node tools/update-manifests.js && node tools/deploy.js",
+    "test": "node tools/run-tests.js"
   }
 }
