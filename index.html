@@ -1713,6 +1713,19 @@
             <div id="themeQuickSelect" class="theme-quick-grid"></div>
             <label for="eventNameInput">Event Name</label>
             <input type="text" id="eventNameInput" placeholder="e.g., Halloween Dance 2025">
+            <label for="eventGalleryNameInput">Gallery Name</label>
+            <input type="text" id="eventGalleryNameInput" placeholder="e.g., Halloween Dance Gallery">
+            <label for="eventSlugInput">Gallery Folder</label>
+            <input type="text" id="eventSlugInput" placeholder="e.g., halloween-dance-2025">
+            <div id="galleryHistoryWrapper" class="hidden">
+              <label for="galleryHistorySelect">Saved Galleries</label>
+              <select id="galleryHistorySelect">
+                <option value="">Select a saved gallery…</option>
+              </select>
+              <p style="margin:4px 0 0; font-size:0.85em; opacity:0.75;">
+                Choosing a saved gallery updates the name and folder fields.
+              </p>
+            </div>
             <div class="btn-row">
               <button type="button" onclick="exportCurrentEvent()">Export Event</button>
             </div>
