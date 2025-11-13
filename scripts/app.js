@@ -2180,14 +2180,6 @@ function confirmTemplate() {
 
 // Welcome control
 function ensureActiveTheme(preferredKey) {
-  if (activeTheme) return activeTheme;
-
-  const attemptLoad = (key) => {
-    if (!key) return null;
-    loadTheme(key);
-    return activeTheme || null;
-  };
-
   const selectValue = (DOM.eventSelect && DOM.eventSelect.value) || null;
   const candidateKeys = [];
   if (preferredKey) candidateKeys.push(preferredKey);
@@ -2198,6 +2190,28 @@ function ensureActiveTheme(preferredKey) {
     candidateKeys.push(defaultResolved);
   if (DEFAULT_THEME_KEY && !candidateKeys.includes(DEFAULT_THEME_KEY))
     candidateKeys.push(DEFAULT_THEME_KEY);
+
+  const attemptLoad = (key) => {
+    if (!key) return null;
+    loadTheme(key);
+    return activeTheme || null;
+  };
+
+  if (activeTheme) {
+    const matchesActive = candidateKeys.some((key) => {
+      const resolved = resolveThemeByKey(key);
+      return resolved && resolved === activeTheme;
+    });
+    if (matchesActive) return activeTheme;
+
+    for (const key of candidateKeys) {
+      const resolved = resolveThemeByKey(key);
+      if (resolved && resolved !== activeTheme) {
+        loadTheme(key);
+        return activeTheme;
+      }
+    }
+  }
 
   for (const key of candidateKeys) {
     if (attemptLoad(key)) return activeTheme;
