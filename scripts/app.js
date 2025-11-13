@@ -205,6 +205,7 @@ const DEFAULT_WELCOME_TITLE_SIZE = 3.4;
 
 const BUILTIN_THEMES = JSON.parse(JSON.stringify(themes));
 const DEFAULT_THEME_KEY = "general:basic";
+const LAST_THEME_STORAGE_KEY = "photoboothLastTheme";
 const BUILTIN_THEME_LOCATIONS = (() => {
   const map = {};
   for (const rootKey of Object.keys(BUILTIN_THEMES)) {
@@ -469,6 +470,7 @@ function handleEventSelectChange(event) {
   if (DOM.eventNameInput) {
     DOM.eventNameInput.value = getStoredEventName(key) || "";
   }
+  setStoredThemePreference(key);
   updateThemeEditorSummary();
 }
 
@@ -800,9 +802,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (e) {
     console.warn("Font picker setup failed", e);
   }
-  const initialKey = populateThemeSelector(DEFAULT_THEME_KEY);
+  const initialPreferred = getStoredThemePreference() || DEFAULT_THEME_KEY;
+  const initialKey = populateThemeSelector(initialPreferred);
   if (initialKey) {
     loadTheme(initialKey);
+    setStoredThemePreference(initialKey);
   }
   goAdmin(); // Start on admin screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
@@ -897,9 +901,11 @@ async function loadThemesRemote() {
     if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
     localStorage.setItem("photoboothThemes", JSON.stringify(themes));
     // Refresh UI if already initialized
-    const selected = populateThemeSelector(DEFAULT_THEME_KEY);
+    const preferredKey = getStoredThemePreference() || DEFAULT_THEME_KEY;
+    const selected = populateThemeSelector(preferredKey);
     if (selected) {
       loadTheme(selected);
+      setStoredThemePreference(selected);
     }
     updateSyncStatus("Synced from server");
   } catch (_) {}
@@ -1208,10 +1214,12 @@ function populateThemeSelector(preferredKey, attempt = 0) {
     return null;
   }
   renderThemeQuickSelect(select);
-  const resolved = resolvePreferredThemeKey(preferredKey);
+  const storedPreferred = preferredKey || getStoredThemePreference();
+  const resolved = resolvePreferredThemeKey(storedPreferred);
   if (resolved && !setEventSelection(resolved) && select.options.length > 0) {
     select.selectedIndex = 0;
   }
+  if (select.value) setStoredThemePreference(select.value);
   const selectedKey = (DOM.eventSelect && DOM.eventSelect.value) || null;
   highlightThemeQuickSelect(selectedKey);
   updateThemeEditorSummary();
@@ -2179,8 +2187,55 @@ function confirmTemplate() {
 }
 
 // Welcome control
-function showWelcome() {
-  if (!activeTheme) return;
+function ensureActiveTheme(preferredKey) {
+  if (activeTheme) return activeTheme;
+
+  const attemptLoad = (key) => {
+    if (!key) return null;
+    loadTheme(key);
+    return activeTheme || null;
+  };
+
+  const selectValue = (DOM.eventSelect && DOM.eventSelect.value) || null;
+  const candidateKeys = [];
+  if (preferredKey) candidateKeys.push(preferredKey);
+  if (selectValue && !candidateKeys.includes(selectValue))
+    candidateKeys.push(selectValue);
+  const storedPreference = getStoredThemePreference();
+  if (storedPreference && !candidateKeys.includes(storedPreference))
+    candidateKeys.push(storedPreference);
+  const defaultResolved = resolvePreferredThemeKey(DEFAULT_THEME_KEY);
+  if (defaultResolved && !candidateKeys.includes(defaultResolved))
+    candidateKeys.push(defaultResolved);
+  if (DEFAULT_THEME_KEY && !candidateKeys.includes(DEFAULT_THEME_KEY))
+    candidateKeys.push(DEFAULT_THEME_KEY);
+
+  for (const key of candidateKeys) {
+    if (attemptLoad(key)) {
+      if (DOM.eventSelect && DOM.eventSelect.value !== key)
+        setEventSelection(key);
+      setStoredThemePreference(key);
+      return activeTheme;
+    }
+  }
+
+  console.warn("No active theme was loaded; restoring built-in themes.");
+  resetThemesToBuiltins("no active theme available");
+  ensureBuiltinThemes();
+  try {
+    normalizeAllThemes();
+  } catch (_e) {}
+  const selected = populateThemeSelector(DEFAULT_THEME_KEY);
+  if (selected && attemptLoad(selected)) {
+    if (DOM.eventSelect && DOM.eventSelect.value !== selected)
+      setEventSelection(selected);
+    setStoredThemePreference(selected);
+  }
+  return activeTheme || null;
+}
+
+function showWelcome(preferredKey) {
+  if (!ensureActiveTheme(preferredKey)) return;
   // Title + prompt
   DOM.welcomeTitle.textContent =
     (activeTheme.welcome && activeTheme.welcome.title) ||
@@ -2246,8 +2301,8 @@ async function startCamera(autoStartBooth = false) {
   isStartingCamera = true;
 
   try {
-    // Load the theme first to ensure all assets and settings are ready.
-    loadTheme(DOM.eventSelect.value);
+    // Ensure a theme is active before starting camera flows.
+    ensureActiveTheme(DOM.eventSelect && DOM.eventSelect.value);
 
     // If running from file://, most browsers block camera. Offer Demo Mode unless forced.
     if (
@@ -3332,6 +3387,21 @@ function getCurrentEventSlug() {
   } catch (_) {
     return "";
   }
+}
+
+function getStoredThemePreference() {
+  try {
+    return localStorage.getItem(LAST_THEME_STORAGE_KEY) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setStoredThemePreference(key) {
+  try {
+    if (key) localStorage.setItem(LAST_THEME_STORAGE_KEY, key);
+    else localStorage.removeItem(LAST_THEME_STORAGE_KEY);
+  } catch (_) {}
 }
 
 // --- Event name storage helpers ---
