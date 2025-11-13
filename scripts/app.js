@@ -102,6 +102,7 @@ const DOM = {
   welcomeScreen: document.getElementById("welcomeScreen"),
   welcomeImg: document.getElementById("welcomeImg"),
   welcomeTitle: document.getElementById("welcomeTitle"),
+  welcomeOverlay: document.getElementById("welcomeOverlay"),
   startButton: document.getElementById("startButton"),
   analytics: document.getElementById("analytics"),
   themeEditor: document.getElementById("themeEditor"),
@@ -202,6 +203,71 @@ function setBoothControlsVisible(show) {
   if (DOM.options) DOM.options.classList.toggle("hidden", hidden);
   if (DOM.boothHeader) DOM.boothHeader.classList.toggle("hidden", hidden);
   if (DOM.boothControls) DOM.boothControls.classList.toggle("hidden", hidden);
+}
+
+function isElementVisible(el) {
+  if (!el) return false;
+  const hasHiddenClass = el.classList.contains("hidden");
+  const displayValue = el.style ? el.style.display : "";
+  return !hasHiddenClass && displayValue !== "none";
+}
+
+function normalizeWelcomeTitle(title, fallback) {
+  const raw = typeof title === "string" ? title.trim() : "";
+  if (raw) return raw;
+  const fallbackText = typeof fallback === "string" ? fallback.trim() : "";
+  return fallbackText || "Welcome!";
+}
+
+function normalizeWelcomePrompt(prompt) {
+  const raw = typeof prompt === "string" ? prompt.trim() : "";
+  return raw || "Touch to start";
+}
+
+function ensureWelcomeElements(screenEl) {
+  let overlay = DOM.welcomeOverlay || document.getElementById("welcomeOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "welcomeOverlay";
+    overlay.className = "welcome-overlay";
+  }
+  if (overlay.parentElement !== screenEl) screenEl.appendChild(overlay);
+  DOM.welcomeOverlay = overlay;
+  overlay.classList.remove("hidden");
+  overlay.classList.remove("faded");
+  if (overlay.style) {
+    overlay.style.removeProperty("display");
+    overlay.style.removeProperty("opacity");
+    overlay.style.removeProperty("pointer-events");
+  }
+
+  let titleEl = DOM.welcomeTitle || document.getElementById("welcomeTitle");
+  if (!titleEl) {
+    titleEl = document.createElement("h1");
+    titleEl.id = "welcomeTitle";
+  }
+  if (titleEl.parentElement !== overlay) overlay.appendChild(titleEl);
+  DOM.welcomeTitle = titleEl;
+  titleEl.classList.remove("hidden");
+  if (titleEl.style) titleEl.style.removeProperty("display");
+
+  let startButton = DOM.startButton || document.getElementById("startButton");
+  if (!startButton) {
+    startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.id = "startButton";
+  }
+  if (startButton.parentElement !== overlay) overlay.appendChild(startButton);
+  DOM.startButton = startButton;
+  startButton.classList.add("start-button");
+  startButton.disabled = false;
+  startButton.classList.remove("hidden");
+  if (startButton.style) {
+    startButton.style.removeProperty("display");
+    startButton.style.removeProperty("pointer-events");
+  }
+
+  return { overlay, titleEl, startButton };
 }
 // --- State ---
 let activeTheme = null; // Default theme
@@ -503,7 +569,8 @@ function handleWelcomePromptInputChange() {
     activeTheme.welcome = activeTheme.welcome || {};
     activeTheme.welcome.prompt = prompt;
   }
-  if (DOM.startButton) DOM.startButton.textContent = prompt || "Touch to start";
+  const displayPrompt = normalizeWelcomePrompt(prompt);
+  if (DOM.startButton) DOM.startButton.textContent = displayPrompt;
   refreshStylePreviewText();
 }
 
@@ -1927,61 +1994,127 @@ function showWelcome() {
   const welcome = theme.welcome || {};
   const fallbackTitle =
     (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
-  if (DOM.welcomeTitle) {
-    DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
-    DOM.welcomeTitle.style.fontFamily =
-      theme.fontHeading || theme.fontBody || theme.font || "";
-  }
-  if (DOM.startButton)
-    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
-  // Mirror the booth background behind the welcome overlay and hide image slot
-  const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
-  if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
+  const screenEl = document.getElementById("welcomeScreen");
+  if (!screenEl) return;
+  DOM.welcomeScreen = screenEl;
+
+  const boothEl = document.getElementById("boothScreen");
+  if (boothEl) {
+    DOM.boothScreen = boothEl;
+  }
+
+  const adminEl = document.getElementById("adminScreen");
+  const adminVisible = isElementVisible(adminEl);
+  if (adminEl) {
+    DOM.adminScreen = adminEl;
+  }
+
+  if (!adminVisible) {
+    if (boothEl) {
+      boothEl.classList.remove("hidden");
+      if (boothEl.style) boothEl.style.removeProperty("display");
+    }
+
+    if (adminEl) {
+      adminEl.classList.add("hidden");
+      if (adminEl.style) adminEl.style.removeProperty("display");
+    }
+
+    setAdminMode(false);
+  }
+
+  let boothBg = boothEl && boothEl.style ? boothEl.style.backgroundImage : "";
+  if (!boothBg) {
+    const activeBg = getActiveBackground(theme);
+    if (activeBg) {
+      const cssBg = activeBg.trim().startsWith("url(")
+        ? activeBg
+        : `url(${activeBg})`;
+      boothBg = cssBg;
+      if (boothEl && boothEl.style) {
+        boothEl.style.backgroundImage = cssBg;
+      }
+    }
+  }
+  if (screenEl.style) {
+    if (boothBg) screenEl.style.backgroundImage = boothBg;
+    else screenEl.style.removeProperty("background-image");
+  }
   if (DOM.welcomeImg) {
     DOM.welcomeImg.src = "";
     DOM.welcomeImg.classList.add("hidden");
   }
 
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.remove("faded");
-  const dismiss = () => hideWelcome();
-  if (DOM.startButton) {
-    DOM.startButton.onclick = dismiss;
-  } else {
-    ws.onclick = dismiss;
+  const { overlay, titleEl, startButton } = ensureWelcomeElements(screenEl);
+  const titleText = normalizeWelcomeTitle(welcome.title, fallbackTitle);
+  titleEl.textContent = titleText;
+  titleEl.style.fontFamily = theme.fontHeading || theme.fontBody || theme.font || "";
+
+  const promptText = normalizeWelcomePrompt(welcome.prompt);
+  startButton.textContent = promptText;
+  startButton.onclick = () => hideWelcome();
+
+  screenEl.onclick = null;
+  if (overlay) overlay.onclick = null;
+
+  screenEl.classList.remove("hidden");
+  screenEl.classList.remove("faded");
+  if (screenEl.style) {
+    screenEl.style.removeProperty("display");
+    screenEl.style.removeProperty("pointer-events");
+    screenEl.style.removeProperty("opacity");
   }
+
+  screenEl.setAttribute("aria-hidden", "false");
+  startButton.setAttribute("aria-hidden", "false");
+
+  setBoothControlsVisible(false);
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.add("faded");
+  const screenEl = document.getElementById("welcomeScreen");
+  if (!screenEl) return;
+  DOM.welcomeScreen = screenEl;
 
-  // Ensure the live video element is available before toggling visibility.
+  screenEl.classList.add("faded");
+  screenEl.classList.remove("hidden");
+
+  if (screenEl.style) {
+    screenEl.style.removeProperty("display");
+    screenEl.style.pointerEvents = "none";
+  }
+
+  screenEl.setAttribute("aria-hidden", "true");
+  if (DOM.startButton) {
+    DOM.startButton.setAttribute("aria-hidden", "true");
+    DOM.startButton.disabled = true;
+  }
+
+  setBoothControlsVisible(true);
+
+  const boothEl = document.getElementById("boothScreen");
+  if (boothEl) {
+    DOM.boothScreen = boothEl;
+    boothEl.classList.remove("hidden");
+    if (boothEl.style) boothEl.style.removeProperty("display");
+  }
+
+  const adminEl = document.getElementById("adminScreen");
+  if (adminEl) {
+    DOM.adminScreen = adminEl;
+    adminEl.classList.add("hidden");
+    if (adminEl.style) adminEl.style.removeProperty("display");
+  }
+
+  setAdminMode(false);
+
   const videoEl = DOM.video || document.getElementById("video");
   if (videoEl) {
     DOM.video = videoEl;
     videoEl.classList.remove("hidden");
     videoEl.classList.add("active");
-  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
-  if (!ws) return;
-  DOM.welcomeScreen = ws;
-  setBoothControlsVisible(true);
-  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
-  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
-  setAdminMode(false);
-  ws.classList.add("faded");
-  // show the video smoothly
-  let video = DOM.video || document.getElementById("video");
-  if (video) {
-    DOM.video = video;
-    video.classList.remove("hidden");
-    video.classList.add("active");
   }
 
-  // After the welcome screen is hidden, select the first option if in photo mode.
-  // This ensures the UI is visible and ready for interaction.
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
@@ -1991,12 +2124,9 @@ function hideWelcome() {
         const firstThumb = optionsContainer.querySelector(".thumb");
         if (firstThumb) firstThumb.click();
       }
-      let options = DOM.options || document.getElementById("options");
-      if (options) DOM.options = options;
-      const firstThumb = options && options.querySelector(".thumb");
-      if (firstThumb) firstThumb.click();
     }
   }
+
   resetIdleTimer(); // Start the idle timer now that the booth is active.
 }
 
@@ -3494,10 +3624,10 @@ function saveTheme() {
     overlays: [],
     templates: [],
     welcome: {
-      title: DOM.themeWelcomeTitle.value || "Welcome!",
+      title: valueFromInput(DOM.themeWelcomeTitle) || "Welcome!",
       portrait: "",
       landscape: "",
-      prompt: DOM.themeWelcomePrompt.value || "Touch to start",
+      prompt: normalizeWelcomePrompt(valueFromInput(DOM.themeWelcomePrompt)),
     },
   };
 
@@ -4157,7 +4287,7 @@ function refreshStylePreviewText(options = {}) {
   const bodyText = options.bodyPreviewText || getFontPreviewText(body);
   const eventName =
     valueFromInput(DOM.eventNameInput) || getFontPreviewText(heading || body);
-  const prompt = valueFromInput(DOM.themeWelcomePrompt) || "Touch to start";
+  const prompt = normalizeWelcomePrompt(valueFromInput(DOM.themeWelcomePrompt));
   if (DOM.stylePreviewHeading)
     DOM.stylePreviewHeading.textContent =
       headingText || "Welcome to the photobooth!";
