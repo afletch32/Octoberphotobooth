@@ -2179,8 +2179,43 @@ function confirmTemplate() {
 }
 
 // Welcome control
-function showWelcome() {
-  if (!activeTheme) return;
+function ensureActiveTheme(preferredKey) {
+  if (activeTheme) return activeTheme;
+
+  const attemptLoad = (key) => {
+    if (!key) return null;
+    loadTheme(key);
+    return activeTheme || null;
+  };
+
+  const selectValue = (DOM.eventSelect && DOM.eventSelect.value) || null;
+  const candidateKeys = [];
+  if (preferredKey) candidateKeys.push(preferredKey);
+  if (selectValue && !candidateKeys.includes(selectValue))
+    candidateKeys.push(selectValue);
+  const defaultResolved = resolvePreferredThemeKey(DEFAULT_THEME_KEY);
+  if (defaultResolved && !candidateKeys.includes(defaultResolved))
+    candidateKeys.push(defaultResolved);
+  if (DEFAULT_THEME_KEY && !candidateKeys.includes(DEFAULT_THEME_KEY))
+    candidateKeys.push(DEFAULT_THEME_KEY);
+
+  for (const key of candidateKeys) {
+    if (attemptLoad(key)) return activeTheme;
+  }
+
+  console.warn("No active theme was loaded; restoring built-in themes.");
+  resetThemesToBuiltins("no active theme available");
+  ensureBuiltinThemes();
+  try {
+    normalizeAllThemes();
+  } catch (_e) {}
+  const selected = populateThemeSelector(DEFAULT_THEME_KEY);
+  if (selected) attemptLoad(selected);
+  return activeTheme || null;
+}
+
+function showWelcome(preferredKey) {
+  if (!ensureActiveTheme(preferredKey)) return;
   // Title + prompt
   DOM.welcomeTitle.textContent =
     (activeTheme.welcome && activeTheme.welcome.title) ||
@@ -2246,8 +2281,8 @@ async function startCamera(autoStartBooth = false) {
   isStartingCamera = true;
 
   try {
-    // Load the theme first to ensure all assets and settings are ready.
-    loadTheme(DOM.eventSelect.value);
+    // Ensure a theme is active before starting camera flows.
+    ensureActiveTheme(DOM.eventSelect && DOM.eventSelect.value);
 
     // If running from file://, most browsers block camera. Offer Demo Mode unless forced.
     if (
