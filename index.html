@@ -2008,7 +2008,7 @@
       <div id="videoWrap" class="view-landscape">
         <div id="videoContainer"><video id="video" class="hidden" autoplay playsinline muted></video><img
             id="lastShot" /><img id="liveOverlay" /></div>
-        <button id="captureBtn" class="primary" onclick="capturePhotoFlow()">Take Photo</button>
+        <button id="captureBtn" class="primary" onclick="handleCapture()">Take Photo</button>
       </div>
       <div id="controls">
         <button class="mode-btn" onclick="setMode('photo')">
@@ -2025,6 +2025,12 @@
           </div>
           <span>Photo Strip</span>
         </button>
+        <button class="mode-btn" onclick="setMode('video360')">
+          <div class="mode-btn-icon video360">
+            <div class="video360-reel"></div>
+          </div>
+          <span>360 Video</span>
+        </button>
         <div id="zoomControl" class="hidden">
           <div class="zoom-header">
             <span>Zoom</span>
@@ -2040,6 +2046,7 @@
     <div id="finalPreview">
       <div id="finalPreviewContent">
         <img id="finalStrip" />
+        <video id="finalVideo" class="hidden" playsinline muted loop></video>
         <div id="finalPreviewActions">
           <div id="qrCodeContainer" class="hidden">
             <h2 style="display:flex; align-items:center; gap:10px;">Scan to Download <span id="shareStatus"
