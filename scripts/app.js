@@ -664,12 +664,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (initialKey) {
     loadTheme(initialKey);
   }
-  startBoothFlow(); // Start on booth welcome screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
     document.addEventListener(evt, resetIdleTimer),
   );
   resetIdleTimer();
   init();
+  requestAnimationFrame(() => startBoothFlow());
   if (DOM.headingFontSelect && DOM.bodyFontSelect) {
     setupDualFontPicker({
       headingSelect: DOM.headingFontSelect,
@@ -2097,10 +2097,24 @@ function startBooth() {
 }
 
 function startBoothFlow() {
-  // Theme is now pre-loaded by startCamera()
+  // Refresh cached DOM references in case the module executed before the
+  // booth markup was parsed (older browsers can behave this way).
+  const adminScreen =
+    DOM.adminScreen || document.getElementById("adminScreen");
+  const boothScreen =
+    DOM.boothScreen || document.getElementById("boothScreen");
+  DOM.adminScreen = adminScreen;
+  DOM.boothScreen = boothScreen;
+
+  if (!boothScreen) {
+    console.warn("Booth screen not found; falling back to admin view.");
+    goAdmin();
+    return;
+  }
+
   allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
-  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
-  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  boothScreen.classList.remove("hidden");
+  if (adminScreen) adminScreen.classList.add("hidden");
   setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
