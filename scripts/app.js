@@ -40,6 +40,7 @@ import {
   getStripTemplateMetrics,
   detectDoubleColumnSlots,
   toNumber,
+  getStripTemplatePercents,
 } from "./preview.js";
 
 if ("serviceWorker" in navigator) {
@@ -1379,6 +1380,9 @@ function loadTheme(themeKey) {
   refreshOverlaysFromFolder(theme);
   refreshTemplatesFromFolder(theme);
   syncAdminUiWithTheme(themeKey, theme);
+  if (DOM.boothScreen && !DOM.boothScreen.classList.contains("hidden")) {
+    showWelcome();
+  }
 }
 
 // Convert any CSS color string to hex (#rrggbb); returns '' on failure
@@ -1920,19 +1924,19 @@ function confirmTemplate() {
 
 // Welcome control
 function showWelcome() {
-  if (!activeTheme) return;
-  // Title + prompt
-  DOM.welcomeTitle.textContent =
-    (activeTheme.welcome && activeTheme.welcome.title) ||
-    (DOM.eventTitle && DOM.eventTitle.textContent) ||
-    "";
-  DOM.welcomeTitle.style.fontFamily =
-    activeTheme.fontHeading || activeTheme.fontBody || activeTheme.font || "";
+  const theme = activeTheme || {};
+  const welcome = theme.welcome || {};
+  const fallbackTitle =
+    (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
+  if (DOM.welcomeTitle) {
+    DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
+    DOM.welcomeTitle.style.fontFamily =
+      theme.fontHeading || theme.fontBody || theme.font || "";
+  }
   if (DOM.startButton)
-    DOM.startButton.textContent =
-      (activeTheme.welcome && activeTheme.welcome.prompt) || "Touch to start";
+    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
-  //  the booth background on the welcome screen and hide standalone images
+  // Mirror the booth background behind the welcome overlay and hide image slot
   const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
@@ -1943,13 +1947,24 @@ function showWelcome() {
   const ws = DOM.welcomeScreen;
   if (!ws) return;
   ws.classList.remove("faded");
+  const dismiss = () => hideWelcome();
   if (DOM.startButton) {
-    DOM.startButton.onclick = () => hideWelcome();
+    DOM.startButton.onclick = dismiss;
   } else {
-    ws.onclick = () => hideWelcome();
+    ws.onclick = dismiss;
   }
 }
 function hideWelcome() {
+  const ws = DOM.welcomeScreen;
+  if (!ws) return;
+  ws.classList.add("faded");
+
+  // Ensure the live video element is available before toggling visibility.
+  const videoEl = DOM.video || document.getElementById("video");
+  if (videoEl) {
+    DOM.video = videoEl;
+    videoEl.classList.remove("hidden");
+    videoEl.classList.add("active");
   const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
   DOM.welcomeScreen = ws;
@@ -1971,6 +1986,12 @@ function hideWelcome() {
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
+      const optionsContainer = DOM.options || document.getElementById("options");
+      if (optionsContainer) {
+        DOM.options = optionsContainer;
+        const firstThumb = optionsContainer.querySelector(".thumb");
+        if (firstThumb) firstThumb.click();
+      }
       let options = DOM.options || document.getElementById("options");
       if (options) DOM.options = options;
       const firstThumb = options && options.querySelector(".thumb");
@@ -2058,10 +2079,21 @@ async function startCamera(autoStartBooth = false) {
       })
       .catch((err) => {
         console.error("Camera Error:", err);
-        alert(
-          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\nError: " +
-            err.message,
+        const detail = err && err.message ? err.message : "Unknown error";
+        const useDemo = confirm(
+          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+            `Error: ${detail}\n\nEnable Demo Mode instead?`,
         );
+        if (useDemo) {
+          demoMode = true;
+          if (autoStartBooth) startBoothFlow();
+          else showToast("Demo mode enabled");
+        } else {
+          alert(
+            "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+              `Error: ${detail}`,
+          );
+        }
       })
       .finally(() => {
         isStartingCamera = false;
@@ -2078,9 +2110,9 @@ function startBooth() {
 
 function startBoothFlow() {
   // Theme is now pre-loaded by startCamera()
-  allowRetake = DOM.allowRetakes.checked;
-  DOM.adminScreen.classList.add("hidden");
-  DOM.boothScreen.classList.remove("hidden");
+  allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
@@ -2686,29 +2718,9 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
   const ctx = canvas.getContext("2d");
   const cols = 2; // duplicate columns
   const rows = 3; // three slots
-  // Reserve a header area at the top for graphics/logo on the template
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
+  // Reserve header/footer/spacing using shared template metrics helpers
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } =
+    getStripTemplatePercents(template);
 
   const columnW = canvas.width / cols;
   const columnPad = columnPadPct * columnW;
@@ -3568,6 +3580,7 @@ function saveTheme() {
 }
 
 async // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
+// Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
 // Folder import (device-only) helpers
 async function handleOverlayFolderPick(e) {
