@@ -3694,6 +3694,11 @@ function showFinal(result) {
   const offline = offlineModeActive();
   if (qrContainer) qrContainer.classList.add("hidden");
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
+  if (DOM.shareLink) {
+    DOM.shareLink.textContent = "";
+    DOM.shareLink.removeAttribute("href");
+    DOM.shareLink.style.display = "none";
+  }
   if (DOM.qrHint) {
     DOM.qrHint.style.display = "none";
     DOM.qrHint.textContent = "";
@@ -3720,6 +3725,7 @@ function showFinal(result) {
               DOM.shareLink.textContent = lastShareUrl;
             }
             if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+            if (DOM.shareLink) DOM.shareLink.style.display = "inline";
             if (qrContainer) qrContainer.classList.remove("hidden");
             if (panel) panel.classList.add("qr-ready");
             if (DOM.shareStatus) {
@@ -3756,10 +3762,13 @@ function showFinal(result) {
         DOM.qrHint.style.display = "block";
       }
     }
-  } else if (DOM.qrHint) {
-    DOM.qrHint.textContent =
-      "QR and email sharing are available for photos. Use Download to share this video clip.";
-    DOM.qrHint.style.display = "block";
+  } else {
+    if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+    if (DOM.qrHint) {
+      DOM.qrHint.textContent =
+        "QR and email sharing are available for photos. Use Download to share this video clip.";
+      DOM.qrHint.style.display = "block";
+    }
   }
 
   if (panel) panel.classList.add("show");
