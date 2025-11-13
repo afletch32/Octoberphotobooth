@@ -39,7 +39,7 @@ import {
   restorePreviewState,
   getStripTemplateMetrics,
   detectDoubleColumnSlots,
-  toNumber,
+  getStripTemplatePercents,
 } from "./preview.js";
 
 if ("serviceWorker" in navigator) {
@@ -2701,29 +2701,9 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
   const ctx = canvas.getContext("2d");
   const cols = 2; // duplicate columns
   const rows = 3; // three slots
-  // Reserve a header area at the top for graphics/logo on the template
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
+  // Reserve header/footer/spacing using shared template metrics helpers
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } =
+    getStripTemplatePercents(template);
 
   const columnW = canvas.width / cols;
   const columnPad = columnPadPct * columnW;

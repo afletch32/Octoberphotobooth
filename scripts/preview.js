@@ -116,6 +116,30 @@ export function toNumber(val, fallback) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+export function getStripTemplatePercents(template) {
+  const headerPct = Math.max(
+    0,
+    Math.min(
+      0.5,
+      toNumber(template && (template.headerPct || template.header_percent), 0.2),
+    ),
+  );
+  const columnPadPct = Math.max(
+    0,
+    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
+  );
+  const slotSpacingPct = Math.max(
+    0,
+    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
+  );
+  const footerPct = Math.max(
+    0,
+    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
+  );
+
+  return { headerPct, columnPadPct, slotSpacingPct, footerPct };
+}
+
 export function detectDoubleColumnSlots(img, rows) {
   try {
     const w = img.naturalWidth || img.width;
@@ -199,30 +223,11 @@ export function detectDoubleColumnSlots(img, rows) {
 export async function getStripTemplateMetrics(template) {
   if (!template || !template.src) return null;
   if (template.__slotMetrics) return template.__slotMetrics;
-  const metrics = {};
+  const metrics = { ...getStripTemplatePercents(template) };
   const img = await loadImage(template.src);
   const slots = detectDoubleColumnSlots(img, 3);
   if (slots) metrics.slots = slots;
-  const headerPct = Math.max(
-    0,
-    Math.min(0.5, toNumber(template && (template.headerPct || template.header_percent), 0.2)),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
-  metrics.headerPct = headerPct;
-  metrics.columnPadPct = columnPadPct;
-  metrics.slotSpacingPct = slotSpacingPct;
-  metrics.footerPct = footerPct;
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } = metrics;
   if (slots && slots[0] && slots[0][0]) {
     metrics.aspect = Math.max(0.1, slots[0][0].w / slots[0][0].h);
   } else {
