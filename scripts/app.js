@@ -2595,6 +2595,18 @@ async function publishShareAsset(assetOrUrl) {
   }
 
   const isVideo = asset.type === 'video' || (blob.type && blob.type.startsWith('video/'));
+  const inferShareExtension = () => {
+    const clean = (value) => (value || '').toLowerCase().split(/[;+]/)[0].replace(/[^a-z0-9]/g, '');
+    if (blob.type) {
+      const parts = blob.type.split('/');
+      if (parts[1]) {
+        const subtype = clean(parts[1]);
+        if (subtype) return subtype;
+      }
+    }
+    return isVideo ? 'webm' : 'png';
+  };
+  const shareExt = inferShareExtension();
   const cfg = getCloudinaryConfig();
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
@@ -2602,14 +2614,7 @@ async function publishShareAsset(assetOrUrl) {
       const evSlug = (typeof getCurrentEventSlug === 'function') ? getCurrentEventSlug() : '';
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const base = (cfg.folderBase || 'photobooth/events').replace(/\/$/, '');
-      const ext = (() => {
-        if (blob.type) {
-          const parts = blob.type.split('/');
-          if (parts[1]) return parts[1].split(';')[0];
-        }
-        return isVideo ? 'webm' : 'png';
-      })();
-      const baseName = `${evSlug || 'capture'}-${ts}.${ext}`;
+      const baseName = `${evSlug || 'capture'}-${ts}.${shareExt}`;
       const file = new File([blob], baseName, { type: blob.type || (isVideo ? 'video/webm' : 'image/png') });
       form.append('file', file);
       form.append('upload_preset', cfg.preset);
@@ -2636,7 +2641,7 @@ async function publishShareAsset(assetOrUrl) {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const channel = new MessageChannel();
   const ack = new Promise((resolve) => { channel.port1.onmessage = (ev) => resolve(ev.data); });
-  active.postMessage({ type: 'store-share', id, buffer, mime: blob.type }, [channel.port2]);
+  active.postMessage({ type: 'store-share', id, buffer, mime: blob.type, ext: shareExt }, [channel.port2]);
   const reply = await ack; // {ok, url}
   if (reply && reply.ok && reply.url) return new URL(reply.url, location.origin).href;
   return null;

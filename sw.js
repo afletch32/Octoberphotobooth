@@ -66,16 +66,36 @@ return;
   }
 });
 
-// Receive image buffer and store as {scope}/share/{id}.png; reply with URL
+// Receive asset buffer and store under {scope}/share/{id}.{ext}; reply with URL
 self.addEventListener('message', async (event) => {
 const data = event.data || {};
 if (data.type !== 'store-share') return;
 
 try {
-const { id, buffer, mime } = data;
-const path = scopePath() + 'share/' + id + '.png';
+const { id, buffer, mime, ext } = data;
+const cleanExt = (value) => (value || '').toLowerCase().split(/[;+]/)[0].split('+')[0].replace(/[^a-z0-9]/g, '');
+let safeExt = cleanExt(ext);
+if (!safeExt && mime) {
+  const parts = mime.split('/');
+  if (parts[1]) safeExt = cleanExt(parts[1]);
+}
+if (!safeExt) {
+  if (mime && mime.startsWith('video/')) safeExt = 'webm';
+  else if (mime && mime.startsWith('image/')) safeExt = 'png';
+  else safeExt = 'bin';
+}
+const defaultMime = (() => {
+  if (mime) return mime;
+  if (safeExt === 'webm') return 'video/webm';
+  if (safeExt === 'mp4') return 'video/mp4';
+  if (safeExt === 'gif') return 'image/gif';
+  if (safeExt === 'jpg' || safeExt === 'jpeg') return 'image/jpeg';
+  if (safeExt === 'png') return 'image/png';
+  return 'application/octet-stream';
+})();
+const path = scopePath() + 'share/' + id + '.' + safeExt;
 const req = new Request(path, { method: 'GET' });
-const blob = new Blob([buffer], { type: mime || 'image/png' });
+const blob = new Blob([buffer], { type: defaultMime });
 const resp = new Response(blob, {
 headers: { 'Content-Type': blob.type, 'Cache-Control': 'public, max-age=31536000' }
 });
