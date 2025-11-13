@@ -3767,6 +3767,7 @@ function showFinal(result) {
       "QR and email sharing are available for photos. Use Download to share this video clip.";
     DOM.qrHint.style.display = "block";
     if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+    if (qrContainer) qrContainer.classList.remove("hidden");
   }
 
   if (panel) panel.classList.add("show");
