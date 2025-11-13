@@ -4,7 +4,6 @@
 //   node tools/update-manifests.js               # scan repo under ./assets
 //   node tools/update-manifests.js assets/Hawks  # scan a subfolder only
 
-const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
 
@@ -119,25 +118,45 @@ async function walk(root, onDir) {
   return results;
 }
 
-async function main() {
-  const root = process.argv[2]
-    ? path.resolve(process.argv[2])
-    : path.resolve("assets");
+async function updateManifests(rootDir) {
+  const root = rootDir ? path.resolve(rootDir) : path.resolve("assets");
   if (!(await exists(root))) {
-    console.error(`Not found: ${root}`);
-    process.exit(1);
+    const err = new Error(`Not found: ${root}`);
+    err.code = "ENOENT";
+    err.path = root;
+    throw err;
   }
   const results = await walk(root, processDir);
-  if (!results.length) {
-    console.log("No manifest folders found under", root);
-    return;
-  }
-  for (const r of results) {
-    console.log(`Updated ${r.type}: ${r.dir} (${r.count} items)`);
+  return { root, results };
+}
+
+async function runCli(argv = process.argv.slice(2)) {
+  try {
+    const { root, results } = await updateManifests(argv[0]);
+    if (!results.length) {
+      console.log("No manifest folders found under", root);
+      return results;
+    }
+    for (const r of results) {
+      console.log(`Updated ${r.type}: ${r.dir} (${r.count} items)`);
+    }
+    return results;
+  } catch (err) {
+    if (err && err.code === "ENOENT" && err.path) {
+      console.error(`Not found: ${err.path}`);
+    } else {
+      console.error(err);
+    }
+    process.exitCode = 1;
+    return null;
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+if (require.main === module) {
+  runCli();
+}
+
+module.exports = {
+  updateManifests,
+  runCli,
+};

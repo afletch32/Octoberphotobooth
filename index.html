@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -23,8 +23,7 @@
       --countdown-font: 'Creepster', cursive;
       --event-title-size: 1.8em;
       --welcome-title-size: 3.4em;
-    }
-
+    }    
     body,
     html {
       margin: 0;
@@ -941,6 +940,44 @@
       box-shadow: 0 0 18px #000;
     }
 
+    #zoomControl {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #zoomControl .zoom-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    #zoomValue {
+      font-size: 0.9em;
+      color: var(--accent);
+    }
+
+    #zoomSlider {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    #zoomHint {
+      margin: 0;
+      font-size: 0.8em;
+      color: #b6c1d2;
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
@@ -968,8 +1005,8 @@
       transition: opacity 500ms ease;
       object-fit: cover;
       transform-origin: center;
-      -webkit-transform: scaleX(-1) !important;
-      transform: scaleX(-1) !important;
+      -webkit-transform: scaleX(-1);
+      transform: scaleX(-1);
     }
 
     #lastShot {
@@ -1988,6 +2025,14 @@
           </div>
           <span>Photo Strip</span>
         </button>
+        <div id="zoomControl" class="hidden">
+          <div class="zoom-header">
+            <span>Zoom</span>
+            <span id="zoomValue">1.0x</span>
+          </div>
+          <input type="range" id="zoomSlider" min="1" max="2" step="0.01" value="1" disabled>
+          <p id="zoomHint">Adjust framing without moving the booth.</p>
+        </div>
       </div>
     </div>
     <div id="countdownOverlay"></div>
