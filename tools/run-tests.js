@@ -8,11 +8,17 @@ const JSON_IGNORE = new Set([
   'update.json'
 ]);
 
+const DIR_IGNORE = new Set([
+  'node_modules',
+  'vendor',
+]);
+
 async function findJsonFiles(dir) {
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (DIR_IGNORE.has(entry.name)) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...await findJsonFiles(fullPath));
