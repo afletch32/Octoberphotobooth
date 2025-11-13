@@ -73,11 +73,17 @@ if (data.type !== 'store-share') return;
 
 try {
 const { id, buffer, mime, ext } = data;
-const cleanExt = (value) => (value || '').toLowerCase().split(/[;+]/)[0].split('+')[0].replace(/[^a-z0-9]/g, '');
-let safeExt = cleanExt(ext);
+const normalizeExt = (value) => {
+  const cleaned = (value || '').toLowerCase().split(/[;+]/)[0].split('+')[0].replace(/[^a-z0-9]/g, '');
+  if (cleaned === 'quicktime') return 'mov';
+  if (cleaned === 'x-m4v') return 'm4v';
+  if (cleaned === 'x-msvideo') return 'avi';
+  return cleaned;
+};
+let safeExt = normalizeExt(ext);
 if (!safeExt && mime) {
   const parts = mime.split('/');
-  if (parts[1]) safeExt = cleanExt(parts[1]);
+  if (parts[1]) safeExt = normalizeExt(parts[1]);
 }
 if (!safeExt) {
   if (mime && mime.startsWith('video/')) safeExt = 'webm';
@@ -88,6 +94,9 @@ const defaultMime = (() => {
   if (mime) return mime;
   if (safeExt === 'webm') return 'video/webm';
   if (safeExt === 'mp4') return 'video/mp4';
+  if (safeExt === 'mov') return 'video/quicktime';
+  if (safeExt === 'm4v') return 'video/x-m4v';
+  if (safeExt === 'avi') return 'video/x-msvideo';
   if (safeExt === 'gif') return 'image/gif';
   if (safeExt === 'jpg' || safeExt === 'jpeg') return 'image/jpeg';
   if (safeExt === 'png') return 'image/png';
