@@ -664,7 +664,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (initialKey) {
     loadTheme(initialKey);
   }
-  goAdmin(); // Start on admin screen
+  startBoothFlow(); // Start on booth welcome screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
     document.addEventListener(evt, resetIdleTimer),
   );
@@ -1954,26 +1954,18 @@ function showWelcome() {
   }
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.add("faded");
-
-  // Ensure the live video element is available before toggling visibility.
-  const videoEl = DOM.video || document.getElementById("video");
-  if (videoEl) {
-    DOM.video = videoEl;
-    videoEl.classList.remove("hidden");
-    videoEl.classList.add("active");
   const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
   DOM.welcomeScreen = ws;
+
+  ws.classList.add("faded");
+
   setBoothControlsVisible(true);
   if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
   setAdminMode(false);
-  ws.classList.add("faded");
-  // show the video smoothly
-  let video = DOM.video || document.getElementById("video");
+
+  const video = DOM.video || document.getElementById("video");
   if (video) {
     DOM.video = video;
     video.classList.remove("hidden");
@@ -1985,18 +1977,15 @@ function hideWelcome() {
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
-      const optionsContainer = DOM.options || document.getElementById("options");
-      if (optionsContainer) {
-        DOM.options = optionsContainer;
-        const firstThumb = optionsContainer.querySelector(".thumb");
+      const options = DOM.options || document.getElementById("options");
+      if (options) {
+        DOM.options = options;
+        const firstThumb = options.querySelector(".thumb");
         if (firstThumb) firstThumb.click();
       }
-      let options = DOM.options || document.getElementById("options");
-      if (options) DOM.options = options;
-      const firstThumb = options && options.querySelector(".thumb");
-      if (firstThumb) firstThumb.click();
     }
   }
+
   resetIdleTimer(); // Start the idle timer now that the booth is active.
 }
 
