@@ -1,3 +1,47 @@
+import {
+  themes,
+  BUILTIN_THEMES,
+  BUILTIN_THEME_LOCATIONS,
+  DEFAULT_THEME_KEY,
+  DEFAULT_EVENT_TITLE_SIZE,
+  DEFAULT_WELCOME_TITLE_SIZE,
+  setThemes,
+} from "./themes.js";
+import {
+  configureThemeStorage,
+  saveThemesToStorage,
+  loadThemesFromStorage,
+  ensureBuiltinThemes,
+  fixBuiltinThemePlacements,
+  mergeStoredThemes,
+  cloneThemeValue,
+  mergePlainObject,
+  resetThemesToBuiltins,
+  hasCoreBuiltins,
+  applyGlobalLogoToAllThemes,
+  applyGlobalLogoToTheme,
+  getGlobalLogo,
+  setGlobalLogoValue,
+} from "./theme-storage.js";
+import {
+  configureUploads,
+  uploadAsset,
+  normalizeAllThemes,
+  normalizeThemeObject,
+  normalizeSizeValue,
+} from "./uploads.js";
+import {
+  loadImage,
+  orientationFromTemplate,
+  setViewOrientation,
+  applyPreviewOrientation,
+  capturePreviewState,
+  restorePreviewState,
+  getStripTemplateMetrics,
+  detectDoubleColumnSlots,
+  getStripTemplatePercents,
+} from "./preview.js";
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
@@ -13,214 +57,6 @@ if ("serviceWorker" in navigator) {
     }
   });
 }
-
-let themes = {
-  general: {
-    name: "🎉 General",
-    themes: {
-      basic: {
-        name: "✨ Basic",
-        accent: "#3f51b5",
-        accent2: "#ffffff",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/basic/backgrounds/",
-        backgroundFolder: "assets/general/basic/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/basic/overlays/",
-        templatesFolder: "assets/general/basic/templates/",
-        welcome: {
-          title: "Welcome!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-      birthday: {
-        name: "🎂 Birthday",
-        accent: "pink",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/birthday/backgrounds/",
-        backgroundFolder: "assets/general/birthday/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/birthday/overlays/",
-        templatesFolder: "assets/general/birthday/templates/",
-        welcome: {
-          title: "Happy Birthday!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  school: {
-    name: "🏫 School",
-    themes: {
-      hawks: {
-        name: "🦅 Hawks",
-        accent: "#041E42",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/Hawks/backgrounds/",
-        background: "",
-        logo: "",
-        overlaysFolder: "assets/Hawks/overlays/",
-        templatesFolder: "assets/Hawks/templates/",
-        welcome: {
-          title: "Go Hawks!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-      ane: {
-        name: "🏫 ANE",
-        accent: "#041E42",
-        accent2: "#FFB81C",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/school/ANE/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/school/ANE/overlays",
-        templatesFolder: "assets/school/ANE/templates",
-        welcome: {
-          title: "ANE",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  fall: {
-    name: "🍂 Fall",
-    holidays: {
-      halloween: {
-        name: "🎃 Halloween",
-        accent: "orange",
-        accent2: "white",
-        font: "'Creepster', cursive",
-        // Use folder-based background auto-detect (any background.* in this folder)
-        backgroundFolder: "assets/holidays/fall/halloween/backgrounds/",
-        overlaysFolder: "assets/holidays/fall/halloween/overlays/",
-        logo: "",
-        templatesFolder: "assets/holidays/fall/halloween/templates/",
-        welcome: {
-          title: "Happy Halloween!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  winter: {
-    name: "❄️ Winter",
-    holidays: {
-      christmas: {
-        name: "🎄 Christmas",
-        accent: "#c41e3a",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/holidays/winter/christmas/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/holidays/winter/christmas/overlays/",
-        templatesFolder: "assets/holidays/winter/christmas/templates/",
-        welcome: {
-          title: "Merry Christmas!",
-          portrait:
-            "assets/holidays/winter/christmas/welcome/welcome-portrait.jpg",
-          landscape:
-            "assets/holidays/winter/christmas/welcome/welcome-landscape.jpg",
-          prompt: "Touch to start the fun!",
-        },
-      },
-      newyear: {
-        name: "🎉 New Year",
-        accent: "#FFD700",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background:
-          "assets/holidays/winter/newyear/backgrounds/fireworks-background.jpg",
-        logo: "assets/holidays/winter/newyear/logo/newyear-logo.png",
-        overlays: [
-          "assets/holidays/winter/newyear/overlays/newyear-frame-1.png",
-        ],
-        templates: [
-          {
-            src: "assets/holidays/winter/newyear/templates/photostrip-1.png",
-            layout: "double_column",
-          },
-        ],
-        welcome: {
-          title: "Happy New Year!",
-          portrait:
-            "assets/holidays/winter/newyear/welcome/welcome-portrait.jpg",
-          landscape:
-            "assets/holidays/winter/newyear/welcome/welcome-landscape.jpg",
-          prompt: "Start the countdown!",
-        },
-      },
-      valentines: {
-        name: "💕 Valentine's Day",
-        accent: "#ff5e91",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/holidays/winter/Valentines/backgrounds/",
-        templatesFolder: "assets/holidays/winter/Valentines/templates/",
-        welcome: {
-          title: "Happy Valentine's Day!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-};
-
-themes.spring = {
-  name: "🌸 Spring",
-  holidays: {
-    stpatricksday: {
-      name: "🍀 St. Patrick's Day",
-      accent: "#0f6d2f",
-      accent2: "white",
-      font: "'Comic Neue', cursive",
-      backgroundFolder: "assets/holidays/spring/st.patricksday/backgrounds/",
-      overlaysFolder: "assets/holidays/spring/st.patricksday/overlays/",
-      templatesFolder: "assets/holidays/spring/st.patricksday/templates/",
-      welcome: {
-        title: "Happy St. Patrick's Day!",
-        portrait: "",
-        landscape: "",
-        prompt: "Touch to start",
-      },
-    },
-  },
-};
-
-const DEFAULT_EVENT_TITLE_SIZE = 1.8;
-const DEFAULT_WELCOME_TITLE_SIZE = 3.4;
-
-const BUILTIN_THEMES = JSON.parse(JSON.stringify(themes));
-const DEFAULT_THEME_KEY = "general:basic";
-const LAST_THEME_STORAGE_KEY = "photoboothLastTheme";
-const BUILTIN_THEME_LOCATIONS = (() => {
-  const map = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const group = BUILTIN_THEMES[rootKey];
-    if (!group || typeof group !== "object") continue;
-    for (const bucket of ["themes", "holidays"]) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== "object") continue;
-      for (const subKey of Object.keys(sub)) {
-        map[subKey] = { root: rootKey, bucket };
-      }
-    }
-  }
-  return map;
-})();
 
 // --- DOM Element Cache ---
 const DOM = {
@@ -404,7 +240,30 @@ function withBust(src) {
   }
 }
 
-const GLOBAL_LOGO_STORAGE_KEY = "photoboothGlobalLogo";
+function getPreviewContext(overrides = {}) {
+  return {
+    videoWrap: DOM.videoWrap,
+    mode,
+    activeTheme,
+    pendingTemplate,
+    selectedOverlay,
+    setCaptureAspect,
+    updateCaptureAspect,
+    getTemplateList,
+    getOverlayList,
+    ...overrides,
+  };
+}
+
+configureUploads({
+  getCloudinaryConfig,
+  getCurrentEventSlug,
+});
+
+configureThemeStorage({
+  syncRemote: syncThemesRemote,
+  loadRemote: loadThemesRemote,
+});
 
 function renderMissingThumbnail(container, src) {
   if (!container) return;
@@ -488,7 +347,7 @@ function setupVideoListeners() {
   if (DOM.video) {
     DOM.video.addEventListener("loadedmetadata", () => {
       updateCaptureAspect();
-      applyPreviewOrientation();
+      applyPreviewOrientation(getPreviewContext());
     });
   }
 }
@@ -789,7 +648,7 @@ function init() {
   );
   loadEmailJsSettings();
   updatePendingUI();
-  applyPreviewOrientation();
+  applyPreviewOrientation(getPreviewContext());
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1527,6 +1386,9 @@ function loadTheme(themeKey) {
   refreshOverlaysFromFolder(theme);
   refreshTemplatesFromFolder(theme);
   syncAdminUiWithTheme(themeKey, theme);
+  if (DOM.boothScreen && !DOM.boothScreen.classList.contains("hidden")) {
+    showWelcome();
+  }
 }
 
 // Convert any CSS color string to hex (#rrggbb); returns '' on failure
@@ -2008,7 +1870,7 @@ function renderOptions() {
       if (isPhoto) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
-        setViewOrientation(src);
+        setViewOrientation(src, getPreviewContext());
       } else {
         // open confirm with larger preview
         // Photo strips are assumed to be landscape for preview purposes
@@ -2025,131 +1887,11 @@ function renderOptions() {
   });
 }
 
-async function setViewOrientation(imgSrc) {
-  const aspect = await getAspectRatioFromImage(imgSrc);
-  if (aspect) {
-    const orientation = aspect > 1 ? "landscape" : "portrait";
-    DOM.videoWrap.className = `view-${orientation}`;
-    setCaptureAspect(aspect);
-  } else {
-    // fallback to default
-    DOM.videoWrap.className = "view-landscape";
-    setCaptureAspect(null);
-    updateCaptureAspect();
-  }
-}
-
-function orientationFromTemplate(template) {
-  const layout = (
-    template && template.layout ? template.layout : ""
-  ).toLowerCase();
-  if (
-    layout === "double_column" ||
-    layout === "double-column" ||
-    layout === "vertical"
-  )
-    return "view-portrait";
-  return "view-landscape";
-}
-
-function applyPreviewOrientation() {
-  if (!DOM.videoWrap) return;
-  if (mode === "strip") {
-    const templates = getTemplateList(activeTheme);
-    const template =
-      pendingTemplate || (Array.isArray(templates) ? templates[0] : null);
-    DOM.videoWrap.className = orientationFromTemplate(template);
-    return;
-  }
-  const overlays = getOverlayList(activeTheme);
-  const firstOverlay =
-    Array.isArray(overlays) && overlays.length ? overlays[0] : null;
-  const overlaySrc =
-    selectedOverlay ||
-    (firstOverlay &&
-      (typeof firstOverlay === "string" ? firstOverlay : firstOverlay.src));
-  if (overlaySrc) {
-    setViewOrientation(overlaySrc).catch(() => {
-      DOM.videoWrap.className = "view-landscape";
-      setCaptureAspect(null);
-      updateCaptureAspect();
-    });
-  } else {
-    DOM.videoWrap.className = "view-landscape";
-    setCaptureAspect(null);
-    updateCaptureAspect();
-  }
-}
-
-function capturePreviewState() {
-  return {
-    overlaySrc: DOM.liveOverlay ? DOM.liveOverlay.src : "",
-    overlayOpacity: DOM.liveOverlay ? DOM.liveOverlay.style.opacity : "",
-    overlayDisplay: DOM.liveOverlay ? DOM.liveOverlay.style.display : "",
-    videoClass: DOM.videoWrap ? DOM.videoWrap.className : "view-landscape",
-  };
-}
-
-function restorePreviewState(state) {
-  if (!state) return;
-  if (DOM.liveOverlay) {
-    DOM.liveOverlay.src = state.overlaySrc || "";
-    DOM.liveOverlay.style.opacity = state.overlayOpacity || "";
-    DOM.liveOverlay.style.display = state.overlayDisplay || "";
-    DOM.liveOverlay.style.filter = "";
-  }
-  if (DOM.videoWrap)
-    DOM.videoWrap.className = state.videoClass || "view-landscape";
-}
-
-async function getStripTemplateMetrics(template) {
-  if (!template || !template.src) return null;
-  if (template.__slotMetrics) return template.__slotMetrics;
-  const metrics = {};
-  const img = await loadImage(template.src);
-  const slots = detectDoubleColumnSlots(img, 3);
-  if (slots) metrics.slots = slots;
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
-  metrics.headerPct = headerPct;
-  metrics.columnPadPct = columnPadPct;
-  metrics.slotSpacingPct = slotSpacingPct;
-  metrics.footerPct = footerPct;
-  if (slots && slots[0] && slots[0][0]) {
-    metrics.aspect = Math.max(0.1, slots[0][0].w / slots[0][0].h);
-  } else {
-    const cols = 2;
-    const columnW = 1 / cols;
-    const slotWRel = columnW - columnPadPct * columnW * 2;
-    const slotHRel = (1 - headerPct - footerPct - slotSpacingPct * (3 + 1)) / 3;
-    metrics.aspect = Math.max(0.1, slotWRel / slotHRel);
-  }
-  template.__slotMetrics = metrics;
-  return metrics;
-}
-
 async function prepareStripCapture(template) {
-  const state = capturePreviewState();
+  const state = capturePreviewState({
+    liveOverlay: DOM.liveOverlay,
+    videoWrap: DOM.videoWrap,
+  });
   if (DOM.liveOverlay) {
     DOM.liveOverlay.src = "";
     DOM.liveOverlay.style.display = "none";
@@ -2187,67 +1929,20 @@ function confirmTemplate() {
 }
 
 // Welcome control
-function ensureActiveTheme(preferredKey) {
-  if (activeTheme) return activeTheme;
-
-  const attemptLoad = (key) => {
-    if (!key) return null;
-    loadTheme(key);
-    return activeTheme || null;
-  };
-
-  const selectValue = (DOM.eventSelect && DOM.eventSelect.value) || null;
-  const candidateKeys = [];
-  if (preferredKey) candidateKeys.push(preferredKey);
-  if (selectValue && !candidateKeys.includes(selectValue))
-    candidateKeys.push(selectValue);
-  const storedPreference = getStoredThemePreference();
-  if (storedPreference && !candidateKeys.includes(storedPreference))
-    candidateKeys.push(storedPreference);
-  const defaultResolved = resolvePreferredThemeKey(DEFAULT_THEME_KEY);
-  if (defaultResolved && !candidateKeys.includes(defaultResolved))
-    candidateKeys.push(defaultResolved);
-  if (DEFAULT_THEME_KEY && !candidateKeys.includes(DEFAULT_THEME_KEY))
-    candidateKeys.push(DEFAULT_THEME_KEY);
-
-  for (const key of candidateKeys) {
-    if (attemptLoad(key)) {
-      if (DOM.eventSelect && DOM.eventSelect.value !== key)
-        setEventSelection(key);
-      setStoredThemePreference(key);
-      return activeTheme;
-    }
+function showWelcome() {
+  const theme = activeTheme || {};
+  const welcome = theme.welcome || {};
+  const fallbackTitle =
+    (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
+  if (DOM.welcomeTitle) {
+    DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
+    DOM.welcomeTitle.style.fontFamily =
+      theme.fontHeading || theme.fontBody || theme.font || "";
   }
-
-  console.warn("No active theme was loaded; restoring built-in themes.");
-  resetThemesToBuiltins("no active theme available");
-  ensureBuiltinThemes();
-  try {
-    normalizeAllThemes();
-  } catch (_e) {}
-  const selected = populateThemeSelector(DEFAULT_THEME_KEY);
-  if (selected && attemptLoad(selected)) {
-    if (DOM.eventSelect && DOM.eventSelect.value !== selected)
-      setEventSelection(selected);
-    setStoredThemePreference(selected);
-  }
-  return activeTheme || null;
-}
-
-function showWelcome(preferredKey) {
-  if (!ensureActiveTheme(preferredKey)) return;
-  // Title + prompt
-  DOM.welcomeTitle.textContent =
-    (activeTheme.welcome && activeTheme.welcome.title) ||
-    (DOM.eventTitle && DOM.eventTitle.textContent) ||
-    "";
-  DOM.welcomeTitle.style.fontFamily =
-    activeTheme.fontHeading || activeTheme.fontBody || activeTheme.font || "";
   if (DOM.startButton)
-    DOM.startButton.textContent =
-      (activeTheme.welcome && activeTheme.welcome.prompt) || "Touch to start";
+    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
-  //  the booth background on the welcome screen and hide standalone images
+  // Mirror the booth background behind the welcome overlay and hide image slot
   const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
@@ -2258,13 +1953,24 @@ function showWelcome(preferredKey) {
   const ws = DOM.welcomeScreen;
   if (!ws) return;
   ws.classList.remove("faded");
+  const dismiss = () => hideWelcome();
   if (DOM.startButton) {
-    DOM.startButton.onclick = () => hideWelcome();
+    DOM.startButton.onclick = dismiss;
   } else {
-    ws.onclick = () => hideWelcome();
+    ws.onclick = dismiss;
   }
 }
 function hideWelcome() {
+  const ws = DOM.welcomeScreen;
+  if (!ws) return;
+  ws.classList.add("faded");
+
+  // Ensure the live video element is available before toggling visibility.
+  const videoEl = DOM.video || document.getElementById("video");
+  if (videoEl) {
+    DOM.video = videoEl;
+    videoEl.classList.remove("hidden");
+    videoEl.classList.add("active");
   const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
   DOM.welcomeScreen = ws;
@@ -2286,6 +1992,12 @@ function hideWelcome() {
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
+      const optionsContainer = DOM.options || document.getElementById("options");
+      if (optionsContainer) {
+        DOM.options = optionsContainer;
+        const firstThumb = optionsContainer.querySelector(".thumb");
+        if (firstThumb) firstThumb.click();
+      }
       let options = DOM.options || document.getElementById("options");
       if (options) DOM.options = options;
       const firstThumb = options && options.querySelector(".thumb");
@@ -2373,10 +2085,21 @@ async function startCamera(autoStartBooth = false) {
       })
       .catch((err) => {
         console.error("Camera Error:", err);
-        alert(
-          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\nError: " +
-            err.message,
+        const detail = err && err.message ? err.message : "Unknown error";
+        const useDemo = confirm(
+          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+            `Error: ${detail}\n\nEnable Demo Mode instead?`,
         );
+        if (useDemo) {
+          demoMode = true;
+          if (autoStartBooth) startBoothFlow();
+          else showToast("Demo mode enabled");
+        } else {
+          alert(
+            "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+              `Error: ${detail}`,
+          );
+        }
       })
       .finally(() => {
         isStartingCamera = false;
@@ -2393,9 +2116,9 @@ function startBooth() {
 
 function startBoothFlow() {
   // Theme is now pre-loaded by startCamera()
-  allowRetake = DOM.allowRetakes.checked;
-  DOM.adminScreen.classList.add("hidden");
-  DOM.boothScreen.classList.remove("hidden");
+  allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
@@ -2708,29 +2431,6 @@ function setCaptureAspect(aspect) {
   }
   updateCaptureAspect();
 }
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    try {
-      if (location.protocol.startsWith("http")) img.crossOrigin = "anonymous";
-    } catch (_) {}
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-async function getAspectRatioFromImage(imgSrc) {
-  try {
-    const img = await loadImage(imgSrc);
-    if (img.naturalWidth && img.naturalHeight) {
-      return img.naturalWidth / img.naturalHeight;
-    }
-  } catch (e) {
-    console.error("Failed to get aspect ratio from image", imgSrc, e);
-  }
-  return null; // or a default value
-}
-
 async function applyOverlay(canvas, overlaySrc) {
   if (!overlaySrc) return canvas;
   try {
@@ -2772,110 +2472,15 @@ function drawImageContain(ctx, img, dx, dy, dw, dh) {
   ctx.drawImage(img, rx, ry, rw, rh);
 }
 
-function toNumber(val, fallback) {
-  const num = Number(val);
-  return Number.isFinite(num) ? num : fallback;
-}
-
 function clamp(val, min, max) {
   if (!Number.isFinite(val)) return min;
   return Math.min(Math.max(val, min), max);
-}
-
-function normalizeSizeValue(raw, fallback) {
-  if (typeof raw === "string") {
-    const cleaned = raw.replace(/[^0-9.]/g, "");
-    if (cleaned) raw = Number(cleaned);
-    else raw = NaN;
-  }
-  const num = Number(raw);
-  return Number.isFinite(num) && num > 0 ? num : fallback;
 }
 
 function formatSizeValue(num) {
   if (!Number.isFinite(num) || num <= 0) return "";
   const trimmed = num.toFixed(2).replace(/\.?0+$/, "");
   return trimmed;
-}
-
-function detectDoubleColumnSlots(img, rows) {
-  try {
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (!w || !h) return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, w, h).data;
-    const cols = 2;
-    const colWidth = w / cols;
-    const marginX = Math.max(2, Math.floor(colWidth * 0.08));
-    const stepX = Math.max(1, Math.floor(colWidth / 80));
-    const alphaThreshold = 32;
-    const minSlotHeight = Math.max(10, Math.floor(h * 0.08));
-    const expandY = Math.floor(h * 0.005);
-    const results = Array.from({ length: cols }, () => []);
-
-    for (let col = 0; col < cols; col++) {
-      const xStart = Math.max(0, Math.floor(col * colWidth + marginX));
-      const xEnd = Math.min(w - 1, Math.floor((col + 1) * colWidth - marginX));
-      let inSlot = false;
-      let slotStart = 0;
-      for (let y = 0; y < h; y++) {
-        let alphaSum = 0;
-        let count = 0;
-        for (let x = xStart; x <= xEnd; x += stepX) {
-          alphaSum += data[(y * w + x) * 4 + 3];
-          count++;
-        }
-        const avgAlpha = alphaSum / (count || 1);
-        if (!inSlot && avgAlpha < alphaThreshold) {
-          inSlot = true;
-          slotStart = y;
-        } else if (inSlot && avgAlpha >= alphaThreshold) {
-          const slotHeight = y - slotStart;
-          if (slotHeight >= minSlotHeight) {
-            const y1 = Math.max(0, slotStart - expandY);
-            const y2 = Math.min(h, y + expandY);
-            results[col].push({
-              x: col * colWidth + marginX,
-              y: y1,
-              w: colWidth - marginX * 2,
-              h: Math.max(1, y2 - y1),
-            });
-          }
-          inSlot = false;
-        }
-      }
-      if (inSlot) {
-        const slotHeight = h - slotStart;
-        if (slotHeight >= minSlotHeight) {
-          const y1 = Math.max(0, slotStart - expandY);
-          const y2 = h;
-          results[col].push({
-            x: col * colWidth + marginX,
-            y: y1,
-            w: colWidth - marginX * 2,
-            h: Math.max(1, y2 - y1),
-          });
-        }
-      }
-      results[col].sort((a, b) => a.y - b.y);
-      if (results[col].length > rows) {
-        results[col] = results[col].slice(0, rows);
-      }
-    }
-
-    if (results.every((arr) => arr.length === rows)) {
-      return results;
-    }
-    return null;
-  } catch (e) {
-    console.warn("Slot detection failed", e);
-    return null;
-  }
 }
 
 // Convert hex like #rrggbb to {r,g,b}
@@ -2943,14 +2548,21 @@ async function runStripSequence(template) {
   }
   try {
     const stripUrl = await composeStrip(template, shots);
-    restorePreviewState(previewState);
+    restorePreviewState(previewState, {
+      liveOverlay: DOM.liveOverlay,
+      videoWrap: DOM.videoWrap,
+    });
     previewRestored = true;
     if (DOM.liveOverlay)
       DOM.liveOverlay.style.opacity = previewState.overlayOpacity || "";
     showFinal(stripUrl);
     recordAnalytics("strip", template.src);
   } finally {
-    if (!previewRestored) restorePreviewState(previewState);
+    if (!previewRestored)
+      restorePreviewState(previewState, {
+        liveOverlay: DOM.liveOverlay,
+        videoWrap: DOM.videoWrap,
+      });
     setCaptureAspect(prevAspect);
   }
 }
@@ -3112,29 +2724,9 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
   const ctx = canvas.getContext("2d");
   const cols = 2; // duplicate columns
   const rows = 3; // three slots
-  // Reserve a header area at the top for graphics/logo on the template
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
+  // Reserve header/footer/spacing using shared template metrics helpers
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } =
+    getStripTemplatePercents(template);
 
   const columnW = canvas.width / cols;
   const columnPad = columnPadPct * columnW;
@@ -4008,463 +3600,8 @@ function saveTheme() {
   });
 }
 
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function getAssetIndex() {
-  if (!themes._meta) themes._meta = {};
-  if (!themes._meta.assetIndex) themes._meta.assetIndex = {};
-  return themes._meta.assetIndex;
-}
-async function fileSha256Hex(file) {
-  const buf = await file.arrayBuffer();
-  const hash = await crypto.subtle.digest("SHA-256", buf);
-  const bytes = new Uint8Array(hash);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-function extFromName(name, fallback) {
-  const m = (name || "").match(/\.([a-z0-9]+)$/i);
-  return m ? m[1].toLowerCase() : fallback || "png";
-}
 // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
-async function uploadAsset(file, kind) {
-  try {
-    const index = getAssetIndex();
-    const hash = await fileSha256Hex(file);
-    if (index[hash]) return index[hash];
-    const cfg = getCloudinaryConfig();
-    if (cfg.use && cfg.cloud && cfg.preset) {
-      const form = new FormData();
-      const evSlug =
-        typeof getCurrentEventSlug === "function"
-          ? getCurrentEventSlug()
-          : "event";
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const base = (cfg.folderBase || "photobooth/events").replace(/\/$/, "");
-      const folder = `${base}/${evSlug}/${kind || "misc"}`;
-      const fname = `${kind || "file"}-${hash}.${extFromName(
-        file && file.name,
-        "png",
-      )}`;
-      const wrapped = new File([file], fname, {
-        type: file.type || "application/octet-stream",
-      });
-      form.append("file", wrapped);
-      form.append("upload_preset", cfg.preset);
-      form.append("folder", folder);
-      const resp = await fetch(
-        `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
-        { method: "POST", body: form },
-      );
-      const json = await resp.json();
-      if (json && json.secure_url) {
-        index[hash] = json.secure_url;
-        saveThemesToStorage();
-        return json.secure_url;
-      }
-    }
-  } catch (_) {}
-  // Fallback to local embedding
-  try {
-    return await readFileAsDataURL(file);
-  } catch (_) {
-    return "";
-  }
-}
-
-function saveThemesToStorage() {
-  // Normalize to avoid duplicates across overlays/templates, and strip empties
-  ensureBuiltinThemes();
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins("core themes missing before save");
-  }
-  try {
-    normalizeAllThemes();
-  } catch (_e) {}
-  localStorage.setItem("photoboothThemes", JSON.stringify(themes));
-  // Best-effort remote sync
-  syncThemesRemote().catch(() => {});
-}
-
-function cloneThemeValue(val) {
-  if (Array.isArray(val)) return val.map(cloneThemeValue);
-  if (val && typeof val === "object") {
-    const out = {};
-    for (const key of Object.keys(val)) {
-      out[key] = cloneThemeValue(val[key]);
-    }
-    return out;
-  }
-  return val;
-}
-
-function addMissingDefaults(target, source) {
-  if (!source || typeof source !== "object") return;
-  if (!target || typeof target !== "object") return;
-  for (const key of Object.keys(source)) {
-    const src = source[key];
-    const tgt = target ? target[key] : undefined;
-    if (Array.isArray(src)) {
-      if (!Array.isArray(tgt) || tgt.length === 0) {
-        target[key] = src.slice();
-      }
-    } else if (src && typeof src === "object") {
-      if (!tgt || typeof tgt !== "object") {
-        target[key] = cloneThemeValue(src);
-      } else {
-        addMissingDefaults(tgt, src);
-      }
-    } else {
-      const needs =
-        tgt === undefined ||
-        tgt === null ||
-        (typeof tgt === "string" && tgt.trim() === "");
-      if (needs) {
-        target[key] = src;
-      }
-    }
-  }
-}
-
-function pruneMisplacedBuiltinThemes(target) {
-  if (!target || typeof target !== "object") return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== "object") continue;
-    if (BUILTIN_THEMES[rootKey] && BUILTIN_THEMES[rootKey].name) {
-      group.name = BUILTIN_THEMES[rootKey].name;
-    }
-    for (const extraKey of Object.keys(group)) {
-      if (!["name", "themes", "holidays"].includes(extraKey)) {
-        delete group[extraKey];
-      }
-    }
-    for (const bucket of ["themes", "holidays"]) {
-      if (!group[bucket] || typeof group[bucket] !== "object") continue;
-      for (const key of Object.keys(group[bucket])) {
-        const loc = BUILTIN_THEME_LOCATIONS[key];
-        if (loc && (loc.root !== rootKey || loc.bucket !== bucket)) {
-          delete group[bucket][key];
-        }
-      }
-    }
-  }
-}
-
-function ensureBuiltinThemes() {
-  if (!themes || typeof themes !== "object") themes = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const builtinGroup = BUILTIN_THEMES[rootKey];
-    if (!builtinGroup || typeof builtinGroup !== "object") continue;
-    if (!themes[rootKey] || typeof themes[rootKey] !== "object") {
-      themes[rootKey] = cloneThemeValue(builtinGroup);
-      continue;
-    }
-    const targetGroup = themes[rootKey];
-    // Ensure optgroup metadata like name exists
-    addMissingDefaults(targetGroup, builtinGroup);
-    for (const bucket of ["themes", "holidays"]) {
-      if (!builtinGroup[bucket] || typeof builtinGroup[bucket] !== "object")
-        continue;
-      if (!targetGroup[bucket] || typeof targetGroup[bucket] !== "object") {
-        targetGroup[bucket] = {};
-      }
-      const targetBucket = targetGroup[bucket];
-      for (const subKey of Object.keys(builtinGroup[bucket])) {
-        const builtinTheme = builtinGroup[bucket][subKey];
-        if (!targetBucket[subKey] || typeof targetBucket[subKey] !== "object") {
-          targetBucket[subKey] = cloneThemeValue(builtinTheme);
-        } else {
-          addMissingDefaults(targetBucket[subKey], builtinTheme);
-        }
-      }
-    }
-  }
-  pruneMisplacedBuiltinThemes(themes);
-}
-
-function hasCoreBuiltins(obj) {
-  try {
-    return !!(
-      obj &&
-      obj.general &&
-      obj.general.themes &&
-      obj.general.themes.birthday &&
-      obj.fall &&
-      obj.fall.holidays &&
-      obj.fall.holidays.halloween
-    );
-  } catch (_) {
-    return false;
-  }
-}
-
-function resetThemesToBuiltins(reason) {
-  console.warn("Resetting themes to built-ins:", reason || "unknown");
-  themes = cloneThemeValue(BUILTIN_THEMES);
-  try {
-    localStorage.removeItem("photoboothThemes");
-  } catch (_) {}
-}
-
-function mergePlainObject(baseObj, overrideObj) {
-  const baseClone =
-    baseObj && typeof baseObj === "object" && !Array.isArray(baseObj)
-      ? cloneThemeValue(baseObj)
-      : {};
-  if (
-    !overrideObj ||
-    typeof overrideObj !== "object" ||
-    Array.isArray(overrideObj)
-  ) {
-    if (Array.isArray(overrideObj)) return overrideObj.slice();
-    return baseClone;
-  }
-  const out = baseClone || {};
-  for (const key of Object.keys(overrideObj)) {
-    const value = overrideObj[key];
-    if (Array.isArray(value)) out[key] = value.slice();
-    else if (value && typeof value === "object")
-      out[key] = mergePlainObject(out[key], value);
-    else out[key] = value;
-  }
-  return out;
-}
-
-const stringOrEmpty = (val) => (typeof val === "string" ? val.trim() : "");
-const arrayFromMaybeList = (list) =>
-  Array.isArray(list) ? list.filter(Boolean) : [];
-const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
-
-function applyThemeFallbacks(baseLeaf, merged, storedLeaf) {
-  if (
-    !baseLeaf ||
-    typeof baseLeaf !== "object" ||
-    !merged ||
-    typeof merged !== "object"
-  )
-    return;
-  applyBackgroundFallback(baseLeaf, merged, storedLeaf);
-  applyTemplatesFallback(baseLeaf, merged, storedLeaf);
-  applyOverlaysFallback(baseLeaf, merged, storedLeaf);
-  applyArrayFallback(baseLeaf, merged, "overlaysRemoved");
-  applyArrayFallback(baseLeaf, merged, "templatesRemoved");
-  mergeWelcomeAndMeta(baseLeaf, merged);
-}
-
-function applyBackgroundFallback(baseLeaf, merged, storedLeaf) {
-  const baseList = arrayFromMaybeList(baseLeaf.backgrounds);
-  const baseSingle = stringOrEmpty(baseLeaf.background);
-  const mergedList = arrayFromMaybeList(merged.backgrounds);
-  const mergedSingle = stringOrEmpty(merged.background);
-  const storedList = arrayFromMaybeList(storedLeaf && storedLeaf.backgrounds);
-  const storedSingle = stringOrEmpty(storedLeaf && storedLeaf.background);
-  const storedAllowsFallback =
-    !storedLeaf || (!storedList.length && !storedSingle);
-
-  if (!storedAllowsFallback) return;
-  if (!baseList.length && !baseSingle) return;
-  if (mergedList.length || mergedSingle) return;
-
-  if (baseList.length) merged.backgrounds = baseList.slice();
-  if (baseSingle) merged.background = baseLeaf.background;
-  if (typeof baseLeaf.backgroundIndex === "number") {
-    merged.backgroundIndex = baseLeaf.backgroundIndex;
-  }
-}
-
-function applyTemplatesFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.templatesFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.templates);
-  if (baseLeaf.templatesFolder && !merged.templatesFolder && !storedFolder) {
-    merged.templatesFolder = baseLeaf.templatesFolder;
-  }
-  const baseTemplates = Array.isArray(baseLeaf.templates)
-    ? baseLeaf.templates
-    : null;
-  const mergedTemplates = Array.isArray(merged.templates)
-    ? merged.templates
-    : null;
-  if (
-    baseTemplates &&
-    baseTemplates.length &&
-    (!mergedTemplates || mergedTemplates.length === 0) &&
-    !storedArrayExists
-  ) {
-    merged.templates = baseTemplates.map((tpl) => mergePlainObject(tpl, {}));
-  }
-}
-
-function applyOverlaysFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.overlaysFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.overlays);
-  if (baseLeaf.overlaysFolder && !merged.overlaysFolder && !storedFolder) {
-    merged.overlaysFolder = baseLeaf.overlaysFolder;
-  }
-  const baseOverlays = Array.isArray(baseLeaf.overlays)
-    ? baseLeaf.overlays
-    : null;
-  const mergedOverlays = Array.isArray(merged.overlays)
-    ? merged.overlays
-    : null;
-  if (
-    baseOverlays &&
-    baseOverlays.length &&
-    (!mergedOverlays || mergedOverlays.length === 0) &&
-    !storedArrayExists
-  ) {
-    merged.overlays = baseOverlays.slice();
-  }
-}
-
-function applyArrayFallback(baseLeaf, merged, prop) {
-  if (Array.isArray(baseLeaf[prop]) && !Array.isArray(merged[prop])) {
-    merged[prop] = baseLeaf[prop].slice();
-  }
-}
-
-function mergeWelcomeAndMeta(baseLeaf, merged) {
-  if (baseLeaf.welcome)
-    merged.welcome = mergePlainObject(baseLeaf.welcome, merged.welcome);
-  if (baseLeaf.accent && !merged.accent) merged.accent = baseLeaf.accent;
-  if (baseLeaf.accent2 && !merged.accent2) merged.accent2 = baseLeaf.accent2;
-  if (baseLeaf.font && !merged.font) merged.font = baseLeaf.font;
-  if (baseLeaf.fontHeading && !merged.fontHeading)
-    merged.fontHeading = baseLeaf.fontHeading;
-  if (baseLeaf.fontBody && !merged.fontBody)
-    merged.fontBody = baseLeaf.fontBody;
-}
-
-function mergeThemeLeaf(baseLeaf, storedLeaf) {
-  if (storedLeaf === null || storedLeaf === undefined) {
-    return cloneThemeValue(baseLeaf);
-  }
-  if (Array.isArray(storedLeaf)) return storedLeaf.slice();
-  if (typeof storedLeaf !== "object") return storedLeaf;
-  const merged = mergePlainObject(baseLeaf, storedLeaf);
-  applyThemeFallbacks(baseLeaf, merged, storedLeaf);
-  return merged;
-}
-
-function fixBuiltinThemePlacements(target) {
-  if (!target || typeof target !== "object") return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== "object") continue;
-    for (const bucket of ["themes", "holidays"]) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== "object") continue;
-      for (const subKey of Object.keys({ ...sub })) {
-        const loc = BUILTIN_THEME_LOCATIONS[subKey];
-        if (!loc || (loc.root === rootKey && loc.bucket === bucket)) continue;
-        const currentTheme = sub[subKey];
-        delete sub[subKey];
-        if (!target[loc.root])
-          target[loc.root] = cloneThemeValue(
-            BUILTIN_THEMES[loc.root] || { name: loc.root },
-          );
-        if (!target[loc.root][loc.bucket]) target[loc.root][loc.bucket] = {};
-        const base =
-          BUILTIN_THEMES[loc.root] && BUILTIN_THEMES[loc.root][loc.bucket]
-            ? BUILTIN_THEMES[loc.root][loc.bucket][subKey]
-            : null;
-        target[loc.root][loc.bucket][subKey] = mergeThemeLeaf(
-          base,
-          currentTheme,
-        );
-      }
-    }
-  }
-}
-
-function mergeStoredThemes(base, stored) {
-  if (
-    !base ||
-    typeof base !== "object" ||
-    !stored ||
-    typeof stored !== "object"
-  )
-    return;
-  for (const key of Object.keys(stored)) {
-    const storedGroup = stored[key];
-    if (
-      storedGroup &&
-      typeof storedGroup === "object" &&
-      !Array.isArray(storedGroup)
-    ) {
-      const bucketKey = storedGroup.themes
-        ? "themes"
-        : storedGroup.holidays
-          ? "holidays"
-          : null;
-      const baseGroup = base[key];
-      if (bucketKey) {
-        if (!baseGroup || typeof baseGroup !== "object") {
-          base[key] = cloneThemeValue(storedGroup);
-          continue;
-        }
-        if (!baseGroup[bucketKey]) baseGroup[bucketKey] = {};
-        const baseBucket = baseGroup[bucketKey];
-        const storedBucket = storedGroup[bucketKey] || {};
-        for (const subKey of Object.keys(storedBucket)) {
-          baseBucket[subKey] = mergeThemeLeaf(
-            baseBucket[subKey],
-            storedBucket[subKey],
-          );
-        }
-        for (const prop of Object.keys(storedGroup)) {
-          if (prop === "themes" || prop === "holidays") continue;
-          const val = storedGroup[prop];
-          if (Array.isArray(val)) baseGroup[prop] = val.slice();
-          else if (val && typeof val === "object")
-            baseGroup[prop] = mergePlainObject(baseGroup[prop], val);
-          else baseGroup[prop] = val;
-        }
-      } else {
-        base[key] = mergeThemeLeaf(baseGroup, storedGroup);
-      }
-    } else {
-      base[key] = cloneThemeValue(storedGroup);
-    }
-  }
-}
-
-function loadThemesFromStorage() {
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins("missing core themes before storage merge");
-  }
-  const storedThemes = localStorage.getItem("photoboothThemes");
-  if (storedThemes) {
-    try {
-      const parsed = JSON.parse(storedThemes);
-      mergeStoredThemes(themes, parsed);
-      fixBuiltinThemePlacements(themes);
-      ensureBuiltinThemes();
-      try {
-        normalizeAllThemes();
-      } catch (_e) {}
-      if (!hasCoreBuiltins(themes)) {
-        resetThemesToBuiltins("stored themes missing core entries");
-      }
-    } catch (err) {
-      console.warn("Failed to parse stored themes", err);
-    }
-  }
-  const globalLogo = getGlobalLogo();
-  if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
-  // Attempt remote load and prefer remote if available
-  loadThemesRemote().catch(() => {});
-}
-
 // Folder import (device-only) helpers
 async function handleOverlayFolderPick(e) {
   const key = getSelectedThemeKey();
@@ -6536,144 +5673,9 @@ function clearThemeFileInputs() {
   if (DOM.themeTemplates) DOM.themeTemplates.value = "";
 }
 
-// --- De-duplication helpers ---
-function arrayUniqueStrings(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const v of arr) {
-    const s = (v || "").toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) {
-      seen.add(s);
-      out.push(s);
-    }
-  }
-  return out;
-}
-function arrayUniqueTemplates(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const t of arr) {
-    if (!t || !t.src) continue;
-    const s = t.src.toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) {
-      seen.add(s);
-      out.push({ src: s, layout: t.layout || "double_column", slots: t.slots });
-    }
-  }
-  return out;
-}
-function normalizeThemeObject(t) {
-  if (!t || typeof t !== "object") return;
-  if (Array.isArray(t.overlays)) t.overlays = arrayUniqueStrings(t.overlays);
-  if (Array.isArray(t.templates))
-    t.templates = arrayUniqueTemplates(t.templates);
-  // Background normalization: ensure index in range
-  const list = Array.isArray(t.backgrounds)
-    ? t.backgrounds.filter(Boolean)
-    : t.background
-      ? [t.background]
-      : [];
-  if (Array.isArray(t.backgrounds)) {
-    t.backgrounds = arrayUniqueStrings(list);
-    if (typeof t.backgroundIndex === "number") {
-      t.backgroundIndex = Math.min(
-        Math.max(t.backgroundIndex, 0),
-        Math.max(t.backgrounds.length - 1, 0),
-      );
-    }
-  } else if (
-    t.background &&
-    typeof t.background === "string" &&
-    !t.background.trim()
-  ) {
-    t.background = "";
-  }
-  const baseFont = typeof t.font === "string" && t.font.trim() ? t.font : "";
-  if ((!t.fontHeading || !t.fontHeading.trim()) && baseFont)
-    t.fontHeading = baseFont;
-  if ((!t.fontBody || !t.fontBody.trim()) && baseFont) t.fontBody = baseFont;
-  if (!t.fontHeading && t.fontBody) t.fontHeading = t.fontBody;
-  if (!t.fontBody && t.fontHeading) t.fontBody = t.fontHeading;
-  if (!t.font || !t.font.trim())
-    t.font = t.fontBody || t.fontHeading || "'Comic Neue', cursive";
-  t.eventTitleSize = normalizeSizeValue(
-    t.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE,
-  );
-  if (!t.welcome || typeof t.welcome !== "object") t.welcome = {};
-  t.welcome.title = typeof t.welcome.title === "string" ? t.welcome.title : "";
-  t.welcome.prompt =
-    typeof t.welcome.prompt === "string" ? t.welcome.prompt : "";
-  t.welcome.titleSize = normalizeSizeValue(
-    t.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE,
-  );
-}
-function normalizeAllThemes() {
-  const keys = Object.keys(themes || {});
-  for (const k of keys) {
-    const group = themes[k];
-    if (!group || typeof group !== "object") continue;
-    if (group.themes || group.holidays) {
-      const dict = group.themes || group.holidays;
-      for (const sk in dict) normalizeThemeObject(dict[sk]);
-    } else {
-      normalizeThemeObject(group);
-    }
-  }
-}
-
-function forEachThemeEntry(callback) {
-  if (!themes || typeof themes !== "object" || typeof callback !== "function")
-    return;
-  const visit = (collection, prefix = "") => {
-    if (!collection || typeof collection !== "object") return;
-    for (const key of Object.keys(collection)) {
-      if (key === "_meta") continue;
-      const value = collection[key];
-      if (!value || typeof value !== "object") continue;
-      const nextKey = prefix ? `${prefix}:${key}` : key;
-      if (value.themes || value.holidays) {
-        if (value.themes) visit(value.themes, nextKey);
-        if (value.holidays) visit(value.holidays, nextKey);
-      } else {
-        callback(value, nextKey);
-      }
-    }
-  };
-  visit(themes);
-}
-
-function applyGlobalLogoToTheme(theme, logo) {
-  if (!theme || typeof theme !== "object") return;
-  if (typeof logo !== "string") return;
-  theme.logo = logo;
-}
-
-function applyGlobalLogoToAllThemes(logo) {
-  if (typeof logo !== "string") return;
-  forEachThemeEntry((theme) => applyGlobalLogoToTheme(theme, logo));
-}
-
-function getGlobalLogo() {
-  try {
-    const value = localStorage.getItem(GLOBAL_LOGO_STORAGE_KEY);
-    return value === null ? null : value;
-  } catch (_) {
-    return null;
-  }
-}
-
 function setGlobalLogo(logo, options = {}) {
   const value = typeof logo === "string" ? logo : "";
-  try {
-    if (value) localStorage.setItem(GLOBAL_LOGO_STORAGE_KEY, value);
-    else localStorage.removeItem(GLOBAL_LOGO_STORAGE_KEY);
-  } catch (_) {}
+  setGlobalLogoValue(value);
   applyGlobalLogoToAllThemes(value);
   if (activeTheme) {
     applyGlobalLogoToTheme(activeTheme, value);
@@ -7134,7 +6136,7 @@ function handleImport() {
   reader.onload = (event) => {
     try {
       const importedThemes = JSON.parse(event.target.result);
-      themes = { ...themes, ...importedThemes };
+      setThemes({ ...themes, ...importedThemes });
       saveThemesToStorage();
       const current = DOM.eventSelect && DOM.eventSelect.value;
       populateThemeSelector(current || DEFAULT_THEME_KEY);
