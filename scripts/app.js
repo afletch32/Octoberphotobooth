@@ -2054,7 +2054,13 @@ async function startCamera(autoStartBooth = false) {
 
   try {
     // Load the theme first to ensure all assets and settings are ready.
-    loadTheme(DOM.eventSelect.value);
+    const selectedEventKey =
+      (DOM.eventSelect && DOM.eventSelect.value) || DEFAULT_THEME_KEY || "";
+    if (selectedEventKey) {
+      loadTheme(selectedEventKey);
+    } else {
+      console.warn("No event key available when starting the camera; skipping theme load.");
+    }
 
     // If running from file://, most browsers block camera. Offer Demo Mode unless forced.
     if (
