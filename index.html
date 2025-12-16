@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1222">
-  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Comic+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts.css">
   <style>
     :root {
       --accent: rgb(212, 242, 217);
@@ -20,8 +20,10 @@
       --font-heading: 'Comic Neue', cursive;
       --font-body: 'Comic Neue', cursive;
       --font: var(--font-body);
-    }
-
+      --countdown-font: 'Creepster', cursive;
+      --event-title-size: 1.8em;
+      --welcome-title-size: 3.4em;
+    }    
     body,
     html {
       margin: 0;
@@ -35,6 +37,18 @@
 
     .hidden {
       display: none !important;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     button {
@@ -544,6 +558,170 @@
       border-radius: 12px;
     }
 
+    .font-section {
+      margin-top: 16px;
+      padding: 14px;
+      background: #101217;
+      border: 1px solid #232734;
+      border-radius: 12px;
+    }
+
+    .font-section h3 {
+      margin: 0 0 12px;
+      font-size: 1.1em;
+      color: #eee;
+    }
+
+    .font-select-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .font-select-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .font-select-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+      width: 100%;
+    }
+
+    .font-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0 10px;
+    }
+
+    .font-url-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .style-preview {
+      margin-bottom: 18px;
+      padding: 18px;
+      background: #0b0f1a;
+      border: 1px solid #232734;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .style-preview-heading {
+      font-family: var(--font-heading);
+      font-size: var(--welcome-title-size, 3.4em);
+      color: var(--accent2);
+      margin: 0;
+      text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    .style-preview-subheading {
+      font-family: var(--font-heading);
+      font-size: var(--event-title-size, 1.8em);
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .style-preview-body {
+      font-family: var(--font-body);
+      color: #d4d8eb;
+      margin: 0;
+    }
+
+    .style-preview-button {
+      align-self: flex-start;
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      font-family: var(--font-heading);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .style-preview-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+    }
+
+    .style-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .style-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .style-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .style-control-group input,
+    .style-control-group select {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+      background: #0d101b;
+      color: #eee;
+    }
+
+    .color-control-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .color-control-group label {
+      font-size: .9em;
+      color: #bbb;
+    }
+
+    .color-control-group input[type="color"] {
+      width: 100%;
+      height: 42px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .color-control-group input[type="color"]::-webkit-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-control-group input[type="color"]::-moz-color-swatch {
+      border-radius: 8px;
+      border: 1px solid #1f2536;
+    }
+
+    .color-item.clickable {
+      cursor: pointer;
+    }
+
     .dual-font-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -567,17 +745,10 @@
       color: #eee;
     }
 
-    .font-preview-box {
-      margin-top: 6px;
-      padding: 10px 12px;
-      background: #0b0d12;
-      border: 1px solid #1f2233;
-      border-radius: 8px;
-      min-height: 48px;
-      font-size: 1rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .font-preview-box,
+    .font-preview,
+    .font-current-previews {
+      display: none !important;
     }
 
     .quick-picks-header {
@@ -703,7 +874,7 @@
     }
 
     #eventTitle {
-      font-size: 1.8em;
+      font-size: var(--event-title-size, 1.8em);
       flex: 1;
       text-align: center;
       font-family: var(--font);
@@ -769,6 +940,44 @@
       box-shadow: 0 0 18px #000;
     }
 
+    #zoomControl {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #zoomControl .zoom-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9em;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      font-weight: 600;
+    }
+
+    #zoomValue {
+      font-size: 0.9em;
+      color: var(--accent);
+    }
+
+    #zoomSlider {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    #zoomHint {
+      margin: 0;
+      font-size: 0.8em;
+      color: #b6c1d2;
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
@@ -796,8 +1005,8 @@
       transition: opacity 500ms ease;
       object-fit: cover;
       transform-origin: center;
-      -webkit-transform: scaleX(-1) !important;
-      transform: scaleX(-1) !important;
+      -webkit-transform: scaleX(-1);
+      transform: scaleX(-1);
     }
 
     #lastShot {
@@ -982,7 +1191,7 @@
     #welcomeOverlay h1 {
       font-family: 'Bangers', cursive;
       letter-spacing: 1px;
-      font-size: 3.4em;
+      font-size: var(--welcome-title-size, 3.4em);
       margin: 0;
       color: var(--accent2);
     }
@@ -993,122 +1202,46 @@
       animation: pulse 1.5s infinite;
     }
 
-    /* Fun, bubbly start button */
+    /* Start button */
     .start-button {
       position: relative;
-      display: inline-block;
-      padding: 16px 28px;
-      font-size: 1.3em;
-      font-weight: 800;
-      border: none;
-      border-radius: 999px;
-      color: #000;
-      cursor: pointer;
-      background: radial-gradient(120% 120% at 20% 20%, #fff 0%, var(--accent) 40%, hsl(93, 83%, 75%) 100%);
-      box-shadow: 0 10px 24px rgba(0, 0, 0, .35), 0 0 0 4px rgba(255, 255, 255, 0.1) inset;
-      transform: translateZ(0);
-      transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
-      animation: start-bounce 2.2s ease-in-out infinite;
-    }
-
-    .start-button:hover {
-      filter: brightness(1.06);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, .45), 0 0 0 6px rgba(215, 253, 211, 0.12) inset;
-    }
-
-    .start-button:active {
-      transform: scale(0.96);
-    }
-
-    .start-button:focus-visible {
-      outline: 3px solid var(--accent2);
-      outline-offset: 4px;
-    }
-
-    .start-button::before,
-    .start-button::after {
-      content: '';
-      position: absolute;
-      inset: auto;
-      bottom: 8px;
-      left: 16px;
-      width: 10px;
-      height: 10px;
-      background: rgba(255, 255, 255, 0.85);
-      border-radius: 50%;
-      filter: blur(0.5px);
-      animation: bubble 3.2s ease-in infinite;
-      pointer-events: none;
-    }
-
-    .start-button::after {
-      left: auto;
-      right: 18px;
-      animation-delay: 1.2s;
-      width: 8px;
-      height: 8px;
-      opacity: .9;
-    }
-
-    @keyframes start-bounce {
-
-      0%,
-      100% {
-        transform: translateY(0);
-      }
-
-      50% {
-        transform: translateY(-4px);
-      }
-    }
-
-    @keyframes bubble {
-      0% {
-        transform: translate(0, 0) scale(1);
-        opacity: .9;
-      }
-
-      70% {
-        transform: translate(0, -28px) scale(1.4);
-        opacity: .5;
-      }
-
-      100% {
-        transform: translate(0, -42px) scale(0.8);
-        opacity: 0;
-      }
-    }
-
-    /* Big round start button */
-    .start-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: clamp(150px, 22vw, 280px);
       height: clamp(150px, 22vw, 280px);
+      padding: 0 28px;
       border-radius: 50%;
-      background: radial-gradient(120% 120% at 35% 30%, #aae470 0%, #52ca3f 35%, hsl(126, 69%, 38%) 70%, #054704 100%);
       border: 8px solid #fff;
       outline: 6px solid #222;
+      background: radial-gradient(120% 120% at 35% 30%, #aae470 0%, #52ca3f 35%, hsl(126, 69%, 38%) 70%, #054704 100%);
       color: #000;
+      font-family: 'Bangers', cursive;
+      font-size: clamp(1.2rem, 2.6vw, 2.2rem);
       font-weight: 900;
       letter-spacing: .5px;
       text-transform: none;
-      font-family: 'Bangers', cursive;
-      font-size: clamp(1.2rem, 2.6vw, 2.2rem);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, .55), inset 0 2px 10px rgba(255, 255, 255, .45);
       cursor: pointer;
       user-select: none;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .55), inset 0 2px 10px rgba(255, 255, 255, .45);
+      transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
       animation: pulse 1.6s infinite;
     }
 
     .start-button:hover {
       transform: translateY(-1px);
+      filter: brightness(1.06);
+      box-shadow: 0 20px 44px rgba(0, 0, 0, .6), inset 0 2px 12px rgba(255, 255, 255, .5);
     }
 
     .start-button:active {
-      transform: translateY(0);
+      transform: translateY(0) scale(0.96);
       box-shadow: 0 8px 18px rgba(0, 0, 0, .5), inset 0 2px 10px rgba(0, 0, 0, .25);
+    }
+
+    .start-button:focus-visible {
+      outline: 3px solid var(--accent2);
+      outline-offset: 4px;
     }
 
     @keyframes pulse {
@@ -1136,7 +1269,7 @@
       align-items: center;
       justify-content: center;
       font-size: clamp(6rem, 20vw, 18rem);
-      font-family: 'Creepster', cursive;
+      font-family: var(--countdown-font, 'Creepster', cursive);
       color: var(--accent);
       text-shadow: 6px 6px 18px #000;
       z-index: 20;
@@ -1237,6 +1370,9 @@
       justify-content: center;
       gap: 20px;
       text-align: center;
+      flex-wrap: wrap;
+      max-width: min(96vw, 1200px);
+      margin: 0 auto;
     }
 
     #finalPreview.show {
@@ -1252,14 +1388,24 @@
       box-shadow: 0 10px 30px #000;
     }
 
+    #finalPreview.qr-ready #finalStrip {
+      max-width: min(70vw, 640px);
+      max-height: 80vh;
+    }
+
     #finalPreviewActions {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      max-width: min(90vw, 320px);
     }
 
     #qrCodeContainer {
       color: #fff;
       font-family: 'Comic Neue', cursive;
+      width: 100%;
+      max-width: 320px;
     }
 
     #qrCodeContainer h2 {
@@ -1269,6 +1415,8 @@
     #qrCode {
       border: 6px solid white;
       border-radius: 8px;
+      max-width: 100%;
+      height: auto;
     }
 
     #emailForm {
@@ -1406,11 +1554,22 @@
 
     .quick-picks {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 10px;
-      max-height: 220px;
+      max-height: 260px;
       overflow: hidden;
       transition: max-height 0.3s ease;
+      position: relative;
+      z-index: 0;
+    }
+
+    .quick-picks::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: #101217;
+      border-radius: 12px;
+      z-index: -1;
     }
 
     .quick-picks.expanded {
@@ -1553,9 +1712,12 @@
           <summary>Current Assets</summary>
           <div class="section-content">
             <div class="asset-actions">
+              <button type="button" id="addBackgroundBtn">Add Background</button>
+              <button type="button" id="addOverlaysBtn">Add Overlays</button>
+              <button type="button" id="addTemplatesBtn">Add Templates</button>
               <button type="button" id="addLogoBtn">Add Logo</button>
             </div>
-            <div id="assetUploadInputs" class="hidden">
+            <div id="assetUploadInputs" class="visually-hidden">
               <input type="file" id="themeBackground" accept="image/*">
               <input type="file" id="themeLogo" accept="image/*">
               <input type="file" id="themeOverlays" accept="image/*" multiple>
@@ -1595,6 +1757,82 @@
               <div class="asset-row">
                 <label>Templates:</label>
                 <div id="currentTemplates" class="asset-grid"></div>
+              </div>
+            </div>
+          </div>
+        </details>
+        <details class="panel-section" open>
+          <summary>Theme Styling</summary>
+          <div class="section-content">
+            <div id="stylePreview" class="style-preview">
+              <h3 id="stylePreviewHeading" class="style-preview-heading">Welcome to the photobooth!</h3>
+              <p id="stylePreviewSubheading" class="style-preview-subheading">Event Title Sample</p>
+              <p id="stylePreviewBody" class="style-preview-body">Make every capture unforgettable.</p>
+              <button type="button" id="stylePreviewButton" class="style-preview-button">Touch to start</button>
+            </div>
+            <div class="style-grid">
+              <div class="font-section fonts-main">
+                <div class="quick-picks-header">
+                  <span>Quick Picks</span>
+                  <button type="button" id="qpToggle" class="button-ghost">show all</button>
+                </div>
+                <div id="quickPicks" class="quick-picks-grid"></div>
+                <div class="style-control-group">
+                  <label for="themeWelcomeTitle">Welcome Heading</label>
+                  <input type="text" id="themeWelcomeTitle" placeholder="Welcome to the photobooth!">
+                  <label for="themeWelcomePrompt">Start Button Text</label>
+                  <input type="text" id="themeWelcomePrompt" placeholder="Touch to start">
+                  <label for="welcomeTitleSizeInput">Welcome Heading Size (em)</label>
+                  <input type="number" id="welcomeTitleSizeInput" min="0.5" max="6" step="0.1" placeholder="3.4">
+                  <label for="eventTitleSizeInput">Live Preview Heading Size (em)</label>
+                  <input type="number" id="eventTitleSizeInput" min="0.5" max="5" step="0.1" placeholder="1.8">
+                </div>
+                <div class="font-select-group">
+                  <label for="headingFontSelect">Heading Font</label>
+                  <select id="headingFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="bodyFontSelect">Body Font</label>
+                  <select id="bodyFontSelect"></select>
+                </div>
+                <div class="font-select-group">
+                  <label for="fontPairingSelect">Pairing Suggestions</label>
+                  <select id="fontPairingSelect"></select>
+                </div>
+                <div class="color-control-group">
+                  <label for="themeAccent">Primary Accent</label>
+                  <input type="color" id="themeAccent" value="#3f51b5">
+                  <label for="themeAccent2">Secondary Accent</label>
+                  <input type="color" id="themeAccent2" value="#ffffff">
+                </div>
+              </div>
+              <div class="font-section fonts-add">
+                <h3>Add Fonts</h3>
+                <label for="addFontUrl">Google Fonts URL</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&amp;display=swap">
+                  <button type="button" onclick="addFontByUrl()">Add URL</button>
+                </div>
+                <small>Paste the full Google Fonts URL (including weights). Fonts load instantly for this device.</small>
+                <label for="addFontFamily" style="margin-top:12px; display:block;">Google Font Family (optional)</label>
+                <div class="font-url-row">
+                  <input type="text" id="addFontFamily" placeholder="e.g., Pacifico">
+                  <button type="button" onclick="addFontByFamily()">Add Family</button>
+                </div>
+                <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
+                <div class="quick-picks-add" style="margin-top:16px;">
+                  <h4>Create a pairing</h4>
+                  <form id="quickPickForm" class="quick-picks-form">
+                    <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
+                    <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
+                    <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
+                    <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
+                    <button type="submit" id="addPairingBtn">Add Pairing</button>
+                  </form>
+                  <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
+                  <div id="customPairingsList" class="custom-pairings-list"></div>
+                </div>
+                <datalist id="fontSuggestions"></datalist>
               </div>
             </div>
           </div>
@@ -1680,95 +1918,6 @@
             </details>
           </div>
         </details>
-      </div>
-      </div>
-      <div class="panel">
-        <h2>Font Library</h2>
-        <div class="font-picker">
-          <div class="font-row">
-            <label for="libraryHeadingFont">Heading Font</label>
-            <select id="libraryHeadingFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="headingPreview" class="font-preview font-heading">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-row">
-            <label for="libraryBodyFont">Body Font</label>
-            <select id="libraryBodyFont">
-              <option value="">Loading…</option>
-            </select>
-            <div id="bodyPreview" class="font-preview font-body">
-              <small>Preview</small>
-              <div class="font-preview-text">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-row">
-            <label for="libraryPairings">Recommended Pairings</label>
-            <select id="libraryPairings">
-              <option value="">Loading…</option>
-            </select>
-          </div>
-          <div>
-            <div class="font-quick-header">
-              <span>Quick Picks</span>
-              <button type="button" id="libraryQpToggle" class="font-quick-toggle">show all</button>
-            </div>
-            <div id="libraryQuickPicks" class="quick-picks"></div>
-          </div>
-        </div>
-        <hr class="font-divider">
-        <h3 style="margin-top:8px;">Add Custom Fonts</h3>
-        <label for="addFontFamily">Google Font Family:</label>
-        <input type="text" id="addFontFamily" placeholder="e.g., Pacifico"><button onclick="addFontByFamily()">Add</button><br />
-        <small>Tip: enter a Google Fonts family name (weights default).</small><br />
-        <label for="addFontUrl">Google Fonts URL:</label>
-        <input type="text" id="addFontUrl" placeholder="https://fonts.googleapis.com/css2?family=...&display=swap"
-          style="width:60%"><button onclick="addFontByUrl()">Add URL</button>
-        <div id="currentFonts" style="margin-top:8px; font-size:0.95em; color:#bbb;">Loading fonts list…</div>
-        <div class="font-picker">
-          <h3>Font Pairings</h3>
-          <p class="font-picker-note">Pick a quick pairing or add your own combo. The selection updates the active theme immediately.</p>
-          <div class="font-current-previews">
-            <div class="font-preview-column">
-              <span class="font-preview-label">Heading preview</span>
-              <div id="headingFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
-            </div>
-            <div class="font-preview-column">
-              <span class="font-preview-label">Body preview</span>
-              <div id="bodyFontPreview" class="font-preview-box">Welcome to Fletch Photobooth</div>
-            </div>
-          </div>
-          <div class="font-select-legacy">
-            <label for="headingFontSelect">Heading Font</label>
-            <select id="headingFontSelect"></select>
-            <label for="bodyFontSelect">Body Font</label>
-            <select id="bodyFontSelect"></select>
-            <label for="fontPairingSelect">Pairing Suggestions</label>
-            <select id="fontPairingSelect"></select>
-          </div>
-          <div class="quick-picks-header">
-            <span>Quick Picks</span>
-            <button type="button" id="qpToggle" class="button-ghost">show all</button>
-          </div>
-          <div id="quickPicks" class="quick-picks-grid"></div>
-          <div class="quick-picks-add">
-            <h4>Add a quick pick</h4>
-            <form id="quickPickForm" class="quick-picks-form">
-              <input id="addPairingHeading" list="fontSuggestions" type="text" placeholder="Heading font (e.g., Playfair Display)">
-              <input id="addPairingBody" list="fontSuggestions" type="text" placeholder="Body font (e.g., Source Sans 3)">
-              <input id="addPairingPreview" type="text" placeholder="Preview text (optional)">
-              <input id="addPairingNotes" type="text" placeholder="Notes (optional)">
-              <button type="submit" id="addPairingBtn">Add Pairing</button>
-            </form>
-            <small id="customPairingHint" class="quick-picks-hint">Fonts must be available on Google Fonts or added above.</small>
-            <div id="customPairingsList" class="custom-pairings-list"></div>
-          </div>
-          <datalist id="fontSuggestions"></datalist>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -1800,22 +1949,14 @@
           </div>
           <span>Photo Strip</span>
         </button>
-        <button class="mode-btn" onclick="setMode('boomerang')">
-          <div class="mode-btn-icon">
-            <div class="photo-rep"></div>
-            <div class="photo-rep"></div>
+        <div id="zoomControl" class="hidden">
+          <div class="zoom-header">
+            <span>Zoom</span>
+            <span id="zoomValue">1.0x</span>
           </div>
-          <span>Boomerang</span>
-        </button>
-        <button class="mode-btn" onclick="setMode('video360')">
-          <div class="mode-btn-icon">
-            <div class="photo-rep"></div>
-            <div class="photo-rep"></div>
-            <div class="photo-rep"></div>
-            <div class="photo-rep"></div>
-          </div>
-          <span>360 Video</span>
-        </button>
+          <input type="range" id="zoomSlider" min="1" max="2" step="0.01" value="1" disabled>
+          <p id="zoomHint">Adjust framing without moving the booth.</p>
+        </div>
       </div>
     </div>
     <div id="countdownOverlay"></div>

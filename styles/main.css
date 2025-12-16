@@ -990,7 +990,7 @@
       align-items: center;
       justify-content: center;
       font-size: clamp(6rem, 20vw, 18rem);
-      font-family: 'Creepster', cursive;
+      font-family: var(--countdown-font, 'Creepster', cursive);
       color: var(--accent);
       text-shadow: 6px 6px 18px #000;
       z-index: 20;

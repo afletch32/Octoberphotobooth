@@ -1,339 +1,207 @@
-import { captureBoomerang, captureStitched360, mediaRecorderSupported } from './booth/video.js';
+import {
+  themes,
+  BUILTIN_THEMES,
+  BUILTIN_THEME_LOCATIONS,
+  DEFAULT_THEME_KEY,
+  DEFAULT_EVENT_TITLE_SIZE,
+  DEFAULT_WELCOME_TITLE_SIZE,
+  setThemes,
+} from "./themes.js";
+import {
+  configureThemeStorage,
+  saveThemesToStorage,
+  loadThemesFromStorage,
+  ensureBuiltinThemes,
+  fixBuiltinThemePlacements,
+  mergeStoredThemes,
+  cloneThemeValue,
+  mergePlainObject,
+  resetThemesToBuiltins,
+  hasCoreBuiltins,
+  applyGlobalLogoToAllThemes,
+  applyGlobalLogoToTheme,
+  getGlobalLogo,
+  setGlobalLogoValue,
+} from "./theme-storage.js";
+import {
+  configureUploads,
+  uploadAsset,
+  normalizeAllThemes,
+  normalizeThemeObject,
+  normalizeSizeValue,
+} from "./uploads.js";
+import {
+  loadImage,
+  orientationFromTemplate,
+  setViewOrientation,
+  applyPreviewOrientation,
+  capturePreviewState,
+  restorePreviewState,
+  getStripTemplateMetrics,
+  detectDoubleColumnSlots,
+  getStripTemplatePercents,
+} from "./preview.js";
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
     try {
-      const swUrl = new URL('sw.js', window.location.href);
+      const swUrl = new URL("sw.js", window.location.href);
       const reg = await navigator.serviceWorker.register(swUrl.href);
       // Nudge the SW to check for updates on load
-      try { await reg.update(); } catch (_) { }
-      console.log('SW registered:', reg && reg.scope);
+      try {
+        await reg.update();
+      } catch (_) {}
+      console.log("SW registered:", reg && reg.scope);
     } catch (registrationError) {
-      console.warn('SW registration failed:', registrationError);
+      console.warn("SW registration failed:", registrationError);
     }
   });
 }
 
-let themes = {
-  general: {
-    name: "🎉 General",
-    themes: {
-      basic: {
-        name: "✨ Basic",
-        accent: "#3f51b5",
-        accent2: "#ffffff",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/basic/backgrounds/",
-        backgroundFolder: "assets/general/basic/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/basic/overlays/",
-        templatesFolder: "assets/general/basic/templates/",
-        welcome: {
-          title: "Welcome!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      },
-      birthday: {
-        name: "🎂 Birthday",
-        accent: "pink",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/birthday/backgrounds/",
-        backgroundFolder: "assets/general/birthday/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/birthday/overlays/",
-        templatesFolder: "assets/general/birthday/templates/",
-        welcome: {
-          title: "Happy Birthday!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      }
-    }
-  },
-  school: {
-    name: "🏫 School",
-    themes: {
-      hawks: {
-        name: "🦅 Hawks",
-        accent: "#041E42",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "",
-        logo: "",
-        overlaysFolder: "assets/Hawks/overlays/",
-        templatesFolder: "assets/Hawks/templates/",
-        welcome: {
-          title: "Go Hawks!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      },
-      ane: {
-        name: "🏫 ANE",
-        accent: "#041E42",
-        accent2: "#FFB81C",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/school/ANE/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/school/ANE/overlays",
-        templatesFolder: "assets/school/ANE/templates",
-        welcome: {
-          title: "ANE",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      }
-    }
-  },
-  fall: {
-    name: "🍂 Fall",
-    holidays: {
-      halloween: {
-        name: "🎃 Halloween",
-        accent: "orange",
-        accent2: "white",
-        font: "'Creepster', cursive",
-        // Use folder-based background auto-detect (any background.* in this folder)
-        backgroundFolder: "assets/holidays/fall/halloween/backgrounds/",
-        overlaysFolder: "assets/holidays/fall/halloween/overlays/",
-        logo: "",
-        templatesFolder: "assets/holidays/fall/halloween/templates/",
-        welcome: {
-          title: "Happy Halloween!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      }
-    }
-  },
-  winter: {
-    name: "❄️ Winter",
-    holidays: {
-      christmas: {
-        name: "🎄 Christmas",
-        accent: "#c41e3a",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/holidays/winter/christmas/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/holidays/winter/christmas/overlays/",
-        templatesFolder: "assets/holidays/winter/christmas/templates/",
-        welcome: {
-          title: "Merry Christmas!",
-          portrait: "assets/holidays/winter/christmas/welcome/welcome-portrait.jpg",
-          landscape: "assets/holidays/winter/christmas/welcome/welcome-landscape.jpg",
-          prompt: "Touch to start the fun!"
-        }
-      },
-      newyear: {
-        name: "🎉 New Year",
-        accent: "#FFD700",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/holidays/winter/newyear/backgrounds/fireworks-background.jpg",
-        logo: "assets/holidays/winter/newyear/logo/newyear-logo.png",
-        overlays: ["assets/holidays/winter/newyear/overlays/newyear-frame-1.png"],
-        templates: [{ src: "assets/holidays/winter/newyear/templates/photostrip-1.png", layout: "double_column" }],
-        welcome: {
-          title: "Happy New Year!",
-          portrait: "assets/holidays/winter/newyear/welcome/welcome-portrait.jpg",
-          landscape: "assets/holidays/winter/newyear/welcome/welcome-landscape.jpg",
-          prompt: "Start the countdown!"
-        }
-      },
-      valentines: {
-        name: "💕 Valentine's Day",
-        accent: "#ff5e91",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/holidays/winter/Valentines/backgrounds/",
-        templatesFolder: "assets/holidays/winter/Valentines/templates/",
-        welcome: {
-          title: "Happy Valentine's Day!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start"
-        }
-      }
-    }
-  }
-};
-
-themes.spring = {
-  name: "🌸 Spring",
-  holidays: {
-    stpatricksday: {
-      name: "🍀 St. Patrick's Day",
-      accent: "#0f6d2f",
-      accent2: "white",
-      font: "'Comic Neue', cursive",
-      backgroundFolder: "assets/holidays/spring/st.patricksday/backgrounds/",
-      overlaysFolder: "assets/holidays/spring/st.patricksday/overlays/",
-      templatesFolder: "assets/holidays/spring/st.patricksday/templates/",
-      welcome: {
-        title: "Happy St. Patrick's Day!",
-        portrait: "",
-        landscape: "",
-        prompt: "Touch to start"
-      }
-    }
-  }
-};
-
-const BUILTIN_THEMES = JSON.parse(JSON.stringify(themes));
-const DEFAULT_THEME_KEY = 'general:basic';
-const BUILTIN_THEME_LOCATIONS = (() => {
-  const map = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const group = BUILTIN_THEMES[rootKey];
-    if (!group || typeof group !== 'object') continue;
-    for (const bucket of ['themes', 'holidays']) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== 'object') continue;
-      for (const subKey of Object.keys(sub)) {
-        map[subKey] = { root: rootKey, bucket };
-      }
-    }
-  }
-  return map;
-})();
-
 // --- DOM Element Cache ---
 const DOM = {
-  adminScreen: document.getElementById('adminScreen'),
-  boothScreen: document.getElementById('boothScreen'),
-  boothHeader: document.getElementById('boothHeader'),
-  boothControls: document.getElementById('controls'),
-  eventSelect: document.getElementById('eventSelect'),
-  allowRetakes: document.getElementById('allowRetakes'),
-  analyticsData: document.getElementById('analyticsData'),
-  logo: document.getElementById('logo'),
-  eventTitle: document.getElementById('eventTitle'),
-  options: document.getElementById('options'),
-  videoWrap: document.getElementById('videoWrap'),
-  videoContainer: document.getElementById('videoContainer'),
-  video: document.getElementById('video'),
-  liveOverlay: document.getElementById('liveOverlay'),
-  captureBtn: document.getElementById('captureBtn'),
-  countdownOverlay: document.getElementById('countdownOverlay'),
-  flashOverlay: document.getElementById('flashOverlay'),
-  finalPreview: document.getElementById('finalPreview'),
-  finalPreviewContent: document.getElementById('finalPreviewContent'),
-  finalStrip: document.getElementById('finalStrip'),
-  finalVideo: document.getElementById('finalVideo'),
-  qrCodeContainer: document.getElementById('qrCodeContainer'),
-  qrCode: document.getElementById('qrCode'),
-  lastShot: document.getElementById('lastShot'),
-  qrHint: document.getElementById('qrHint'),
-  shareStatus: document.getElementById('shareStatus'),
-  shareLinkRow: document.getElementById('shareLinkRow'),
-  shareLink: document.getElementById('shareLink'),
-  emailInput: document.getElementById('emailInput'),
-  sendBtn: document.getElementById('sendBtn'),
-  retakeBtn: document.getElementById('retakeBtn'),
-  closePreviewBtn: document.getElementById('closePreviewBtn'),
-  confirmModal: document.getElementById('confirmModal'),
-  confirmPreview: document.getElementById('confirmPreview'),
-  gallery: document.getElementById('gallery'),
-  toast: document.getElementById('toast'),
-  welcomeScreen: document.getElementById('welcomeScreen'),
-  welcomeImg: document.getElementById('welcomeImg'),
-  welcomeTitle: document.getElementById('welcomeTitle'),
-  startButton: document.getElementById('startButton'),
-  analytics: document.getElementById('analytics'),
-  themeEditor: document.getElementById('themeEditor'),
-  themeEditorActive: document.getElementById('themeEditorActive'),
-  themeEditorEditing: document.getElementById('themeEditorEditing'),
-  themeName: document.getElementById('themeName'),
-  eventNameInput: document.getElementById('eventNameInput'),
-  cloudNameInput: document.getElementById('cloudNameInput'),
-  cloudPresetInput: document.getElementById('cloudPresetInput'),
-  cloudFolderInput: document.getElementById('cloudFolderInput'),
-  cloudUseToggle: document.getElementById('cloudUseToggle'),
-  emailJsPublic: document.getElementById('emailJsPublic'),
-  emailJsService: document.getElementById('emailJsService'),
-  emailJsTemplate: document.getElementById('emailJsTemplate'),
-  syncNowBtn: document.getElementById('syncNowBtn'),
-  syncStatus: document.getElementById('syncStatus'),
-  useCloudflareUploads: document.getElementById('useCloudflareUploads'),
-  offlineModeToggle: document.getElementById('offlineModeToggle'),
-  sendPendingBtn: document.getElementById('sendPendingBtn'),
-  cacheAssetsBtn: document.getElementById('cacheAssetsBtn'),
-  forceCameraFileToggle: document.getElementById('forceCameraFileToggle'),
-  headingFontSelect: document.getElementById('headingFontSelect'),
-  bodyFontSelect: document.getElementById('bodyFontSelect'),
-  fontPairingSelect: document.getElementById('fontPairingSelect'),
-  headingFontPreview: document.getElementById('headingFontPreview'),
-  bodyFontPreview: document.getElementById('bodyFontPreview'),
-  quickPicks: document.getElementById('quickPicks'),
-  quickPicksToggle: document.getElementById('qpToggle'),
-  addPairingHeading: document.getElementById('addPairingHeading'),
-  addPairingBody: document.getElementById('addPairingBody'),
-  addPairingNotes: document.getElementById('addPairingNotes'),
-  addPairingPreview: document.getElementById('addPairingPreview'),
-  addPairingBtn: document.getElementById('addPairingBtn'),
-  quickPickForm: document.getElementById('quickPickForm'),
-  customPairingsList: document.getElementById('customPairingsList'),
-  themeQuickSelect: document.getElementById('themeQuickSelect'),
-  themeFontSelect: document.getElementById('themeFontSelect'),
-  themeEditorModeSelect: document.getElementById('themeEditorModeSelect'),
-  themeCloneSection: document.getElementById('themeCloneSection'),
-  themeCloneName: document.getElementById('themeCloneName'),
-  cloneThemeBtn: document.getElementById('cloneThemeBtn'),
-  addLogoBtn: document.getElementById('addLogoBtn'),
-  addFontFamily: document.getElementById('addFontFamily'),
-  addFontUrl: document.getElementById('addFontUrl'),
-  currentFonts: document.getElementById('currentFonts'),
-  themeAccent: document.getElementById('themeAccent'),
-  themeAccent2: document.getElementById('themeAccent2'),
-  themeBackground: document.getElementById('themeBackground'),
-  themeLogo: document.getElementById('themeLogo'),
-  themeOverlays: document.getElementById('themeOverlays'),
-  themeOverlaysFolderPicker: document.getElementById('themeOverlaysFolderPicker'),
-  themeOverlaysFolder: document.getElementById('themeOverlaysFolder'),
-  themeTemplates: document.getElementById('themeTemplates'),
-  themeTemplatesFolderPicker: document.getElementById('themeTemplatesFolderPicker'),
-  themeTemplatesFolder: document.getElementById('themeTemplatesFolder'),
-  themeWelcomeTitle: document.getElementById('themeWelcomeTitle'),
-  themeWelcomePrompt: document.getElementById('themeWelcomePrompt'),
-  summaryBackground: document.getElementById('summaryBackground'),
-  summaryLogo: document.getElementById('summaryLogo'),
-  summaryOverlays: document.getElementById('summaryOverlays'),
-  summaryTemplates: document.getElementById('summaryTemplates'),
-  currentBackgrounds: document.getElementById('currentBackgrounds'),
-  currentLogo: document.getElementById('currentLogo'),
-  currentFont: document.getElementById('currentFont'),
-  currentAccents: document.getElementById('currentAccents'),
-  currentOverlays: document.getElementById('currentOverlays'),
-  currentTemplates: document.getElementById('currentTemplates'),
-  createThemeModal: document.getElementById('createThemeModal'),
-  createThemeDropZone: document.getElementById('createThemeDropZone'),
-  createThemeName: document.getElementById('createThemeName'),
-  createThemeSummary: document.getElementById('createThemeSummary'),
-  createThemeBrowseBtn: document.getElementById('createThemeBrowseBtn'),
-  createThemeCancel: document.getElementById('createThemeCancel'),
-  createThemeConfirm: document.getElementById('createThemeConfirm'),
-  createThemeFolderInput: document.getElementById('createThemeFolderInput'),
-  btnUpdateTheme: document.getElementById('btnUpdateTheme'),
-  btnSaveTheme: document.getElementById('btnSaveTheme'),
-  importFile: document.getElementById('importFile'),
-  importZip: document.getElementById('importZip'),
-  deployHookUrl: document.getElementById('deployHookUrl'),
-  installBtn: document.getElementById('installBtn'),
+  adminScreen: document.getElementById("adminScreen"),
+  boothScreen: document.getElementById("boothScreen"),
+  boothHeader: document.getElementById("boothHeader"),
+  boothControls: document.getElementById("controls"),
+  eventSelect: document.getElementById("eventSelect"),
+  allowRetakes: document.getElementById("allowRetakes"),
+  analyticsData: document.getElementById("analyticsData"),
+  logo: document.getElementById("logo"),
+  eventTitle: document.getElementById("eventTitle"),
+  options: document.getElementById("options"),
+  videoWrap: document.getElementById("videoWrap"),
+  videoContainer: document.getElementById("videoContainer"),
+  video: document.getElementById("video"),
+  liveOverlay: document.getElementById("liveOverlay"),
+  zoomControl: document.getElementById("zoomControl"),
+  zoomSlider: document.getElementById("zoomSlider"),
+  zoomValue: document.getElementById("zoomValue"),
+  zoomHint: document.getElementById("zoomHint"),
+  captureBtn: document.getElementById("captureBtn"),
+  countdownOverlay: document.getElementById("countdownOverlay"),
+  flashOverlay: document.getElementById("flashOverlay"),
+  finalPreview: document.getElementById("finalPreview"),
+  finalPreviewContent: document.getElementById("finalPreviewContent"),
+  finalStrip: document.getElementById("finalStrip"),
+  qrCodeContainer: document.getElementById("qrCodeContainer"),
+  qrCode: document.getElementById("qrCode"),
+  lastShot: document.getElementById("lastShot"),
+  qrHint: document.getElementById("qrHint"),
+  shareStatus: document.getElementById("shareStatus"),
+  shareLinkRow: document.getElementById("shareLinkRow"),
+  shareLink: document.getElementById("shareLink"),
+  emailInput: document.getElementById("emailInput"),
+  sendBtn: document.getElementById("sendBtn"),
+  retakeBtn: document.getElementById("retakeBtn"),
+  closePreviewBtn: document.getElementById("closePreviewBtn"),
+  confirmModal: document.getElementById("confirmModal"),
+  confirmPreview: document.getElementById("confirmPreview"),
+  gallery: document.getElementById("gallery"),
+  toast: document.getElementById("toast"),
+  welcomeScreen: document.getElementById("welcomeScreen"),
+  welcomeImg: document.getElementById("welcomeImg"),
+  welcomeTitle: document.getElementById("welcomeTitle"),
+  startButton: document.getElementById("startButton"),
+  analytics: document.getElementById("analytics"),
+  themeEditor: document.getElementById("themeEditor"),
+  themeEditorActive: document.getElementById("themeEditorActive"),
+  themeEditorEditing: document.getElementById("themeEditorEditing"),
+  themeName: document.getElementById("themeName"),
+  eventNameInput: document.getElementById("eventNameInput"),
+  eventTitleSizeInput: document.getElementById("eventTitleSizeInput"),
+  cloudNameInput: document.getElementById("cloudNameInput"),
+  cloudPresetInput: document.getElementById("cloudPresetInput"),
+  cloudFolderInput: document.getElementById("cloudFolderInput"),
+  cloudUseToggle: document.getElementById("cloudUseToggle"),
+  emailJsPublic: document.getElementById("emailJsPublic"),
+  emailJsService: document.getElementById("emailJsService"),
+  emailJsTemplate: document.getElementById("emailJsTemplate"),
+  syncNowBtn: document.getElementById("syncNowBtn"),
+  syncStatus: document.getElementById("syncStatus"),
+  useCloudflareUploads: document.getElementById("useCloudflareUploads"),
+  offlineModeToggle: document.getElementById("offlineModeToggle"),
+  sendPendingBtn: document.getElementById("sendPendingBtn"),
+  cacheAssetsBtn: document.getElementById("cacheAssetsBtn"),
+  forceCameraFileToggle: document.getElementById("forceCameraFileToggle"),
+  headingFontSelect: document.getElementById("headingFontSelect"),
+  bodyFontSelect: document.getElementById("bodyFontSelect"),
+  fontPairingSelect: document.getElementById("fontPairingSelect"),
+  stylePreview: document.getElementById("stylePreview"),
+  stylePreviewHeading: document.getElementById("stylePreviewHeading"),
+  stylePreviewSubheading: document.getElementById("stylePreviewSubheading"),
+  stylePreviewBody: document.getElementById("stylePreviewBody"),
+  stylePreviewButton: document.getElementById("stylePreviewButton"),
+  quickPicks: document.getElementById("quickPicks"),
+  quickPicksToggle: document.getElementById("qpToggle"),
+  addPairingHeading: document.getElementById("addPairingHeading"),
+  addPairingBody: document.getElementById("addPairingBody"),
+  addPairingNotes: document.getElementById("addPairingNotes"),
+  addPairingPreview: document.getElementById("addPairingPreview"),
+  addPairingBtn: document.getElementById("addPairingBtn"),
+  quickPickForm: document.getElementById("quickPickForm"),
+  customPairingsList: document.getElementById("customPairingsList"),
+  themeQuickSelect: document.getElementById("themeQuickSelect"),
+  themeFontSelect: document.getElementById("themeFontSelect"),
+  themeEditorModeSelect: document.getElementById("themeEditorModeSelect"),
+  themeCloneSection: document.getElementById("themeCloneSection"),
+  themeCloneName: document.getElementById("themeCloneName"),
+  cloneThemeBtn: document.getElementById("cloneThemeBtn"),
+  addBackgroundBtn: document.getElementById("addBackgroundBtn"),
+  addOverlaysBtn: document.getElementById("addOverlaysBtn"),
+  addTemplatesBtn: document.getElementById("addTemplatesBtn"),
+  addLogoBtn: document.getElementById("addLogoBtn"),
+  addFontFamily: document.getElementById("addFontFamily"),
+  addFontUrl: document.getElementById("addFontUrl"),
+  currentFonts: document.getElementById("currentFonts"),
+  themeAccent: document.getElementById("themeAccent"),
+  themeAccent2: document.getElementById("themeAccent2"),
+  themeBackground: document.getElementById("themeBackground"),
+  themeLogo: document.getElementById("themeLogo"),
+  themeOverlays: document.getElementById("themeOverlays"),
+  themeOverlaysFolderPicker: document.getElementById(
+    "themeOverlaysFolderPicker",
+  ),
+  themeOverlaysFolder: document.getElementById("themeOverlaysFolder"),
+  themeTemplates: document.getElementById("themeTemplates"),
+  themeTemplatesFolderPicker: document.getElementById(
+    "themeTemplatesFolderPicker",
+  ),
+  themeTemplatesFolder: document.getElementById("themeTemplatesFolder"),
+  themeWelcomeTitle: document.getElementById("themeWelcomeTitle"),
+  themeWelcomePrompt: document.getElementById("themeWelcomePrompt"),
+  welcomeTitleSizeInput: document.getElementById("welcomeTitleSizeInput"),
+  summaryBackground: document.getElementById("summaryBackground"),
+  summaryLogo: document.getElementById("summaryLogo"),
+  summaryOverlays: document.getElementById("summaryOverlays"),
+  summaryTemplates: document.getElementById("summaryTemplates"),
+  currentBackgrounds: document.getElementById("currentBackgrounds"),
+  currentLogo: document.getElementById("currentLogo"),
+  currentFont: document.getElementById("currentFont"),
+  currentAccents: document.getElementById("currentAccents"),
+  currentOverlays: document.getElementById("currentOverlays"),
+  currentTemplates: document.getElementById("currentTemplates"),
+  createThemeModal: document.getElementById("createThemeModal"),
+  createThemeDropZone: document.getElementById("createThemeDropZone"),
+  createThemeName: document.getElementById("createThemeName"),
+  createThemeSummary: document.getElementById("createThemeSummary"),
+  createThemeBrowseBtn: document.getElementById("createThemeBrowseBtn"),
+  createThemeCancel: document.getElementById("createThemeCancel"),
+  createThemeConfirm: document.getElementById("createThemeConfirm"),
+  createThemeFolderInput: document.getElementById("createThemeFolderInput"),
+  btnUpdateTheme: document.getElementById("btnUpdateTheme"),
+  btnSaveTheme: document.getElementById("btnSaveTheme"),
+  importFile: document.getElementById("importFile"),
+  importZip: document.getElementById("importZip"),
+  deployHookUrl: document.getElementById("deployHookUrl"),
+  installBtn: document.getElementById("installBtn"),
 };
 
 function setBoothControlsVisible(show) {
   const hidden = !show;
-  if (DOM.options) DOM.options.classList.toggle('hidden', hidden);
-  if (DOM.boothHeader) DOM.boothHeader.classList.toggle('hidden', hidden);
-  if (DOM.boothControls) DOM.boothControls.classList.toggle('hidden', hidden);
+  if (DOM.options) DOM.options.classList.toggle("hidden", hidden);
+  if (DOM.boothHeader) DOM.boothHeader.classList.toggle("hidden", hidden);
+  if (DOM.boothControls) DOM.boothControls.classList.toggle("hidden", hidden);
 }
 // --- State ---
 let activeTheme = null; // Default theme
@@ -351,74 +219,82 @@ let lastShareUrl = null; // Public share URL served by SW
 let demoMode = false; // Allows running from file:// without camera
 let captureAspectRatio = null; // Override capture aspect (width/height) when set
 let createThemeAssets = null; // Temporary storage for create-from-folder workflow
-let currentFinalAsset = null;
+let activeVideoTrack = null;
+const DEFAULT_ZOOM_VALUE = 1;
+const FALLBACK_ZOOM_RANGE = { min: 1, max: 2.5, step: 0.05 };
+let zoomState = {
+  mode: "none",
+  min: DEFAULT_ZOOM_VALUE,
+  max: DEFAULT_ZOOM_VALUE,
+  step: 0.01,
+  value: DEFAULT_ZOOM_VALUE,
+};
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
-
-const MODE_BEHAVIOR = {
-  photo: {
-    id: 'photo',
-    captureLabel: 'Take Photo',
-    showCaptureButton: true,
-    handler: () => capturePhotoFlow(),
-    requiresRecorder: false
-  },
-  strip: {
-    id: 'strip',
-    captureLabel: 'Take Photo',
-    showCaptureButton: false,
-    handler: () => { },
-    requiresRecorder: false
-  },
-  boomerang: {
-    id: 'boomerang',
-    captureLabel: 'Capture Boomerang',
-    showCaptureButton: true,
-    handler: () => captureBoomerangFlow(),
-    requiresRecorder: true
-  },
-  video360: {
-    id: 'video360',
-    captureLabel: 'Start 360 Capture',
-    showCaptureButton: true,
-    handler: () => captureVideo360Flow(),
-    requiresRecorder: true
+function withBust(src) {
+  try {
+    if (!src) return src;
+    return src + (src.includes("?") ? "&" : "?") + "v=" + SESSION_BUST;
+  } catch (_) {
+    return src;
   }
-};
-function withBust(src) { try { if (!src) return src; return src + (src.includes('?') ? '&' : '?') + 'v=' + SESSION_BUST; } catch (_) { return src; } }
+}
 
-const GLOBAL_LOGO_STORAGE_KEY = 'photoboothGlobalLogo';
+function getPreviewContext(overrides = {}) {
+  return {
+    videoWrap: DOM.videoWrap,
+    mode,
+    activeTheme,
+    pendingTemplate,
+    selectedOverlay,
+    setCaptureAspect,
+    updateCaptureAspect,
+    getTemplateList,
+    getOverlayList,
+    ...overrides,
+  };
+}
+
+configureUploads({
+  getCloudinaryConfig,
+  getCurrentEventSlug,
+});
+
+configureThemeStorage({
+  syncRemote: syncThemesRemote,
+  loadRemote: loadThemesRemote,
+});
 
 function renderMissingThumbnail(container, src) {
   if (!container) return;
-  container.innerHTML = '';
-  const placeholder = document.createElement('div');
-  placeholder.style.width = '100px';
-  placeholder.style.height = '72px';
-  placeholder.style.display = 'flex';
-  placeholder.style.alignItems = 'center';
-  placeholder.style.justifyContent = 'center';
-  placeholder.style.color = '#aaa';
-  placeholder.style.background = '#151820';
-  placeholder.style.borderRadius = '6px';
-  placeholder.textContent = 'Missing';
-  const caption = document.createElement('div');
-  caption.className = 'asset-badge';
-  caption.textContent = (src || '').split('/').pop();
+  container.innerHTML = "";
+  const placeholder = document.createElement("div");
+  placeholder.style.width = "100px";
+  placeholder.style.height = "72px";
+  placeholder.style.display = "flex";
+  placeholder.style.alignItems = "center";
+  placeholder.style.justifyContent = "center";
+  placeholder.style.color = "#aaa";
+  placeholder.style.background = "#151820";
+  placeholder.style.borderRadius = "6px";
+  placeholder.textContent = "Missing";
+  const caption = document.createElement("div");
+  caption.className = "asset-badge";
+  caption.textContent = (src || "").split("/").pop();
   container.appendChild(placeholder);
   container.appendChild(caption);
 }
 
 function createAssetTile(src, options = {}) {
-  const item = document.createElement('div');
-  item.className = 'asset-item';
-  const img = document.createElement('img');
+  const item = document.createElement("div");
+  item.className = "asset-item";
+  const img = document.createElement("img");
   img.src = withBust(src);
   img.onerror = () => renderMissingThumbnail(item, src);
   item.appendChild(img);
   if (options.badge) {
-    const badgeEl = document.createElement('div');
-    badgeEl.className = 'asset-badge';
+    const badgeEl = document.createElement("div");
+    badgeEl.className = "asset-badge";
     badgeEl.textContent = options.badge;
     item.appendChild(badgeEl);
   }
@@ -439,10 +315,10 @@ function resetIdleTimer() {
 
 function setupEventSelector() {
   if (!DOM.eventSelect) {
-    console.warn('Event select dropdown not found; themes will not switch.');
+    console.warn("Event select dropdown not found; themes will not switch.");
     return;
   }
-  DOM.eventSelect.addEventListener('change', handleEventSelectChange);
+  DOM.eventSelect.addEventListener("change", handleEventSelectChange);
 }
 
 function handleEventSelectChange(event) {
@@ -451,119 +327,306 @@ function handleEventSelectChange(event) {
   highlightThemeQuickSelect(key);
   syncThemeEditorWithActiveTheme();
   if (DOM.eventNameInput) {
-    DOM.eventNameInput.value = getStoredEventName(key) || '';
+    DOM.eventNameInput.value = getStoredEventName(key) || "";
   }
   updateThemeEditorSummary();
 }
 
 function setupBoothButtons() {
-  const startCameraBtn = document.getElementById('startCameraButton');
-  if (startCameraBtn) startCameraBtn.addEventListener('click', startCamera);
-  else console.warn('Start Camera button not found in DOM.');
+  const startCameraBtn = document.getElementById("startCameraButton");
+  if (startCameraBtn) startCameraBtn.addEventListener("click", startCamera);
+  else console.warn("Start Camera button not found in DOM.");
 
-  const startBoothBtn = document.getElementById('startBoothButton');
-  if (startBoothBtn) startBoothBtn.addEventListener('click', startBooth);
-  else console.warn('Start Booth button not found in DOM.');
+  const startBoothBtn = document.getElementById("startBoothButton");
+  if (startBoothBtn) startBoothBtn.addEventListener("click", startBooth);
+  else console.warn("Start Booth button not found in DOM.");
 }
 
 function setupVideoListeners() {
   if (DOM.video) {
-    DOM.video.addEventListener('loadedmetadata', () => {
+    DOM.video.addEventListener("loadedmetadata", () => {
       updateCaptureAspect();
-      applyPreviewOrientation();
+      applyPreviewOrientation(getPreviewContext());
     });
   }
 }
 
 function setupFinalPreviewListeners() {
   if (!DOM.finalPreview || !DOM.finalPreviewContent) return;
-  DOM.finalPreview.addEventListener('click', (e) => {
+  DOM.finalPreview.addEventListener("click", (e) => {
     if (!DOM.finalPreviewContent.contains(e.target)) {
       exitFinalPreview();
     }
   });
-  DOM.finalPreviewContent.addEventListener('click', (e) => e.stopPropagation());
+  DOM.finalPreviewContent.addEventListener("click", (e) => e.stopPropagation());
 }
 
 function setupThemeEditorControls() {
-  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.addEventListener('change', (e) => setThemeEditorMode(e.target.value));
-  if (DOM.themeName) DOM.themeName.addEventListener('input', updateThemeEditorSummary);
-  if (DOM.themeCloneName) DOM.themeCloneName.addEventListener('input', updateThemeEditorSummary);
-  if (DOM.createThemeName) DOM.createThemeName.addEventListener('input', updateThemeEditorSummary);
-  if (DOM.cloneThemeBtn) DOM.cloneThemeBtn.addEventListener('click', handleCloneTheme);
-  if (DOM.addLogoBtn && DOM.themeLogo) DOM.addLogoBtn.addEventListener('click', () => DOM.themeLogo.click());
-  if (DOM.themeBackground) DOM.themeBackground.addEventListener('change', () => handleThemeAssetInputChange('background'));
-  if (DOM.themeLogo) DOM.themeLogo.addEventListener('change', () => handleThemeAssetInputChange('logo'));
-  if (DOM.themeOverlays) DOM.themeOverlays.addEventListener('change', () => handleThemeAssetInputChange('overlay'));
-  if (DOM.themeTemplates) DOM.themeTemplates.addEventListener('change', () => handleThemeAssetInputChange('template'));
+  if (DOM.themeEditorModeSelect)
+    DOM.themeEditorModeSelect.addEventListener("change", (e) =>
+      setThemeEditorMode(e.target.value),
+    );
+  if (DOM.themeName)
+    DOM.themeName.addEventListener("input", updateThemeEditorSummary);
+  if (DOM.themeCloneName)
+    DOM.themeCloneName.addEventListener("input", updateThemeEditorSummary);
+  if (DOM.createThemeName)
+    DOM.createThemeName.addEventListener("input", updateThemeEditorSummary);
+  if (DOM.cloneThemeBtn)
+    DOM.cloneThemeBtn.addEventListener("click", handleCloneTheme);
+  if (DOM.addBackgroundBtn && DOM.themeBackground) {
+    DOM.addBackgroundBtn.addEventListener("click", () =>
+      DOM.themeBackground.click(),
+    );
+  }
+  if (DOM.addOverlaysBtn && DOM.themeOverlays) {
+    DOM.addOverlaysBtn.addEventListener("click", () =>
+      DOM.themeOverlays.click(),
+    );
+  }
+  if (DOM.addTemplatesBtn && DOM.themeTemplates) {
+    DOM.addTemplatesBtn.addEventListener("click", () =>
+      DOM.themeTemplates.click(),
+    );
+  }
+  if (DOM.addLogoBtn && DOM.themeLogo)
+    DOM.addLogoBtn.addEventListener("click", () => DOM.themeLogo.click());
+  if (DOM.themeBackground)
+    DOM.themeBackground.addEventListener("change", () =>
+      handleThemeAssetInputChange("background"),
+    );
+  if (DOM.themeLogo)
+    DOM.themeLogo.addEventListener("change", () =>
+      handleThemeAssetInputChange("logo"),
+    );
+  if (DOM.themeOverlays)
+    DOM.themeOverlays.addEventListener("change", () =>
+      handleThemeAssetInputChange("overlay"),
+    );
+  if (DOM.themeTemplates)
+    DOM.themeTemplates.addEventListener("change", () =>
+      handleThemeAssetInputChange("template"),
+    );
+  if (DOM.themeWelcomeTitle)
+    DOM.themeWelcomeTitle.addEventListener(
+      "input",
+      handleWelcomeTitleInputChange,
+    );
+  if (DOM.themeWelcomePrompt)
+    DOM.themeWelcomePrompt.addEventListener(
+      "input",
+      handleWelcomePromptInputChange,
+    );
+  if (DOM.welcomeTitleSizeInput)
+    DOM.welcomeTitleSizeInput.addEventListener(
+      "input",
+      handleWelcomeTitleSizeInput,
+    );
+  if (DOM.zoomSlider)
+    DOM.zoomSlider.addEventListener("input", handleZoomSliderInput);
+  if (DOM.eventTitleSizeInput)
+    DOM.eventTitleSizeInput.addEventListener(
+      "input",
+      handleEventTitleSizeInput,
+    );
+  if (DOM.themeAccent) {
+    DOM.themeAccent.addEventListener("input", () =>
+      handleAccentInputChange("accent", { save: false }),
+    );
+    DOM.themeAccent.addEventListener("change", () =>
+      handleAccentInputChange("accent"),
+    );
+  }
+  if (DOM.themeAccent2) {
+    DOM.themeAccent2.addEventListener("input", () =>
+      handleAccentInputChange("accent2", { save: false }),
+    );
+    DOM.themeAccent2.addEventListener("change", () =>
+      handleAccentInputChange("accent2"),
+    );
+  }
+}
+
+function handleEventTitleSizeInput() {
+  if (!DOM.eventTitleSizeInput) return;
+  const size = normalizeSizeValue(
+    DOM.eventTitleSizeInput.value,
+    DEFAULT_EVENT_TITLE_SIZE,
+  );
+  DOM.eventTitleSizeInput.value = formatSizeValue(size);
+  document.documentElement.style.setProperty("--event-title-size", `${size}em`);
+  if (activeTheme) activeTheme.eventTitleSize = size;
+  refreshStylePreviewText();
+}
+
+function handleWelcomeTitleSizeInput() {
+  if (!DOM.welcomeTitleSizeInput) return;
+  const size = normalizeSizeValue(
+    DOM.welcomeTitleSizeInput.value,
+    DEFAULT_WELCOME_TITLE_SIZE,
+  );
+  DOM.welcomeTitleSizeInput.value = formatSizeValue(size);
+  document.documentElement.style.setProperty(
+    "--welcome-title-size",
+    `${size}em`,
+  );
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.titleSize = size;
+  }
+  refreshStylePreviewText();
+}
+
+function handleWelcomeTitleInputChange() {
+  const text = valueFromInput(DOM.themeWelcomeTitle);
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.title = text;
+  }
+  if (DOM.welcomeTitle) {
+    const fallback = DOM.eventTitle ? DOM.eventTitle.textContent : "";
+    DOM.welcomeTitle.textContent = text || fallback || "";
+  }
+  refreshStylePreviewText();
+}
+
+function handleZoomSliderInput(event) {
+  if (!event || !event.target) return;
+  const value = Number(event.target.value);
+  if (!Number.isFinite(value)) return;
+  setZoomLevel(value);
+}
+
+function handleWelcomePromptInputChange() {
+  const prompt = valueFromInput(DOM.themeWelcomePrompt);
+  if (activeTheme) {
+    activeTheme.welcome = activeTheme.welcome || {};
+    activeTheme.welcome.prompt = prompt;
+  }
+  if (DOM.startButton) DOM.startButton.textContent = prompt || "Touch to start";
+  refreshStylePreviewText();
+}
+
+function handleAccentInputChange(kind, options = {}) {
+  const input = kind === "accent" ? DOM.themeAccent : DOM.themeAccent2;
+  if (!input) return;
+  const value = input.value || "";
+  if (activeTheme) {
+    activeTheme[kind] = value;
+  }
+  const cssVar = kind === "accent" ? "--accent" : "--accent2";
+  const fallback = value || (kind === "accent" ? "#3f51b5" : "#ffffff");
+  document.documentElement.style.setProperty(cssVar, fallback);
+  if (activeTheme) {
+    if (options.save !== false) {
+      saveThemesToStorage();
+      syncThemeEditorSummary();
+    }
+    renderCurrentAssets(activeTheme);
+  }
+  refreshStylePreviewText();
 }
 
 function handleThemeAssetInputChange(kind) {
   let input = null;
-  if (kind === 'background') input = DOM.themeBackground;
-  else if (kind === 'logo') input = DOM.themeLogo;
-  else if (kind === 'overlay') input = DOM.themeOverlays;
-  else if (kind === 'template') input = DOM.themeTemplates;
+  if (kind === "background") input = DOM.themeBackground;
+  else if (kind === "logo") input = DOM.themeLogo;
+  else if (kind === "overlay") input = DOM.themeOverlays;
+  else if (kind === "template") input = DOM.themeTemplates;
   if (!input || !input.files || input.files.length === 0) return;
-  updateSelectedTheme(kind).catch((err) => console.error('Failed to update theme assets:', err));
+  updateSelectedTheme(kind).catch((err) =>
+    console.error("Failed to update theme assets:", err),
+  );
 }
 
 function setupCreateThemeModalControls() {
   if (DOM.createThemeDropZone) {
-    DOM.createThemeDropZone.addEventListener('dragover', handleCreateThemeDragOver);
-    DOM.createThemeDropZone.addEventListener('dragleave', handleCreateThemeDragLeave);
-    DOM.createThemeDropZone.addEventListener('drop', handleCreateThemeDrop);
-    DOM.createThemeDropZone.addEventListener('click', () => DOM.createThemeFolderInput?.click());
+    DOM.createThemeDropZone.addEventListener(
+      "dragover",
+      handleCreateThemeDragOver,
+    );
+    DOM.createThemeDropZone.addEventListener(
+      "dragleave",
+      handleCreateThemeDragLeave,
+    );
+    DOM.createThemeDropZone.addEventListener("drop", handleCreateThemeDrop);
+    DOM.createThemeDropZone.addEventListener("click", () =>
+      DOM.createThemeFolderInput?.click(),
+    );
   }
-  if (DOM.createThemeBrowseBtn) DOM.createThemeBrowseBtn.addEventListener('click', () => DOM.createThemeFolderInput?.click());
-  if (DOM.createThemeFolderInput) DOM.createThemeFolderInput.addEventListener('change', (e) => {
-    handleCreateThemeFiles(e.target.files);
-    e.target.value = '';
-  });
-  if (DOM.createThemeCancel) DOM.createThemeCancel.addEventListener('click', () => {
-    hideCreateThemeModal();
-    resetCreateThemeModal();
-    if (DOM.themeEditorModeSelect) {
-      DOM.themeEditorModeSelect.value = 'edit';
-      setThemeEditorMode('edit');
-    }
-  });
-  if (DOM.createThemeConfirm) DOM.createThemeConfirm.addEventListener('click', confirmCreateTheme);
+  if (DOM.createThemeBrowseBtn)
+    DOM.createThemeBrowseBtn.addEventListener("click", () =>
+      DOM.createThemeFolderInput?.click(),
+    );
+  if (DOM.createThemeFolderInput)
+    DOM.createThemeFolderInput.addEventListener("change", (e) => {
+      handleCreateThemeFiles(e.target.files);
+      e.target.value = "";
+    });
+  if (DOM.createThemeCancel)
+    DOM.createThemeCancel.addEventListener("click", () => {
+      hideCreateThemeModal();
+      resetCreateThemeModal();
+      if (DOM.themeEditorModeSelect) {
+        DOM.themeEditorModeSelect.value = "edit";
+        setThemeEditorMode("edit");
+      }
+    });
+  if (DOM.createThemeConfirm)
+    DOM.createThemeConfirm.addEventListener("click", confirmCreateTheme);
 }
 
 function setupOfflineControls() {
   if (DOM.offlineModeToggle) {
     DOM.offlineModeToggle.checked = getOfflinePref();
-    DOM.offlineModeToggle.addEventListener('change', () => {
+    DOM.offlineModeToggle.addEventListener("change", () => {
       setOfflinePref(DOM.offlineModeToggle.checked);
       updatePendingUI();
-      showToast(DOM.offlineModeToggle.checked ? 'Offline mode ON' : 'Offline mode OFF');
+      showToast(
+        DOM.offlineModeToggle.checked ? "Offline mode ON" : "Offline mode OFF",
+      );
     });
   }
   if (DOM.forceCameraFileToggle) {
-    DOM.forceCameraFileToggle.checked = (localStorage.getItem('forceCameraOnFile') === 'true');
-    DOM.forceCameraFileToggle.addEventListener('change', () => {
-      localStorage.setItem('forceCameraOnFile', DOM.forceCameraFileToggle.checked ? 'true' : 'false');
+    DOM.forceCameraFileToggle.checked =
+      localStorage.getItem("forceCameraOnFile") === "true";
+    DOM.forceCameraFileToggle.addEventListener("change", () => {
+      localStorage.setItem(
+        "forceCameraOnFile",
+        DOM.forceCameraFileToggle.checked ? "true" : "false",
+      );
     });
   }
-  window.addEventListener('online', () => updatePendingUI());
-  window.addEventListener('offline', () => updatePendingUI());
+  window.addEventListener("online", () => updatePendingUI());
+  window.addEventListener("offline", () => updatePendingUI());
 }
 
 function setupFolderPickers() {
-  if (DOM.themeOverlaysFolderPicker) DOM.themeOverlaysFolderPicker.addEventListener('change', handleOverlayFolderPick);
-  if (DOM.themeTemplatesFolderPicker) DOM.themeTemplatesFolderPicker.addEventListener('change', handleTemplateFolderPick);
+  if (DOM.themeOverlaysFolderPicker)
+    DOM.themeOverlaysFolderPicker.addEventListener(
+      "change",
+      handleOverlayFolderPick,
+    );
+  if (DOM.themeTemplatesFolderPicker)
+    DOM.themeTemplatesFolderPicker.addEventListener(
+      "change",
+      handleTemplateFolderPick,
+    );
 }
 
 function setupEventNameInput() {
   if (!DOM.eventNameInput) return;
-  DOM.eventNameInput.addEventListener('input', () => {
+  DOM.eventNameInput.addEventListener("input", () => {
     const key = DOM.eventSelect && DOM.eventSelect.value;
     if (!key) return;
     saveStoredEventName(key, DOM.eventNameInput.value.trim());
     if (DOM.eventTitle) {
-      DOM.eventTitle.textContent = DOM.eventNameInput.value.trim() || (activeTheme && activeTheme.welcome && activeTheme.welcome.title) || DOM.eventTitle.textContent;
+      DOM.eventTitle.textContent =
+        DOM.eventNameInput.value.trim() ||
+        (activeTheme && activeTheme.welcome && activeTheme.welcome.title) ||
+        DOM.eventTitle.textContent;
     }
+    refreshStylePreviewText();
   });
 }
 
@@ -579,24 +642,32 @@ function init() {
   setupCustomPairingControls();
   setupEventNameInput();
   loadCloudinarySettings();
-  setThemeEditorMode(DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
+  setThemeEditorMode(
+    DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit",
+  );
   loadEmailJsSettings();
   updatePendingUI();
-  applyPreviewOrientation();
+  applyPreviewOrientation(getPreviewContext());
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener("DOMContentLoaded", async () => {
   console.log("DOMContentLoaded event fired.");
   loadThemesFromStorage();
   loadFontsFromStorage();
   loadDeploySettings();
-  try { await setupFontPicker(); } catch (e) { console.warn('Font picker setup failed', e); }
+  try {
+    await setupFontPicker();
+  } catch (e) {
+    console.warn("Font picker setup failed", e);
+  }
   const initialKey = populateThemeSelector(DEFAULT_THEME_KEY);
   if (initialKey) {
     loadTheme(initialKey);
   }
   goAdmin(); // Start on admin screen
-  ['click', 'mousemove', 'keydown', 'touchstart'].forEach(evt => document.addEventListener(evt, resetIdleTimer));
+  ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
+    document.addEventListener(evt, resetIdleTimer),
+  );
   resetIdleTimer();
   init();
   if (DOM.headingFontSelect && DOM.bodyFontSelect) {
@@ -604,10 +675,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       headingSelect: DOM.headingFontSelect,
       bodySelect: DOM.bodyFontSelect,
       pairingSelect: DOM.fontPairingSelect,
-      headingPreview: DOM.headingFontPreview,
-      bodyPreview: DOM.bodyFontPreview,
-      fontsEndpoint: canSyncRemote() ? '/api/fonts' : ''
-    }).catch((err) => console.warn('Dual font picker failed to initialize', err));
+      fontsEndpoint: canSyncRemote() ? "/api/fonts" : "",
+    }).catch((err) =>
+      console.warn("Dual font picker failed to initialize", err),
+    );
   }
   setupInstallPrompt();
   ensureRemoteSeed();
@@ -615,42 +686,46 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- Remote sync (Cloudflare Pages Functions) ---
+// Allow syncing on Pages, Workers, GitHub Pages, and local hosts
 const REMOTE_SYNC_ALLOWLIST = [
   /\.pages\.dev$/i,
-  /\.workers\.dev$/i
+  /\.workers\.dev$/i,
+  /\.github\.io$/i,
+  /localhost$/,
+  /^127\.0\.0\.1$/,
 ];
-const REMOTE_SYNC_BLOCKLIST = [
-  /github\.io$/i
-];
+const REMOTE_SYNC_BLOCKLIST = [/staging-only\.fletchphoto\.internal$/i];
 
 function resolveRemoteSyncOverride() {
   try {
-    if (typeof window !== 'undefined') {
-      if (typeof window.PHOTOBOOTH_REMOTE_SYNC === 'boolean') return window.PHOTOBOOTH_REMOTE_SYNC;
-      const stored = localStorage.getItem('photoboothRemoteSync');
-      if (stored === 'true') return true;
-      if (stored === 'false') return false;
+    if (typeof window !== "undefined") {
+      if (typeof window.PHOTOBOOTH_REMOTE_SYNC === "boolean")
+        return window.PHOTOBOOTH_REMOTE_SYNC;
+      const stored = localStorage.getItem("photoboothRemoteSync");
+      if (stored === "true") return true;
+      if (stored === "false") return false;
     }
-  } catch (_) { }
+  } catch (_) {}
   return null;
 }
 
 function hostMatches(list, host) {
   if (!Array.isArray(list) || !host) return false;
   return list.some((rule) => {
-    if (typeof rule === 'string') return host === rule;
-    if (rule && typeof rule.test === 'function') return rule.test(host);
+    if (typeof rule === "string") return host === rule;
+    if (rule && typeof rule.test === "function") return rule.test(host);
     return false;
   });
 }
 
 function canSyncRemote() {
-  if (typeof location === 'undefined') return false;
-  const protocol = (location && location.protocol) || '';
-  if (!protocol.startsWith('http')) return false;
+  if (typeof location === "undefined") return false;
+  const protocol = (location && location.protocol) || "";
+  if (!protocol.startsWith("http")) return false;
   const override = resolveRemoteSyncOverride();
   if (override !== null) return override;
-  const host = (location && location.hostname && location.hostname.toLowerCase()) || '';
+  const host =
+    (location && location.hostname && location.hostname.toLowerCase()) || "";
   if (!host) return false;
   if (hostMatches(REMOTE_SYNC_BLOCKLIST, host)) return false;
   return hostMatches(REMOTE_SYNC_ALLOWLIST, host);
@@ -658,13 +733,14 @@ function canSyncRemote() {
 async function loadThemesRemote() {
   if (!canSyncRemote()) return;
   try {
-    const resp = await fetch('/api/themes', { cache: 'no-store' });
+    const resp = await fetch("/api/themes", { cache: "no-store" });
     if (!resp.ok) return;
     const remote = await resp.json();
-    const hasKeys = remote && typeof remote === 'object' && Object.keys(remote).length > 0;
+    const hasKeys =
+      remote && typeof remote === "object" && Object.keys(remote).length > 0;
     if (!hasKeys) {
       // Do not clobber built-in themes with an empty server payload
-      updateSyncStatus('Using built-in themes');
+      updateSyncStatus("Using built-in themes");
       return;
     }
     // Merge server themes over built-ins/local
@@ -672,46 +748,61 @@ async function loadThemesRemote() {
     fixBuiltinThemePlacements(themes);
     ensureBuiltinThemes();
     if (!hasCoreBuiltins(themes)) {
-      resetThemesToBuiltins('remote themes missing core entries');
+      resetThemesToBuiltins("remote themes missing core entries");
     }
-    try { normalizeAllThemes(); } catch (_e) { }
+    try {
+      normalizeAllThemes();
+    } catch (_e) {}
     const globalLogo = getGlobalLogo();
     if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
-    localStorage.setItem('photoboothThemes', JSON.stringify(themes));
+    localStorage.setItem("photoboothThemes", JSON.stringify(themes));
     // Refresh UI if already initialized
     const selected = populateThemeSelector(DEFAULT_THEME_KEY);
     if (selected) {
       loadTheme(selected);
     }
-    updateSyncStatus('Synced from server');
-  } catch (_) { }
+    updateSyncStatus("Synced from server");
+  } catch (_) {}
 }
 async function syncThemesRemote() {
   if (!canSyncRemote()) return;
   try {
-    await fetch('/api/themes', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(themes) });
-  } catch (_) { }
+    await fetch("/api/themes", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(themes),
+    });
+  } catch (_) {}
 }
 function mergeFonts(a, b) {
-  const out = []; const seen = new Set();
-  [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].forEach(f => {
-    try { const k = JSON.stringify(f); if (!seen.has(k)) { seen.add(k); out.push(f); } } catch (_) { }
-  });
+  const out = [];
+  const seen = new Set();
+  [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])].forEach(
+    (f) => {
+      try {
+        const k = JSON.stringify(f);
+        if (!seen.has(k)) {
+          seen.add(k);
+          out.push(f);
+        }
+      } catch (_) {}
+    },
+  );
   return out;
 }
 async function loadFontsRemote() {
   if (!canSyncRemote()) return [];
   try {
-    const r = await fetch('/api/fonts', { cache: 'no-store' });
+    const r = await fetch("/api/fonts", { cache: "no-store" });
     if (!r.ok) return [];
     const data = await r.json();
     if (Array.isArray(data)) return data;
     const normalized = normalizeFontsPayload(data);
     if (normalized && Array.isArray(normalized.available)) {
       return normalized.available.map((font) => ({
-        type: 'family',
+        type: "family",
         value: font.name,
-        weights: font.weights
+        weights: font.weights,
       }));
     }
     return [];
@@ -721,15 +812,26 @@ async function loadFontsRemote() {
 }
 async function syncFontsRemote(fonts) {
   if (!canSyncRemote()) return;
-  try { await fetch('/api/fonts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fonts || []) }); } catch (_) { }
+  try {
+    await fetch("/api/fonts", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fonts || []),
+    });
+  } catch (_) {}
 }
 
 // --- Manual sync UI ---
-function updateSyncStatus(text) { if (DOM.syncStatus) DOM.syncStatus.textContent = text || ''; }
+function updateSyncStatus(text) {
+  if (DOM.syncStatus) DOM.syncStatus.textContent = text || "";
+}
 async function syncNow() {
-  if (!canSyncRemote()) { alert('Open over HTTPS to sync'); return; }
+  if (!canSyncRemote()) {
+    alert("Open over HTTPS to sync");
+    return;
+  }
   try {
-    updateSyncStatus('Syncing…');
+    updateSyncStatus("Syncing…");
     // Push current local themes and fonts
     await syncThemesRemote();
     await syncFontsRemote(getStoredFonts());
@@ -738,14 +840,14 @@ async function syncNow() {
     const remoteFonts = await loadFontsRemote();
     if (Array.isArray(remoteFonts) && remoteFonts.length) {
       const merged = mergeFonts(getStoredFonts(), remoteFonts);
-      localStorage.setItem('photoboothFonts', JSON.stringify(merged));
+      localStorage.setItem("photoboothFonts", JSON.stringify(merged));
     }
-    updateSyncStatus('Synced ✓');
-    showToast('Sync complete');
+    updateSyncStatus("Synced ✓");
+    showToast("Sync complete");
   } catch (e) {
-    console.error('Sync failed', e);
-    updateSyncStatus('Sync failed');
-    alert('Sync failed. Check network and Cloudflare bindings.');
+    console.error("Sync failed", e);
+    updateSyncStatus("Sync failed");
+    alert("Sync failed. Check network and Cloudflare bindings.");
   }
 }
 
@@ -753,103 +855,150 @@ async function syncNow() {
 async function ensureRemoteSeed() {
   if (!canSyncRemote()) return;
   try {
-    if (localStorage.getItem('kvSeeded') === 'true') return;
+    if (localStorage.getItem("kvSeeded") === "true") return;
     const [tRes, fRes] = await Promise.all([
-      fetch('/api/themes', { cache: 'no-store' }),
-      fetch('/api/fonts', { cache: 'no-store' })
+      fetch("/api/themes", { cache: "no-store" }),
+      fetch("/api/fonts", { cache: "no-store" }),
     ]);
     let needSeed = false;
     if (tRes.ok) {
       const t = await tRes.text();
-      if (!t || t.trim() === '' || t.trim() === '{}') needSeed = true;
+      if (!t || t.trim() === "" || t.trim() === "{}") needSeed = true;
     }
     if (fRes.ok) {
       const f = await fRes.text();
-      if (!f || f.trim() === '' || f.trim() === '[]') needSeed = true;
+      if (!f || f.trim() === "" || f.trim() === "[]") needSeed = true;
     }
     if (needSeed) {
       await syncThemesRemote();
       await syncFontsRemote(getStoredFonts());
-      localStorage.setItem('kvSeeded', 'true');
-      updateSyncStatus('Seeded to server');
+      localStorage.setItem("kvSeeded", "true");
+      updateSyncStatus("Seeded to server");
     }
-  } catch (_) { }
+  } catch (_) {}
 }
 
 // --- EmailJS Configuration ---
 // Defaults (can be overridden via Admin > Email (EmailJS))
-const EMAILJS_SERVICE_ID_DEFAULT = 'service_wf13ozc';
-const EMAILJS_TEMPLATE_ID_DEFAULT = 'template_yankxhd';
-const EMAILJS_PUBLIC_KEY_DEFAULT = 'pzgt5QUA4x12IOITx';
+const EMAILJS_SERVICE_ID_DEFAULT = "service_wf13ozc";
+const EMAILJS_TEMPLATE_ID_DEFAULT = "template_yankxhd";
+const EMAILJS_PUBLIC_KEY_DEFAULT = "pzgt5QUA4x12IOITx";
 
 function getEmailJsConfig() {
-  const service = localStorage.getItem('emailJsService') || EMAILJS_SERVICE_ID_DEFAULT;
-  const template = localStorage.getItem('emailJsTemplate') || EMAILJS_TEMPLATE_ID_DEFAULT;
-  const pub = localStorage.getItem('emailJsPublic') || EMAILJS_PUBLIC_KEY_DEFAULT;
+  const service =
+    localStorage.getItem("emailJsService") || EMAILJS_SERVICE_ID_DEFAULT;
+  const template =
+    localStorage.getItem("emailJsTemplate") || EMAILJS_TEMPLATE_ID_DEFAULT;
+  const pub =
+    localStorage.getItem("emailJsPublic") || EMAILJS_PUBLIC_KEY_DEFAULT;
   return { service, template, pub };
 }
 function loadEmailJsSettings() {
   const cfg = getEmailJsConfig();
-  if (DOM.emailJsPublic) DOM.emailJsPublic.value = localStorage.getItem('emailJsPublic') || '';
-  if (DOM.emailJsService) DOM.emailJsService.value = localStorage.getItem('emailJsService') || '';
-  if (DOM.emailJsTemplate) DOM.emailJsTemplate.value = localStorage.getItem('emailJsTemplate') || '';
-  try { emailjs.init({ publicKey: cfg.pub }); } catch (_e) { try { emailjs.init(cfg.pub); } catch (__e) { } }
+  if (DOM.emailJsPublic)
+    DOM.emailJsPublic.value = localStorage.getItem("emailJsPublic") || "";
+  if (DOM.emailJsService)
+    DOM.emailJsService.value = localStorage.getItem("emailJsService") || "";
+  if (DOM.emailJsTemplate)
+    DOM.emailJsTemplate.value = localStorage.getItem("emailJsTemplate") || "";
+  try {
+    emailjs.init({ publicKey: cfg.pub });
+  } catch (_e) {
+    try {
+      emailjs.init(cfg.pub);
+    } catch (__e) {}
+  }
 }
 function saveEmailJsSettings() {
-  if (DOM.emailJsPublic) localStorage.setItem('emailJsPublic', (DOM.emailJsPublic.value || '').trim());
-  if (DOM.emailJsService) localStorage.setItem('emailJsService', (DOM.emailJsService.value || '').trim());
-  if (DOM.emailJsTemplate) localStorage.setItem('emailJsTemplate', (DOM.emailJsTemplate.value || '').trim());
+  if (DOM.emailJsPublic)
+    localStorage.setItem(
+      "emailJsPublic",
+      (DOM.emailJsPublic.value || "").trim(),
+    );
+  if (DOM.emailJsService)
+    localStorage.setItem(
+      "emailJsService",
+      (DOM.emailJsService.value || "").trim(),
+    );
+  if (DOM.emailJsTemplate)
+    localStorage.setItem(
+      "emailJsTemplate",
+      (DOM.emailJsTemplate.value || "").trim(),
+    );
   loadEmailJsSettings();
-  showToast('Email settings saved');
+  showToast("Email settings saved");
 }
 async function sendTestEmail() {
   const cfg = getEmailJsConfig();
-  const to = prompt('Send test to (email):');
+  const to = prompt("Send test to (email):");
   if (!to) return;
-  const tiny = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAtEB6m3W1NoAAAAASUVORK5CYII=';
-  const params = { to_email: to, photo_url: tiny, link_url: '', image_data_url: tiny };
+  const tiny =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8Xw8AAtEB6m3W1NoAAAAASUVORK5CYII=";
+  const params = {
+    to_email: to,
+    photo_url: tiny,
+    link_url: "",
+    image_data_url: tiny,
+  };
   try {
     await emailjs.send(cfg.service, cfg.template, params);
-    alert('Test email sent');
+    alert("Test email sent");
   } catch (e) {
     const details = e && (e.text || e.message || e.status || JSON.stringify(e));
-    console.error('EmailJS test failed', e);
-    alert('Test failed: ' + (details || 'unknown error'));
+    console.error("EmailJS test failed", e);
+    alert("Test failed: " + (details || "unknown error"));
   }
 }
 
 // --- Cloudinary Settings (UI + storage) ---
 // Defaults (optional):
-const CLOUDINARY_CLOUD_NAME = 'afletch32';
-const CLOUDINARY_UPLOAD_PRESET = 'photobooth_unsigned';
-const CLOUDINARY_FOLDER_BASE_DEFAULT = 'photobooth/events';
+const CLOUDINARY_CLOUD_NAME = "afletch32";
+const CLOUDINARY_UPLOAD_PRESET = "photobooth_unsigned";
+const CLOUDINARY_FOLDER_BASE_DEFAULT = "photobooth/events";
 
 function loadCloudinarySettings() {
-  const cloud = localStorage.getItem('cloudinaryCloudName') || CLOUDINARY_CLOUD_NAME;
-  const preset = localStorage.getItem('cloudinaryUploadPreset') || CLOUDINARY_UPLOAD_PRESET;
-  const folderBase = localStorage.getItem('cloudinaryFolderBase') || CLOUDINARY_FOLDER_BASE_DEFAULT;
-  const use = (localStorage.getItem('cloudinaryUse') || '').toString() !== 'false' && Boolean(cloud && preset);
-  if (DOM.cloudNameInput) DOM.cloudNameInput.value = cloud || '';
-  if (DOM.cloudPresetInput) DOM.cloudPresetInput.value = preset || '';
-  if (DOM.cloudFolderInput) DOM.cloudFolderInput.value = folderBase || '';
+  const cloud =
+    localStorage.getItem("cloudinaryCloudName") || CLOUDINARY_CLOUD_NAME;
+  const preset =
+    localStorage.getItem("cloudinaryUploadPreset") || CLOUDINARY_UPLOAD_PRESET;
+  const folderBase =
+    localStorage.getItem("cloudinaryFolderBase") ||
+    CLOUDINARY_FOLDER_BASE_DEFAULT;
+  const use =
+    (localStorage.getItem("cloudinaryUse") || "").toString() !== "false" &&
+    Boolean(cloud && preset);
+  if (DOM.cloudNameInput) DOM.cloudNameInput.value = cloud || "";
+  if (DOM.cloudPresetInput) DOM.cloudPresetInput.value = preset || "";
+  if (DOM.cloudFolderInput) DOM.cloudFolderInput.value = folderBase || "";
   if (DOM.cloudUseToggle) DOM.cloudUseToggle.checked = use;
 }
 function saveCloudinarySettings() {
-  const cloud = (DOM.cloudNameInput && DOM.cloudNameInput.value.trim()) || '';
-  const preset = (DOM.cloudPresetInput && DOM.cloudPresetInput.value.trim()) || '';
-  const folderBase = (DOM.cloudFolderInput && DOM.cloudFolderInput.value.trim()) || '';
+  const cloud = (DOM.cloudNameInput && DOM.cloudNameInput.value.trim()) || "";
+  const preset =
+    (DOM.cloudPresetInput && DOM.cloudPresetInput.value.trim()) || "";
+  const folderBase =
+    (DOM.cloudFolderInput && DOM.cloudFolderInput.value.trim()) || "";
   const use = DOM.cloudUseToggle && DOM.cloudUseToggle.checked;
-  if (cloud) localStorage.setItem('cloudinaryCloudName', cloud); else localStorage.removeItem('cloudinaryCloudName');
-  if (preset) localStorage.setItem('cloudinaryUploadPreset', preset); else localStorage.removeItem('cloudinaryUploadPreset');
-  if (folderBase) localStorage.setItem('cloudinaryFolderBase', folderBase); else localStorage.removeItem('cloudinaryFolderBase');
-  localStorage.setItem('cloudinaryUse', use ? 'true' : 'false');
-  showToast('Cloudinary settings saved');
+  if (cloud) localStorage.setItem("cloudinaryCloudName", cloud);
+  else localStorage.removeItem("cloudinaryCloudName");
+  if (preset) localStorage.setItem("cloudinaryUploadPreset", preset);
+  else localStorage.removeItem("cloudinaryUploadPreset");
+  if (folderBase) localStorage.setItem("cloudinaryFolderBase", folderBase);
+  else localStorage.removeItem("cloudinaryFolderBase");
+  localStorage.setItem("cloudinaryUse", use ? "true" : "false");
+  showToast("Cloudinary settings saved");
 }
 function getCloudinaryConfig() {
-  const cloud = localStorage.getItem('cloudinaryCloudName') || CLOUDINARY_CLOUD_NAME;
-  const preset = localStorage.getItem('cloudinaryUploadPreset') || CLOUDINARY_UPLOAD_PRESET;
-  const folderBase = localStorage.getItem('cloudinaryFolderBase') || CLOUDINARY_FOLDER_BASE_DEFAULT;
-  const use = (localStorage.getItem('cloudinaryUse') || '').toString() !== 'false' && Boolean(cloud && preset);
+  const cloud =
+    localStorage.getItem("cloudinaryCloudName") || CLOUDINARY_CLOUD_NAME;
+  const preset =
+    localStorage.getItem("cloudinaryUploadPreset") || CLOUDINARY_UPLOAD_PRESET;
+  const folderBase =
+    localStorage.getItem("cloudinaryFolderBase") ||
+    CLOUDINARY_FOLDER_BASE_DEFAULT;
+  const use =
+    (localStorage.getItem("cloudinaryUse") || "").toString() !== "false" &&
+    Boolean(cloud && preset);
   return { cloud, preset, folderBase, use };
 }
 function cloudinaryEnabled() {
@@ -862,30 +1011,34 @@ function cloudinaryEnabled() {
 // becomes transparent. Useful to design overlays with colored "holes" for photos.
 const SPOT_MASK = {
   enabled: true,
-  color: '#00ff00', // pure green by default
-  tolerance: 12     // 0-255 per channel
+  color: "#00ff00", // pure green by default
+  tolerance: 12, // 0-255 per channel
 };
 
 function populateThemeSelector(preferredKey, attempt = 0) {
   console.log("Themes object:", themes);
   const select = DOM.eventSelect;
   if (!select) return null;
-  select.innerHTML = '';
+  select.innerHTML = "";
   let optionCount = 0;
   for (const themeKey in themes) {
-    if (themeKey.startsWith('_')) continue; // skip meta buckets
+    if (themeKey.startsWith("_")) continue; // skip meta buckets
     const theme = themes[themeKey];
     if (theme.themes || theme.holidays) {
-      const optgroup = document.createElement('optgroup');
+      const optgroup = document.createElement("optgroup");
       optgroup.label = theme.name;
       const subThemes = theme.themes || theme.holidays;
       for (const subThemeKey in subThemes) {
         const loc = BUILTIN_THEME_LOCATIONS[subThemeKey];
-        if (loc && (loc.root !== themeKey || loc.bucket !== (theme.themes ? 'themes' : 'holidays'))) {
+        if (
+          loc &&
+          (loc.root !== themeKey ||
+            loc.bucket !== (theme.themes ? "themes" : "holidays"))
+        ) {
           continue;
         }
         const subTheme = subThemes[subThemeKey];
-        const option = document.createElement('option');
+        const option = document.createElement("option");
         option.value = `${themeKey}:${subThemeKey}`;
         option.textContent = subTheme.name;
         optgroup.appendChild(option);
@@ -893,7 +1046,7 @@ function populateThemeSelector(preferredKey, attempt = 0) {
       }
       select.appendChild(optgroup);
     } else {
-      const option = document.createElement('option');
+      const option = document.createElement("option");
       option.value = themeKey;
       option.textContent = theme.name;
       select.appendChild(option);
@@ -903,9 +1056,11 @@ function populateThemeSelector(preferredKey, attempt = 0) {
   if (optionCount === 0) {
     renderThemeQuickSelect(select);
     if (attempt === 0) {
-      resetThemesToBuiltins('no selectable themes for dropdown');
+      resetThemesToBuiltins("no selectable themes for dropdown");
       ensureBuiltinThemes();
-      try { normalizeAllThemes(); } catch (_e) { }
+      try {
+        normalizeAllThemes();
+      } catch (_e) {}
       return populateThemeSelector(preferredKey, attempt + 1);
     }
     highlightThemeQuickSelect(null);
@@ -926,23 +1081,25 @@ function populateThemeSelector(preferredKey, attempt = 0) {
 function renderThemeQuickSelect(selectEl = DOM.eventSelect) {
   const container = DOM.themeQuickSelect;
   if (!container || !selectEl) return;
-  container.innerHTML = '';
-  const options = Array.from(selectEl.options || []).filter((opt) => opt && opt.value);
+  container.innerHTML = "";
+  const options = Array.from(selectEl.options || []).filter(
+    (opt) => opt && opt.value,
+  );
   if (!options.length) {
-    container.classList.add('hidden');
+    container.classList.add("hidden");
     return;
   }
-  container.classList.remove('hidden');
+  container.classList.remove("hidden");
   options.forEach((opt) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'theme-quick-btn';
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "theme-quick-btn";
     btn.textContent = opt.textContent || opt.value;
     btn.dataset.value = opt.value;
-    btn.addEventListener('click', () => {
+    btn.addEventListener("click", () => {
       if (selectEl.value !== opt.value) {
         selectEl.value = opt.value;
-        selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
       } else {
         highlightThemeQuickSelect(opt.value);
       }
@@ -955,23 +1112,26 @@ function renderThemeQuickSelect(selectEl = DOM.eventSelect) {
 function highlightThemeQuickSelect(value) {
   const container = DOM.themeQuickSelect;
   if (!container) return;
-  Array.from(container.querySelectorAll('.theme-quick-btn')).forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.value === value);
+  Array.from(container.querySelectorAll(".theme-quick-btn")).forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.value === value);
   });
 }
 
 function showToast(message, duration = 2000) {
-  const t = DOM.toast; if (!t) return;
+  const t = DOM.toast;
+  if (!t) return;
   t.textContent = message;
-  t.classList.add('show');
+  t.classList.add("show");
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.classList.remove('show'); }, duration);
+  toastTimer = setTimeout(() => {
+    t.classList.remove("show");
+  }, duration);
 }
 
 function setEventSelection(key) {
   if (!DOM.eventSelect || !key) return false;
   const options = Array.from(DOM.eventSelect.options || []);
-  const match = options.find(opt => opt.value === key);
+  const match = options.find((opt) => opt.value === key);
   if (!match) return false;
   DOM.eventSelect.value = key;
   highlightThemeQuickSelect(key);
@@ -982,20 +1142,22 @@ function setEventSelection(key) {
 function resolvePreferredThemeKey(preferredKey) {
   if (!DOM.eventSelect) return preferredKey || DEFAULT_THEME_KEY || null;
   const options = Array.from(DOM.eventSelect.options || []);
-  const hasKey = (key) => !!key && options.some(opt => opt.value === key);
+  const hasKey = (key) => !!key && options.some((opt) => opt.value === key);
   if (hasKey(preferredKey)) return preferredKey;
   if (hasKey(DEFAULT_THEME_KEY)) return DEFAULT_THEME_KEY;
-  const generalOption = options.find(opt => typeof opt.value === 'string' && opt.value.startsWith('general:'));
+  const generalOption = options.find(
+    (opt) => typeof opt.value === "string" && opt.value.startsWith("general:"),
+  );
   if (generalOption) return generalOption.value;
-  const generalStandalone = options.find(opt => opt.value === 'general');
+  const generalStandalone = options.find((opt) => opt.value === "general");
   if (generalStandalone) return generalStandalone.value;
   return options.length ? options[0].value : null;
 }
 
 function resolveThemeByKey(themeKey) {
   if (!themeKey) return null;
-  if (themeKey.includes(':')) {
-    const [rootKey, leafKey] = themeKey.split(':');
+  if (themeKey.includes(":")) {
+    const [rootKey, leafKey] = themeKey.split(":");
     const root = themes[rootKey];
     if (!root) return null;
     if (root.themes && root.themes[leafKey]) return root.themes[leafKey];
@@ -1007,133 +1169,203 @@ function resolveThemeByKey(themeKey) {
 
 function resolveThemeStorage(key) {
   if (!key) return { parent: themes, bucket: null, root: null };
-  if (!key.includes(':')) {
+  if (!key.includes(":")) {
     return { parent: themes, bucket: null, root: key };
   }
-  const [rootKey, leafKey] = key.split(':');
+  const [rootKey, leafKey] = key.split(":");
   const parent = themes[rootKey];
-  if (!parent || typeof parent !== 'object') {
+  if (!parent || typeof parent !== "object") {
     return { parent: themes, bucket: null, root: rootKey };
   }
   if (parent.themes && parent.themes[leafKey]) {
-    return { parent, bucket: 'themes', root: rootKey };
+    return { parent, bucket: "themes", root: rootKey };
   }
   if (parent.holidays && parent.holidays[leafKey]) {
-    return { parent, bucket: 'holidays', root: rootKey };
+    return { parent, bucket: "holidays", root: rootKey };
   }
   return { parent: themes, bucket: null, root: rootKey };
 }
 
 function applyThemeFontStyles(theme) {
-  const headingCss = (theme && (theme.fontHeading || theme.font)) || "'Comic Neue', cursive";
-  const bodyCss = (theme && (theme.fontBody || theme.font)) || "'Comic Neue', cursive";
-  document.documentElement.style.setProperty('--font-heading', headingCss);
-  document.documentElement.style.setProperty('--font-body', bodyCss);
-  document.documentElement.style.setProperty('--font', bodyCss);
-  document.body.style.fontFamily = bodyCss || 'montserrat, sans-serif';
+  const headingCss =
+    (theme && (theme.fontHeading || theme.font)) || "'Comic Neue', cursive";
+  const bodyCss =
+    (theme && (theme.fontBody || theme.font)) || "'Comic Neue', cursive";
+  document.documentElement.style.setProperty("--font-heading", headingCss);
+  document.documentElement.style.setProperty("--font-body", bodyCss);
+  document.documentElement.style.setProperty("--font", bodyCss);
+  document.documentElement.style.setProperty(
+    "--countdown-font",
+    headingCss || bodyCss || "'Comic Neue', cursive",
+  );
+  document.body.style.fontFamily = bodyCss || "montserrat, sans-serif";
   if (DOM.eventTitle) DOM.eventTitle.style.fontFamily = headingCss || bodyCss;
-  if (DOM.welcomeTitle) DOM.welcomeTitle.style.fontFamily = headingCss || bodyCss;
+  if (DOM.welcomeTitle)
+    DOM.welcomeTitle.style.fontFamily = headingCss || bodyCss;
   ensureFontLoadedForFontString(headingCss);
   ensureFontLoadedForFontString(bodyCss);
+  refreshStylePreviewText();
+}
+
+function applyHeadingSizes(theme) {
+  const eventSize = normalizeSizeValue(
+    theme && theme.eventTitleSize,
+    DEFAULT_EVENT_TITLE_SIZE,
+  );
+  const welcomeSize = normalizeSizeValue(
+    theme && theme.welcome && theme.welcome.titleSize,
+    DEFAULT_WELCOME_TITLE_SIZE,
+  );
+  document.documentElement.style.setProperty(
+    "--event-title-size",
+    `${eventSize}em`,
+  );
+  document.documentElement.style.setProperty(
+    "--welcome-title-size",
+    `${welcomeSize}em`,
+  );
+  if (DOM.eventTitleSizeInput)
+    DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  if (DOM.welcomeTitleSizeInput)
+    DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
+  refreshStylePreviewText();
 }
 
 function applyThemeBasics(theme) {
-  document.documentElement.style.setProperty('--accent', theme.accent || 'orange');
-  document.documentElement.style.setProperty('--accent2', theme.accent2 || 'white');
+  document.documentElement.style.setProperty(
+    "--accent",
+    theme.accent || "orange",
+  );
+  document.documentElement.style.setProperty(
+    "--accent2",
+    theme.accent2 || "white",
+  );
   applyThemeFontStyles(theme);
+  applyHeadingSizes(theme);
   applyThemeBackground(theme);
 }
 
 function refreshFontSelectForTheme(theme) {
-  setupFontPicker().then(() => {
-    refreshFontPickerUI(theme || activeTheme || {});
-  }).catch(() => { });
+  setupFontPicker()
+    .then(() => {
+      refreshFontPickerUI(theme || activeTheme || {});
+    })
+    .catch(() => {});
 }
 
 function refreshBackgroundFromFolder(theme) {
-  resolveBackgroundFromFolder(theme).then((autoBg) => {
-    if (!autoBg) return;
-    DOM.boothScreen.style.backgroundImage = `url(${autoBg})`;
-    if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
-  }).catch(() => { /* ignore */ });
+  resolveBackgroundFromFolder(theme)
+    .then((autoBg) => {
+      if (!autoBg) return;
+      DOM.boothScreen.style.backgroundImage = `url(${autoBg})`;
+      if (DOM.welcomeScreen)
+        DOM.welcomeScreen.style.backgroundImage =
+          DOM.boothScreen.style.backgroundImage;
+    })
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function refreshBackgroundList(theme) {
-  resolveBackgroundListFromFolder(theme).then((list) => {
-    if (!Array.isArray(list) || !list.length) return;
-    theme.backgroundsTmp = list;
-    const combined = getBackgroundList(theme);
-    if (!Array.isArray(theme.backgrounds) || theme.backgrounds.length !== combined.length) {
-      theme.backgrounds = combined.slice();
-    }
-    if (combined.length > 0) {
-      if (typeof theme.backgroundIndex !== 'number' || theme.backgroundIndex >= combined.length) {
-        theme.backgroundIndex = 0;
+  resolveBackgroundListFromFolder(theme)
+    .then((list) => {
+      if (!Array.isArray(list) || !list.length) return;
+      theme.backgroundsTmp = list;
+      const combined = getBackgroundList(theme);
+      if (
+        !Array.isArray(theme.backgrounds) ||
+        theme.backgrounds.length !== combined.length
+      ) {
+        theme.backgrounds = combined.slice();
       }
-      const currentBg = getActiveBackground(theme);
-      if (currentBg) {
-        DOM.boothScreen.style.backgroundImage = `url(${currentBg})`;
-        if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
+      if (combined.length > 0) {
+        if (
+          typeof theme.backgroundIndex !== "number" ||
+          theme.backgroundIndex >= combined.length
+        ) {
+          theme.backgroundIndex = 0;
+        }
+        const currentBg = getActiveBackground(theme);
+        if (currentBg) {
+          DOM.boothScreen.style.backgroundImage = `url(${currentBg})`;
+          if (DOM.welcomeScreen)
+            DOM.welcomeScreen.style.backgroundImage =
+              DOM.boothScreen.style.backgroundImage;
+        }
       }
-    }
-    renderCurrentAssets(theme);
-  }).catch(() => { /* ignore */ });
+      renderCurrentAssets(theme);
+    })
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function refreshOverlaysFromFolder(theme) {
-  resolveOverlaysFromFolder(theme).then((list) => {
-    if (Array.isArray(list) && list.length) {
-      theme.overlaysTmp = list;
-      renderCurrentAssets(theme);
-      renderOptions();
-    } else {
+  resolveOverlaysFromFolder(theme)
+    .then((list) => {
+      if (Array.isArray(list) && list.length) {
+        theme.overlaysTmp = list;
+        renderCurrentAssets(theme);
+        renderOptions();
+      } else {
+        theme.overlaysTmp = undefined;
+      }
+    })
+    .catch(() => {
       theme.overlaysTmp = undefined;
-    }
-  }).catch(() => { theme.overlaysTmp = undefined; });
+    });
 }
 
 function refreshTemplatesFromFolder(theme) {
-  resolveTemplatesFromFolder(theme).then((list) => {
-    if (Array.isArray(list) && list.length) {
-      theme.templatesTmp = list;
-      renderCurrentAssets(theme);
-      renderOptions();
-    } else {
+  resolveTemplatesFromFolder(theme)
+    .then((list) => {
+      if (Array.isArray(list) && list.length) {
+        theme.templatesTmp = list;
+        renderCurrentAssets(theme);
+        renderOptions();
+      } else {
+        theme.templatesTmp = undefined;
+      }
+    })
+    .catch(() => {
       theme.templatesTmp = undefined;
-    }
-  }).catch(() => { theme.templatesTmp = undefined; });
+    });
 }
 
 function syncAdminUiWithTheme(themeKey, theme) {
-  const currentKey = themeKey || (DOM.eventSelect && DOM.eventSelect.value) || '';
+  const currentKey =
+    themeKey || (DOM.eventSelect && DOM.eventSelect.value) || "";
   const storedName = getStoredEventName(currentKey);
-  if (DOM.eventTitle) DOM.eventTitle.textContent = storedName || (theme.welcome && theme.welcome.title) || '';
+  if (DOM.eventTitle)
+    DOM.eventTitle.textContent =
+      storedName || (theme.welcome && theme.welcome.title) || "";
   if (DOM.logo) {
     if (theme.logo) {
       DOM.logo.src = theme.logo;
-      DOM.logo.classList.remove('hidden');
+      DOM.logo.classList.remove("hidden");
     } else {
-      DOM.logo.src = '';
-      DOM.logo.classList.add('hidden');
+      DOM.logo.src = "";
+      DOM.logo.classList.add("hidden");
     }
   }
   selectedOverlay = null;
-  if (DOM.liveOverlay) DOM.liveOverlay.src = '';
+  if (DOM.liveOverlay) DOM.liveOverlay.src = "";
   refreshFontSelectForTheme(theme);
   if (DOM.options) renderOptions();
   syncThemeEditorWithActiveTheme();
-  if (DOM.eventNameInput) DOM.eventNameInput.value = storedName || '';
+  if (DOM.eventNameInput) DOM.eventNameInput.value = storedName || "";
 }
 
 function loadTheme(themeKey) {
-  console.log('Loading theme:', themeKey);
+  console.log("Loading theme:", themeKey);
   if (!themeKey) {
-    console.warn('No theme key provided to loadTheme');
+    console.warn("No theme key provided to loadTheme");
     return;
   }
   const theme = resolveThemeByKey(themeKey);
   if (!theme) {
-    console.warn('Theme not found for key:', themeKey);
+    console.warn("Theme not found for key:", themeKey);
     return;
   }
   highlightThemeQuickSelect(themeKey);
@@ -1147,30 +1379,38 @@ function loadTheme(themeKey) {
   refreshOverlaysFromFolder(theme);
   refreshTemplatesFromFolder(theme);
   syncAdminUiWithTheme(themeKey, theme);
+  if (DOM.boothScreen && !DOM.boothScreen.classList.contains("hidden")) {
+    showWelcome();
+  }
 }
 
 // Convert any CSS color string to hex (#rrggbb); returns '' on failure
 function colorToHex(colorStr) {
   try {
-    const el = document.createElement('span');
+    const el = document.createElement("span");
     el.style.color = colorStr;
     document.body.appendChild(el);
     const rgb = getComputedStyle(el).color; // e.g., 'rgb(255, 165, 0)'
     document.body.removeChild(el);
     const m = rgb.match(/rgba?\((\d+), ?(\d+), ?(\d+)/);
-    if (!m) return '';
-    const r = parseInt(m[1]).toString(16).padStart(2, '0');
-    const g = parseInt(m[2]).toString(16).padStart(2, '0');
-    const b = parseInt(m[3]).toString(16).padStart(2, '0');
+    if (!m) return "";
+    const r = parseInt(m[1]).toString(16).padStart(2, "0");
+    const g = parseInt(m[2]).toString(16).padStart(2, "0");
+    const b = parseInt(m[3]).toString(16).padStart(2, "0");
     return `#${r}${g}${b}`;
-  } catch (_e) { return ''; }
+  } catch (_e) {
+    return "";
+  }
 }
 
 function updateThemeEditorSummary() {
   const eventKey = DOM.eventSelect && DOM.eventSelect.value;
   const eventTheme = getThemeByKey(eventKey);
   if (DOM.themeEditorActive) {
-    DOM.themeEditorActive.textContent = describeActiveTheme(eventTheme, eventKey);
+    DOM.themeEditorActive.textContent = describeActiveTheme(
+      eventTheme,
+      eventKey,
+    );
   }
   if (DOM.themeEditorEditing) {
     DOM.themeEditorEditing.textContent = describeEditingState();
@@ -1180,23 +1420,33 @@ function updateThemeEditorSummary() {
 function describeActiveTheme(theme, key) {
   if (theme && theme.name) return theme.name;
   if (key) return key;
-  return 'None selected';
+  return "None selected";
 }
 
 function describeEditingState() {
-  const mode = DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit';
-  if (mode === 'create') {
-    const name = valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
-    return name ? `Creating: \"${name}\"` : 'Creating: New theme';
+  const mode = DOM.themeEditorModeSelect
+    ? DOM.themeEditorModeSelect.value
+    : "edit";
+  if (mode === "create") {
+    const name =
+      valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
+    return name ? `Creating: \"${name}\"` : "Creating: New theme";
   }
-  if (mode === 'clone') {
+  if (mode === "clone") {
     const cloneName = valueFromInput(DOM.themeCloneName);
-    const baseName = (activeTheme && activeTheme.name) || (DOM.eventSelect && DOM.eventSelect.value) || 'theme';
+    const baseName =
+      (activeTheme && activeTheme.name) ||
+      (DOM.eventSelect && DOM.eventSelect.value) ||
+      "theme";
     return cloneName ? `Cloning to \"${cloneName}\"` : `Cloning ${baseName}`;
   }
   const currentKey = DOM.eventSelect && DOM.eventSelect.value;
   const currentTheme = getThemeByKey(currentKey);
-  const displayName = valueFromInput(DOM.themeName) || (currentTheme && currentTheme.name) || currentKey || 'Choose a theme';
+  const displayName =
+    valueFromInput(DOM.themeName) ||
+    (currentTheme && currentTheme.name) ||
+    currentKey ||
+    "Choose a theme";
   return `Editing: ${displayName}`;
 }
 
@@ -1210,100 +1460,166 @@ function syncThemeEditorWithActiveTheme() {
 }
 
 function applyThemeEditorBasics(theme) {
-  if (DOM.themeName) DOM.themeName.value = theme.name || '';
-  setupFontPicker().then(() => {
-    refreshFontPickerUI(theme || {});
-  }).catch(() => { });
-  if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = (theme.welcome && theme.welcome.title) || '';
-  if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = (theme.welcome && theme.welcome.prompt) || '';
-  if (DOM.themeOverlaysFolder) DOM.themeOverlaysFolder.value = theme.overlaysFolder || '';
-  if (DOM.themeTemplatesFolder) DOM.themeTemplatesFolder.value = theme.templatesFolder || '';
+  if (DOM.themeName) DOM.themeName.value = theme.name || "";
+  setupFontPicker()
+    .then(() => {
+      refreshFontPickerUI(theme || {});
+    })
+    .catch(() => {});
+  if (DOM.themeWelcomeTitle)
+    DOM.themeWelcomeTitle.value = (theme.welcome && theme.welcome.title) || "";
+  if (DOM.themeWelcomePrompt)
+    DOM.themeWelcomePrompt.value =
+      (theme.welcome && theme.welcome.prompt) || "";
+  if (DOM.themeOverlaysFolder)
+    DOM.themeOverlaysFolder.value = theme.overlaysFolder || "";
+  if (DOM.themeTemplatesFolder)
+    DOM.themeTemplatesFolder.value = theme.templatesFolder || "";
+  const eventSize = normalizeSizeValue(
+    theme.eventTitleSize,
+    DEFAULT_EVENT_TITLE_SIZE,
+  );
+  const welcomeSize = normalizeSizeValue(
+    theme.welcome && theme.welcome.titleSize,
+    DEFAULT_WELCOME_TITLE_SIZE,
+  );
+  document.documentElement.style.setProperty(
+    "--event-title-size",
+    `${eventSize}em`,
+  );
+  document.documentElement.style.setProperty(
+    "--welcome-title-size",
+    `${welcomeSize}em`,
+  );
+  if (DOM.eventTitleSizeInput)
+    DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  if (DOM.welcomeTitleSizeInput)
+    DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
+  refreshStylePreviewText();
 }
 
 function applyThemeEditorColors(theme) {
-  const primary = theme.accent && theme.accent.startsWith('#') ? theme.accent : colorToHex(theme.accent || '');
-  const secondary = theme.accent2 && theme.accent2.startsWith('#') ? theme.accent2 : colorToHex(theme.accent2 || '');
+  const primary =
+    theme.accent && theme.accent.startsWith("#")
+      ? theme.accent
+      : colorToHex(theme.accent || "");
+  const secondary =
+    theme.accent2 && theme.accent2.startsWith("#")
+      ? theme.accent2
+      : colorToHex(theme.accent2 || "");
   if (primary && DOM.themeAccent) DOM.themeAccent.value = primary;
   if (secondary && DOM.themeAccent2) DOM.themeAccent2.value = secondary;
 }
 
 function updateThemeEditorSummaries(theme) {
   if (DOM.summaryBackground) {
-    const hasExplicit = Array.isArray(theme.backgrounds) && theme.backgrounds.length > 0;
-    const hasTemp = Array.isArray(theme.backgroundsTmp) && theme.backgroundsTmp.length > 0;
+    const hasExplicit =
+      Array.isArray(theme.backgrounds) && theme.backgrounds.length > 0;
+    const hasTemp =
+      Array.isArray(theme.backgroundsTmp) && theme.backgroundsTmp.length > 0;
     const hasAny = !!theme.background || hasExplicit || hasTemp;
-    DOM.summaryBackground.textContent = hasAny ? 'Current background: set' : 'Current background: none';
+    DOM.summaryBackground.textContent = hasAny
+      ? "Current background: set"
+      : "Current background: none";
   }
-  if (DOM.summaryLogo) DOM.summaryLogo.textContent = theme.logo ? 'Current logo: set' : 'Current logo: none';
-  if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = `Existing overlays: ${(theme.overlays || []).length}`;
-  if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = `Templates: ${getTemplateList(theme).length}`;
+  if (DOM.summaryLogo)
+    DOM.summaryLogo.textContent = theme.logo
+      ? "Current logo: set"
+      : "Current logo: none";
+  if (DOM.summaryOverlays)
+    DOM.summaryOverlays.textContent = `Existing overlays: ${
+      (theme.overlays || []).length
+    }`;
+  if (DOM.summaryTemplates)
+    DOM.summaryTemplates.textContent = `Templates: ${
+      getTemplateList(theme).length
+    }`;
 }
 
 function renderCurrentAssets(theme) {
   // Helpers
   const bgList = getBackgroundList(theme);
   const selectedBg = bgList.length
-    ? (typeof theme.backgroundIndex === 'number'
+    ? typeof theme.backgroundIndex === "number"
       ? Math.min(Math.max(theme.backgroundIndex, 0), bgList.length - 1)
-      : 0)
+      : 0
     : -1;
   const setSingle = (wrap, src, type) => {
     if (!wrap) return;
-    wrap.innerHTML = '';
+    wrap.innerHTML = "";
     if (src) {
       const item = createAssetTile(src);
-      const btn = document.createElement('button');
-      btn.className = 'asset-remove';
-      btn.textContent = '×';
-      btn.title = 'Remove';
+      const btn = document.createElement("button");
+      btn.className = "asset-remove";
+      btn.textContent = "×";
+      btn.title = "Remove";
       btn.onclick = () => {
-        if (!confirm('Remove this ' + type + '?')) return;
-        if (type === 'background') removeBackground();
-        if (type === 'logo') removeLogo();
+        if (!confirm("Remove this " + type + "?")) return;
+        if (type === "background") removeBackground();
+        if (type === "logo") removeLogo();
       };
       item.appendChild(btn);
       wrap.appendChild(item);
     } else {
-      const span = document.createElement('span');
-      span.style.color = '#888';
-      span.textContent = 'None';
+      const span = document.createElement("span");
+      span.style.color = "#888";
+      span.textContent = "None";
       wrap.appendChild(span);
     }
   };
-  const setGrid = (wrap, list, withBadge = false, kind = '', allowReorder = true) => {
+  const setGrid = (
+    wrap,
+    list,
+    withBadge = false,
+    kind = "",
+    allowReorder = true,
+  ) => {
     if (!wrap) return;
-    wrap.innerHTML = '';
+    wrap.innerHTML = "";
     let shown = 0;
     (list || []).forEach((entry, idx) => {
-      const src = typeof entry === 'string' ? entry : entry.src;
-      const fromFolder = typeof entry === 'object' && !!entry.__folder;
-      const badge = (withBadge && typeof entry === 'object' && entry.layout) ? entry.layout : null;
+      const src = typeof entry === "string" ? entry : entry.src;
+      const fromFolder = typeof entry === "object" && !!entry.__folder;
+      const badge =
+        withBadge && typeof entry === "object" && entry.layout
+          ? entry.layout
+          : null;
       const item = createAssetTile(src, { badge });
       item.draggable = allowReorder && !fromFolder;
       item.dataset.index = idx;
-      const btn = document.createElement('button');
-      btn.className = 'asset-remove';
-      btn.textContent = '×';
-      btn.title = fromFolder ? 'Hide from this theme' : 'Remove';
+      const btn = document.createElement("button");
+      btn.className = "asset-remove";
+      btn.textContent = "×";
+      btn.title = fromFolder ? "Hide from this theme" : "Remove";
       btn.onclick = () => {
-        if (!confirm(fromFolder ? 'Hide this item for this theme?' : 'Remove this item?')) return;
-        if (kind === 'overlay') {
-          if (fromFolder) removeFolderOverlay(src); else removeOverlay(idx);
-        } else if (kind === 'template') {
-          if (fromFolder) removeFolderTemplate(src); else removeTemplate(idx);
+        if (
+          !confirm(
+            fromFolder ? "Hide this item for this theme?" : "Remove this item?",
+          )
+        )
+          return;
+        if (kind === "overlay") {
+          if (fromFolder) removeFolderOverlay(src);
+          else removeOverlay(idx);
+        } else if (kind === "template") {
+          if (fromFolder) removeFolderTemplate(src);
+          else removeTemplate(idx);
         }
       };
       item.appendChild(btn);
       // Drag & drop reordering
       if (allowReorder && !fromFolder) {
-        item.addEventListener('dragstart', (ev) => {
-          ev.dataTransfer.setData('text/plain', String(idx));
-          ev.dataTransfer.effectAllowed = 'move';
+        item.addEventListener("dragstart", (ev) => {
+          ev.dataTransfer.setData("text/plain", String(idx));
+          ev.dataTransfer.effectAllowed = "move";
         });
-        item.addEventListener('dragover', (ev) => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; });
-        item.addEventListener('drop', (ev) => {
+        item.addEventListener("dragover", (ev) => {
           ev.preventDefault();
-          const from = parseInt(ev.dataTransfer.getData('text/plain'), 10);
+          ev.dataTransfer.dropEffect = "move";
+        });
+        item.addEventListener("drop", (ev) => {
+          ev.preventDefault();
+          const from = parseInt(ev.dataTransfer.getData("text/plain"), 10);
           const to = parseInt(item.dataset.index, 10);
           if (!Number.isNaN(from) && !Number.isNaN(to) && from !== to) {
             reorderAssets(kind, from, to);
@@ -1314,210 +1630,248 @@ function renderCurrentAssets(theme) {
       shown++;
     });
     if ((list || []).length === 0 || shown === 0) {
-      const span = document.createElement('span');
-      span.style.color = '#888';
-      span.textContent = 'None';
+      const span = document.createElement("span");
+      span.style.color = "#888";
+      span.textContent = "None";
       wrap.appendChild(span);
     }
   };
   // Backgrounds grid with selection
   if (DOM.currentBackgrounds) {
     const wrap = DOM.currentBackgrounds;
-    wrap.innerHTML = '';
+    wrap.innerHTML = "";
     const markSelected = (idxToMark) => {
-      const items = wrap.querySelectorAll('.asset-item');
+      const items = wrap.querySelectorAll(".asset-item");
       items.forEach((node, i) => {
-        if (i === idxToMark) node.classList.add('selected');
-        else node.classList.remove('selected');
-        const btn = node.querySelector('.asset-use');
-        if (btn) btn.textContent = (i === idxToMark) ? 'Using' : 'Use';
+        if (i === idxToMark) node.classList.add("selected");
+        else node.classList.remove("selected");
+        const btn = node.querySelector(".asset-use");
+        if (btn) btn.textContent = i === idxToMark ? "Using" : "Use";
       });
     };
     if (bgList.length === 0) {
-      const span = document.createElement('span'); span.style.color = '#888'; span.textContent = 'None'; wrap.appendChild(span);
+      const span = document.createElement("span");
+      span.style.color = "#888";
+      span.textContent = "None";
+      wrap.appendChild(span);
     } else {
       bgList.forEach((src, idx) => {
-        const item = document.createElement('div'); item.className = 'asset-item';
-        if (idx === selectedBg) item.classList.add('selected');
-        const img = document.createElement('img'); img.src = withBust(src); img.onerror = () => renderMissingThumbnail(item, src);
+        const item = document.createElement("div");
+        item.className = "asset-item";
+        if (idx === selectedBg) item.classList.add("selected");
+        const img = document.createElement("img");
+        img.src = withBust(src);
+        img.onerror = () => renderMissingThumbnail(item, src);
         item.appendChild(img);
-        const useBtn = document.createElement('button');
-        useBtn.className = 'asset-use';
-        useBtn.textContent = (idx === selectedBg) ? 'Using' : 'Use';
-        useBtn.style.marginTop = '4px';
+        const useBtn = document.createElement("button");
+        useBtn.className = "asset-use";
+        useBtn.textContent = idx === selectedBg ? "Using" : "Use";
+        useBtn.style.marginTop = "4px";
         useBtn.onclick = (ev) => {
           ev.preventDefault();
           markSelected(idx);
           setBackgroundIndex(idx);
         };
-        img.addEventListener('click', () => {
+        img.addEventListener("click", () => {
           markSelected(idx);
           setBackgroundIndex(idx);
         });
         item.appendChild(useBtn);
-        const remBtn = document.createElement('button');
-        remBtn.className = 'asset-remove'; remBtn.textContent = '×'; remBtn.title = 'Remove';
-        remBtn.onclick = () => { if (confirm('Remove this background?')) removeBackgroundAt(idx); };
+        const remBtn = document.createElement("button");
+        remBtn.className = "asset-remove";
+        remBtn.textContent = "×";
+        remBtn.title = "Remove";
+        remBtn.onclick = () => {
+          if (confirm("Remove this background?")) removeBackgroundAt(idx);
+        };
         item.appendChild(remBtn);
         wrap.appendChild(item);
       });
     }
   }
-  setSingle(DOM.currentLogo, theme.logo, 'logo');
+  setSingle(DOM.currentLogo, theme.logo, "logo");
   // Font preview
   if (DOM.currentFont) {
-    DOM.currentFont.innerHTML = '';
+    DOM.currentFont.innerHTML = "";
     const entries = [
-      { label: 'Heading', font: theme.fontHeading || theme.font },
-      { label: 'Body', font: theme.fontBody || theme.font }
+      { label: "Heading", font: theme.fontHeading || theme.font },
+      { label: "Body", font: theme.fontBody || theme.font },
     ];
     let rendered = 0;
-    entries.forEach(entry => {
-      const fam = primaryFontFamily(entry.font || '');
+    entries.forEach((entry) => {
+      const fam = primaryFontFamily(entry.font || "");
       if (!entry.font && !fam) return;
-      const box = document.createElement('div');
-      box.className = 'font-item';
-      const sample = document.createElement('div');
-      sample.textContent = 'Aa Bb 123';
-      sample.style.fontFamily = entry.font || 'inherit';
-      sample.style.fontSize = '1.2em';
-      sample.style.padding = '2px 6px';
-      const meta = document.createElement('div');
-      meta.className = 'font-meta';
-      meta.textContent = `${entry.label}: ${fam || 'System'}`;
+      const box = document.createElement("div");
+      box.className = "font-item";
+      const sample = document.createElement("div");
+      sample.textContent = "Aa Bb 123";
+      sample.style.fontFamily = entry.font || "inherit";
+      sample.style.fontSize = "1.2em";
+      sample.style.padding = "2px 6px";
+      const meta = document.createElement("div");
+      meta.className = "font-meta";
+      meta.textContent = `${entry.label}: ${fam || "System"}`;
       box.appendChild(sample);
       box.appendChild(meta);
       DOM.currentFont.appendChild(box);
       rendered++;
     });
     if (!rendered) {
-      const span = document.createElement('span');
-      span.style.color = '#888';
-      span.textContent = 'None';
+      const span = document.createElement("span");
+      span.style.color = "#888";
+      span.textContent = "None";
       DOM.currentFont.appendChild(span);
     }
   }
   // Accent colors
   if (DOM.currentAccents) {
-    DOM.currentAccents.innerHTML = '';
+    DOM.currentAccents.innerHTML = "";
     const addColor = (label, color) => {
-      const item = document.createElement('div');
-      item.className = 'color-item';
-      const sw = document.createElement('div');
-      sw.className = 'color-swatch';
-      sw.style.background = color || 'transparent';
-      const hex = (color && color.startsWith('#')) ? color : (colorToHex(color || '') || (color || 'none'));
-      const text = document.createElement('span');
+      const item = document.createElement("div");
+      item.className = "color-item";
+      const sw = document.createElement("div");
+      sw.className = "color-swatch";
+      sw.style.background = color || "transparent";
+      const hex =
+        color && color.startsWith("#")
+          ? color
+          : colorToHex(color || "") || color || "none";
+      const text = document.createElement("span");
       text.textContent = `${label}: ${hex}`;
-      item.appendChild(sw); item.appendChild(text);
+      item.appendChild(sw);
+      item.appendChild(text);
+      item.classList.add("clickable");
+      item.title = "Click to adjust color";
+      item.addEventListener("click", () => {
+        const input = label.toLowerCase().includes("2")
+          ? DOM.themeAccent2
+          : DOM.themeAccent;
+        if (input) {
+          if (typeof input.showPicker === "function") input.showPicker();
+          else input.click();
+        }
+      });
       DOM.currentAccents.appendChild(item);
     };
-    if (theme.accent) addColor('Accent', theme.accent);
-    if (theme.accent2) addColor('Accent 2', theme.accent2);
+    if (theme.accent) addColor("Accent", theme.accent);
+    if (theme.accent2) addColor("Accent 2", theme.accent2);
     if (!theme.accent && !theme.accent2) {
-      const span = document.createElement('span'); span.style.color = '#888'; span.textContent = 'None';
+      const span = document.createElement("span");
+      span.style.color = "#888";
+      span.textContent = "None";
       DOM.currentAccents.appendChild(span);
     }
   }
-  setGrid(DOM.currentOverlays, getOverlayList(theme), false, 'overlay', false);
-  setGrid(DOM.currentTemplates, getTemplateList(theme), true, 'template', false);
+  setGrid(DOM.currentOverlays, getOverlayList(theme), false, "overlay", false);
+  setGrid(
+    DOM.currentTemplates,
+    getTemplateList(theme),
+    true,
+    "template",
+    false,
+  );
 }
 
+function setAdminMode(isOpen) {
+  const open = !!isOpen;
+  document.body.classList.toggle("admin-open", open);
+  document.documentElement.classList.toggle("admin-open", open);
+}
 function goAdmin() {
   hideFinal();
-  if (DOM.welcomeScreen) DOM.welcomeScreen.classList.add('faded');
-  DOM.boothScreen.classList.add('hidden');
-  DOM.adminScreen.classList.remove('hidden');
-  document.body.classList.add('admin-open');
-  document.documentElement.classList.add('admin-open');
+  if (DOM.welcomeScreen) DOM.welcomeScreen.classList.add("faded");
+  DOM.boothScreen.classList.add("hidden");
+  DOM.adminScreen.classList.remove("hidden");
+  setAdminMode(true);
   setBoothControlsVisible(true);
 }
 function applyThemeBackground(theme) {
   if (!theme) return;
-  const bg = getActiveBackground(theme) || '';
-  if (bg && !bg.endsWith('/')) {
+  const bg = getActiveBackground(theme) || "";
+  if (bg && !bg.endsWith("/")) {
     DOM.boothScreen.style.backgroundImage = `url(${bg})`;
   } else {
-    DOM.boothScreen.style.backgroundImage = '';
+    DOM.boothScreen.style.backgroundImage = "";
   }
-  if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = DOM.boothScreen.style.backgroundImage;
+  if (DOM.welcomeScreen)
+    DOM.welcomeScreen.style.backgroundImage =
+      DOM.boothScreen.style.backgroundImage;
 }
 function setMode(m) {
   mode = m;
-  DOM.videoWrap.className = 'view-landscape'; // Default to landscape
-  const behavior = MODE_BEHAVIOR[mode] || MODE_BEHAVIOR.photo;
-  if (DOM.captureBtn) {
-    const showCapture = !!behavior.showCaptureButton;
-    DOM.captureBtn.style.display = showCapture ? 'inline-block' : 'none';
-    DOM.captureBtn.textContent = behavior.captureLabel || 'Capture';
-    DOM.captureBtn.onclick = showCapture ? () => behavior.handler() : null;
-    const requiresRecorder = showCapture && behavior.requiresRecorder;
-    const unsupported = requiresRecorder && !mediaRecorderSupported() && !demoMode;
-    DOM.captureBtn.disabled = unsupported;
-    DOM.captureBtn.title = unsupported ? 'Video capture not supported in this browser' : '';
-  }
-  if (mode === 'photo' || mode === 'boomerang' || mode === 'video360') {
+  DOM.videoWrap.className = "view-landscape"; // Default to landscape
+  // In photo mode, show capture button; strip mode hides it (auto flow)
+  DOM.captureBtn.style.display = mode === "photo" ? "inline-block" : "none";
+  if (mode === "photo") {
     setCaptureAspect(null);
   }
   // In strip mode, ensure no photo overlay is shown over the template preview
-  if (mode === 'strip') {
+  if (mode === "strip") {
     selectedOverlay = null;
-    if (DOM.liveOverlay) DOM.liveOverlay.src = '';
+    if (DOM.liveOverlay) DOM.liveOverlay.src = "";
   }
   renderOptions();
 }
 function renderOptions() {
-  const overlayModes = (mode === 'photo' || mode === 'boomerang' || mode === 'video360');
-  const templates = overlayModes ? [] : getTemplateList(activeTheme);
-  const list = overlayModes ? getOverlayList(activeTheme) : templates;
+  const isPhoto = mode === "photo";
+  const templates = isPhoto ? [] : getTemplateList(activeTheme);
+  const list = isPhoto ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
-  container.innerHTML = '';
+  container.innerHTML = "";
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
-  if (overlayModes) {
-    const wrap = document.createElement('div');
-    wrap.className = 'thumb';
-    const img = document.createElement('img');
+  if (isPhoto) {
+    const wrap = document.createElement("div");
+    wrap.className = "thumb";
+    const img = document.createElement("img");
     // Simple placeholder tile
-    const blank = document.createElement('canvas'); blank.width = 120; blank.height = 80;
-    img.src = blank.toDataURL('image/png');
+    const blank = document.createElement("canvas");
+    blank.width = 120;
+    blank.height = 80;
+    img.src = blank.toDataURL("image/png");
     wrap.appendChild(img);
-    wrap.title = 'No Overlay';
+    wrap.title = "No Overlay";
     wrap.onclick = () => {
-      container.querySelectorAll('.thumb').forEach(t => t.classList.remove('selected'));
-      wrap.classList.add('selected');
+      container
+        .querySelectorAll(".thumb")
+        .forEach((t) => t.classList.remove("selected"));
+      wrap.classList.add("selected");
       selectedOverlay = null;
-      if (DOM.liveOverlay) DOM.liveOverlay.src = '';
+      if (DOM.liveOverlay) DOM.liveOverlay.src = "";
     };
     container.appendChild(wrap);
   }
   list.forEach((srcOrObj, idx) => {
-    const src = (isPhoto
-      ? (typeof srcOrObj === 'string' ? srcOrObj : srcOrObj.src)
-      : ((srcOrObj && srcOrObj.src) || ''));
-    const wrap = document.createElement('div');
-    wrap.className = 'thumb';
-    const img = document.createElement('img');
+    const src = isPhoto
+      ? typeof srcOrObj === "string"
+        ? srcOrObj
+        : srcOrObj.src
+      : (srcOrObj && srcOrObj.src) || "";
+    const wrap = document.createElement("div");
+    wrap.className = "thumb";
+    const img = document.createElement("img");
     wrap.appendChild(img);
     img.src = withBust(src);
     img.onerror = () => {
-      console.error('Failed to load thumbnail:', src);
-      wrap.style.display = 'none'; // Hide instead of remove to prevent breaking layout
+      console.error("Failed to load thumbnail:", src);
+      wrap.style.display = "none"; // Hide instead of remove to prevent breaking layout
     };
     wrap.onclick = async () => {
-      container.querySelectorAll('.thumb').forEach(t => t.classList.remove('selected'));
-      wrap.classList.add('selected');
-      if (overlayModes) {
+      container
+        .querySelectorAll(".thumb")
+        .forEach((t) => t.classList.remove("selected"));
+      wrap.classList.add("selected");
+      if (isPhoto) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
-        setViewOrientation(src);
+        setViewOrientation(src, getPreviewContext());
       } else {
         // open confirm with larger preview
         // Photo strips are assumed to be landscape for preview purposes
-        DOM.videoWrap.className = 'view-landscape';
+        DOM.videoWrap.className = "view-landscape";
         // Clear any existing overlay so template preview is clean
         selectedOverlay = null;
-        if (DOM.liveOverlay) DOM.liveOverlay.src = '';
-        const template = templates[idx] || { src, layout: 'double_column' };
+        if (DOM.liveOverlay) DOM.liveOverlay.src = "";
+        const template = templates[idx] || { src, layout: "double_column" };
         pendingTemplate = template;
         openConfirm(template.src);
       }
@@ -1526,102 +1880,18 @@ function renderOptions() {
   });
 }
 
-async function setViewOrientation(imgSrc) {
-  const orientation = await getOrientationFromImage(imgSrc);
-  DOM.videoWrap.className = `view-${orientation}`;
-  setCaptureAspect(null);
-  updateCaptureAspect();
-}
-
-function orientationFromTemplate(template) {
-  const layout = (template && template.layout ? template.layout : '').toLowerCase();
-  if (layout === 'double_column' || layout === 'double-column' || layout === 'vertical') return 'view-portrait';
-  return 'view-landscape';
-}
-
-function applyPreviewOrientation() {
-  if (!DOM.videoWrap) return;
-  if (mode === 'strip') {
-    const templates = getTemplateList(activeTheme);
-    const template = pendingTemplate || (Array.isArray(templates) ? templates[0] : null);
-    DOM.videoWrap.className = orientationFromTemplate(template);
-    return;
-  }
-  const overlays = getOverlayList(activeTheme);
-  const firstOverlay = Array.isArray(overlays) && overlays.length
-    ? overlays[0]
-    : null;
-  const overlaySrc = selectedOverlay
-    || (firstOverlay && (typeof firstOverlay === 'string' ? firstOverlay : firstOverlay.src));
-  if (overlaySrc) {
-    setViewOrientation(overlaySrc).catch(() => {
-      DOM.videoWrap.className = 'view-landscape';
-      setCaptureAspect(null);
-      updateCaptureAspect();
-    });
-  } else {
-    DOM.videoWrap.className = 'view-landscape';
-    setCaptureAspect(null);
-    updateCaptureAspect();
-  }
-}
-
-function capturePreviewState() {
-  return {
-    overlaySrc: DOM.liveOverlay ? DOM.liveOverlay.src : '',
-    overlayOpacity: DOM.liveOverlay ? DOM.liveOverlay.style.opacity : '',
-    overlayDisplay: DOM.liveOverlay ? DOM.liveOverlay.style.display : '',
-    videoClass: DOM.videoWrap ? DOM.videoWrap.className : 'view-landscape'
-  };
-}
-
-function restorePreviewState(state) {
-  if (!state) return;
-  if (DOM.liveOverlay) {
-    DOM.liveOverlay.src = state.overlaySrc || '';
-    DOM.liveOverlay.style.opacity = state.overlayOpacity || '';
-    DOM.liveOverlay.style.display = state.overlayDisplay || '';
-    DOM.liveOverlay.style.filter = '';
-  }
-  if (DOM.videoWrap) DOM.videoWrap.className = state.videoClass || 'view-landscape';
-}
-
-async function getStripTemplateMetrics(template) {
-  if (!template || !template.src) return null;
-  if (template.__slotMetrics) return template.__slotMetrics;
-  const metrics = {};
-  const img = await loadImage(template.src);
-  const slots = detectDoubleColumnSlots(img, 3);
-  if (slots) metrics.slots = slots;
-  const headerPct = Math.max(0, Math.min(0.5, toNumber(template && (template.headerPct || template.header_percent), 0.2)));
-  const columnPadPct = Math.max(0, Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)));
-  const slotSpacingPct = Math.max(0, Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)));
-  const footerPct = Math.max(0, Math.min(0.3, toNumber(template && template.footerPct, 0.03)));
-  metrics.headerPct = headerPct;
-  metrics.columnPadPct = columnPadPct;
-  metrics.slotSpacingPct = slotSpacingPct;
-  metrics.footerPct = footerPct;
-  if (slots && slots[0] && slots[0][0]) {
-    metrics.aspect = Math.max(0.1, slots[0][0].w / slots[0][0].h);
-  } else {
-    const cols = 2;
-    const columnW = 1 / cols;
-    const slotWRel = columnW - columnPadPct * columnW * 2;
-    const slotHRel = (1 - headerPct - footerPct - slotSpacingPct * (3 + 1)) / 3;
-    metrics.aspect = Math.max(0.1, slotWRel / slotHRel);
-  }
-  template.__slotMetrics = metrics;
-  return metrics;
-}
-
 async function prepareStripCapture(template) {
-  const state = capturePreviewState();
+  const state = capturePreviewState({
+    liveOverlay: DOM.liveOverlay,
+    videoWrap: DOM.videoWrap,
+  });
   if (DOM.liveOverlay) {
-    DOM.liveOverlay.src = '';
-    DOM.liveOverlay.style.display = 'none';
-    DOM.liveOverlay.style.opacity = '0';
+    DOM.liveOverlay.src = "";
+    DOM.liveOverlay.style.display = "none";
+    DOM.liveOverlay.style.opacity = "0";
   }
-  if (DOM.videoWrap) DOM.videoWrap.className = orientationFromTemplate(template);
+  if (DOM.videoWrap)
+    DOM.videoWrap.className = orientationFromTemplate(template);
   const prevAspect = captureAspectRatio;
   try {
     const metrics = await getStripTemplateMetrics(template);
@@ -1638,62 +1908,96 @@ async function prepareStripCapture(template) {
 
 function openConfirm(previewSrc) {
   DOM.confirmPreview.src = previewSrc;
-  DOM.confirmModal.style.display = 'flex';
+  DOM.confirmModal.style.display = "flex";
 }
 function closeConfirm() {
   pendingTemplate = null;
-  DOM.confirmModal.style.display = 'none';
+  DOM.confirmModal.style.display = "none";
 }
 function confirmTemplate() {
   const t = pendingTemplate;
   pendingTemplate = null;
-  DOM.confirmModal.style.display = 'none';
+  DOM.confirmModal.style.display = "none";
   runStripSequence(t);
 }
 
 // Welcome control
 function showWelcome() {
-  if (!activeTheme) return;
-  // Title + prompt
-  DOM.welcomeTitle.textContent = (activeTheme.welcome && activeTheme.welcome.title) || (DOM.eventTitle && DOM.eventTitle.textContent) || '';
-  DOM.welcomeTitle.style.fontFamily = (activeTheme.fontHeading || activeTheme.fontBody || activeTheme.font || '');
-  if (DOM.startButton) DOM.startButton.textContent = (activeTheme.welcome && activeTheme.welcome.prompt) || 'Touch to start';
+  const theme = activeTheme || {};
+  const welcome = theme.welcome || {};
+  const fallbackTitle =
+    (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
+  if (DOM.welcomeTitle) {
+    DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
+    DOM.welcomeTitle.style.fontFamily =
+      theme.fontHeading || theme.fontBody || theme.font || "";
+  }
+  if (DOM.startButton)
+    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
-  //  the booth background on the welcome screen and hide standalone images
-  const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : '';
+  // Mirror the booth background behind the welcome overlay and hide image slot
+  const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
-    DOM.welcomeImg.src = '';
-    DOM.welcomeImg.classList.add('hidden');
+    DOM.welcomeImg.src = "";
+    DOM.welcomeImg.classList.add("hidden");
   }
 
   const ws = DOM.welcomeScreen;
   if (!ws) return;
-  ws.classList.remove('faded');
+  ws.classList.remove("faded");
+  const dismiss = () => hideWelcome();
   if (DOM.startButton) {
-    DOM.startButton.onclick = () => hideWelcome();
+    DOM.startButton.onclick = dismiss;
   } else {
-    ws.onclick = () => hideWelcome();
+    ws.onclick = dismiss;
   }
 }
 function hideWelcome() {
   const ws = DOM.welcomeScreen;
-  ws.classList.add('faded');
+  if (!ws) return;
+  ws.classList.add("faded");
+
+  // Ensure the live video element is available before toggling visibility.
+  const videoEl = DOM.video || document.getElementById("video");
+  if (videoEl) {
+    DOM.video = videoEl;
+    videoEl.classList.remove("hidden");
+    videoEl.classList.add("active");
+  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
+  if (!ws) return;
+  DOM.welcomeScreen = ws;
+  setBoothControlsVisible(true);
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  setAdminMode(false);
+  ws.classList.add("faded");
   // show the video smoothly
-  DOM.video.classList.remove('hidden');
-  DOM.video.classList.add('active');
+  let video = DOM.video || document.getElementById("video");
+  if (video) {
+    DOM.video = video;
+    video.classList.remove("hidden");
+    video.classList.add("active");
+  }
 
   // After the welcome screen is hidden, select the first option if in photo mode.
   // This ensures the UI is visible and ready for interaction.
-  if (mode === 'photo') {
+  if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
-      const firstThumb = DOM.options.querySelector('.thumb');
+      const optionsContainer = DOM.options || document.getElementById("options");
+      if (optionsContainer) {
+        DOM.options = optionsContainer;
+        const firstThumb = optionsContainer.querySelector(".thumb");
+        if (firstThumb) firstThumb.click();
+      }
+      let options = DOM.options || document.getElementById("options");
+      if (options) DOM.options = options;
+      const firstThumb = options && options.querySelector(".thumb");
       if (firstThumb) firstThumb.click();
     }
   }
-  resetIdleTimer(); // Start the idle timer now that the booth is active. 
-
+  resetIdleTimer(); // Start the idle timer now that the booth is active.
 }
 
 // Camera
@@ -1706,58 +2010,96 @@ async function startCamera(autoStartBooth = false) {
     loadTheme(DOM.eventSelect.value);
 
     // If running from file://, most browsers block camera. Offer Demo Mode unless forced.
-    if (String(location.protocol).startsWith('file') && localStorage.getItem('forceCameraOnFile') !== 'true') {
+    if (
+      String(location.protocol).startsWith("file") &&
+      localStorage.getItem("forceCameraOnFile") !== "true"
+    ) {
       isStartingCamera = false;
-      const useDemo = confirm('Camera access is not available when opened from a file.\n\nUse Demo Mode instead? (You can still test overlays, templates, and email.)');
+      const useDemo = confirm(
+        "Camera access is not available when opened from a file.\n\nUse Demo Mode instead? (You can still test overlays, templates, and email.)",
+      );
       if (useDemo) {
         demoMode = true;
-        if (autoStartBooth) startBoothFlow(); else showToast('Demo mode enabled');
+        if (autoStartBooth) startBoothFlow();
+        else showToast("Demo mode enabled");
       } else {
-        alert('To use the camera, open the app over HTTPS (e.g., Cloudflare Pages URL) or a local HTTPS server.');
+        alert(
+          "To use the camera, open the app over HTTPS (e.g., Cloudflare Pages URL) or a local HTTPS server.",
+        );
       }
       return;
     }
 
     if (stream) {
       // Camera already available; only proceed to booth if requested
+      setupZoomControls(stream);
+      refreshVideoTransform();
       if (autoStartBooth) startBoothFlow();
-      showToast('Camera is ready');
+      showToast("Camera is ready");
       isStartingCamera = false;
       return;
     }
 
-    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+    if (
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== "function"
+    ) {
       isStartingCamera = false;
-      const httpsHint = location && !String(location.protocol).startsWith('https')
-        ? '\n\nTip: Open the app over HTTPS (GitHub Pages or Cloudflare Pages) to enable the camera.'
-        : '';
-      const useDemo = confirm(`Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`);
+      const httpsHint =
+        location && !String(location.protocol).startsWith("https")
+          ? "\n\nTip: Open the app over HTTPS (GitHub Pages or Cloudflare Pages) to enable the camera."
+          : "";
+      const useDemo = confirm(
+        `Camera access is not supported in this browser or environment.${httpsHint}\n\nUse Demo Mode instead?`,
+      );
       if (useDemo) {
         demoMode = true;
         if (autoStartBooth) startBoothFlow();
-        else showToast('Demo mode enabled');
+        else showToast("Demo mode enabled");
       } else {
-        alert('To use the camera, switch to a supported browser over HTTPS or connect a camera device.');
+        alert(
+          "To use the camera, switch to a supported browser over HTTPS or connect a camera device.",
+        );
       }
       return;
     }
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(s => {
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: false })
+      .then((s) => {
         stream = s;
         if (DOM.video) {
           DOM.video.srcObject = s;
-          DOM.video.style.transform = 'scaleX(-1)';
+          refreshVideoTransform();
         }
-        showToast('Camera permission granted');
+        setupZoomControls(stream);
+        showToast("Camera permission granted");
         if (autoStartBooth) startBoothFlow();
-      }).catch(err => {
+      })
+      .catch((err) => {
         console.error("Camera Error:", err);
-        alert('Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\nError: ' + err.message);
-      }).finally(() => {
+        const detail = err && err.message ? err.message : "Unknown error";
+        const useDemo = confirm(
+          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+            `Error: ${detail}\n\nEnable Demo Mode instead?`,
+        );
+        if (useDemo) {
+          demoMode = true;
+          if (autoStartBooth) startBoothFlow();
+          else showToast("Demo mode enabled");
+        } else {
+          alert(
+            "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+              `Error: ${detail}`,
+          );
+        }
+      })
+      .finally(() => {
         isStartingCamera = false;
       });
-  } catch (e) { isStartingCamera = false; }
+  } catch (e) {
+    isStartingCamera = false;
+  }
 }
 
 function startBooth() {
@@ -1767,17 +2109,204 @@ function startBooth() {
 
 function startBoothFlow() {
   // Theme is now pre-loaded by startCamera()
-  allowRetake = DOM.allowRetakes.checked;
-  DOM.adminScreen.classList.add('hidden');
-  DOM.boothScreen.classList.remove('hidden');
+  allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
   showWelcome();
-  setMode('photo'); // Default to photo mode on start
+  setMode("photo"); // Default to photo mode on start
 }
 
 const startCameraFlow = (...args) => startCamera(...args);
 const startBoothFromAdmin = (...args) => startBooth(...args);
+
+function setupZoomControls(camStream) {
+  const slider = DOM.zoomSlider;
+  const control = DOM.zoomControl;
+  if (!slider || !control) return;
+  control.classList.remove("hidden");
+  if (!camStream || typeof camStream.getVideoTracks !== "function") {
+    slider.disabled = true;
+    if (DOM.zoomHint) DOM.zoomHint.textContent = "Camera not ready";
+    return;
+  }
+  const tracks = camStream.getVideoTracks();
+  activeVideoTrack = tracks && tracks[0] ? tracks[0] : null;
+  if (!activeVideoTrack) {
+    slider.disabled = true;
+    if (DOM.zoomHint) DOM.zoomHint.textContent = "Camera not ready";
+    return;
+  }
+  slider.disabled = false;
+  const capabilities = getTrackCapabilities(activeVideoTrack);
+  const zoomCaps = capabilities && capabilities.zoom;
+  const hasHardwareZoom =
+    zoomCaps &&
+    Number.isFinite(zoomCaps.max) &&
+    Number.isFinite(zoomCaps.min) &&
+    zoomCaps.max > zoomCaps.min;
+  if (!hasHardwareZoom) {
+    const preserved =
+      zoomState.mode === "digital"
+        ? clamp(zoomState.value, FALLBACK_ZOOM_RANGE.min, FALLBACK_ZOOM_RANGE.max)
+        : DEFAULT_ZOOM_VALUE;
+    switchToDigitalZoom(preserved);
+    return;
+  }
+  const min = Math.max(1, Number(zoomCaps.min) || 1);
+  const max = Math.max(min, Number(zoomCaps.max) || min);
+  const step = Math.max(
+    0.01,
+    Number(zoomCaps.step) || (max - min) / 100 || 0.01,
+  );
+  const settings =
+    typeof activeVideoTrack.getSettings === "function"
+      ? activeVideoTrack.getSettings()
+      : {};
+  const preferred =
+    zoomState.mode === "hardware" ? clamp(zoomState.value, min, max) : null;
+  const startingZoom = clamp(
+    Number(settings && settings.zoom) || preferred || min,
+    min,
+    max,
+  );
+  zoomState = {
+    mode: "hardware",
+    min,
+    max,
+    step,
+    value: startingZoom,
+  };
+  slider.min = min;
+  slider.max = max;
+  slider.step = step;
+  slider.value = startingZoom;
+  if (DOM.zoomHint) DOM.zoomHint.textContent = "Using optical zoom";
+  updateZoomValueReadout(startingZoom);
+  refreshVideoTransform();
+}
+
+function setZoomLevel(value) {
+  const slider = DOM.zoomSlider;
+  if (!slider) return;
+  if (zoomState.mode === "none") {
+    switchToDigitalZoom(value || DEFAULT_ZOOM_VALUE);
+    return;
+  }
+  const min =
+    typeof zoomState.min === "number" ? zoomState.min : FALLBACK_ZOOM_RANGE.min;
+  const max =
+    typeof zoomState.max === "number" && zoomState.max >= min
+      ? zoomState.max
+      : Math.max(min, FALLBACK_ZOOM_RANGE.max);
+  const clamped = clamp(Number(value), min, max);
+  zoomState.value = clamped;
+  slider.value = clamped;
+  updateZoomValueReadout(clamped);
+  if (zoomState.mode === "hardware") {
+    applyHardwareZoom(clamped);
+  } else {
+    refreshVideoTransform();
+  }
+}
+
+async function applyHardwareZoom(value) {
+  if (!activeVideoTrack) {
+    switchToDigitalZoom(value);
+    return;
+  }
+  const attempts = [{ advanced: [{ zoom: value }] }, { zoom: value }];
+  let lastError = null;
+  for (const constraint of attempts) {
+    try {
+      await activeVideoTrack.applyConstraints(constraint);
+      refreshVideoTransform();
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  console.warn("Hardware zoom unavailable, falling back to digital zoom", lastError);
+  switchToDigitalZoom(value);
+}
+
+function switchToDigitalZoom(preferredValue = DEFAULT_ZOOM_VALUE) {
+  const slider = DOM.zoomSlider;
+  if (!slider) return;
+  const value = clamp(
+    Number(preferredValue),
+    FALLBACK_ZOOM_RANGE.min,
+    FALLBACK_ZOOM_RANGE.max,
+  );
+  zoomState = {
+    mode: "digital",
+    min: FALLBACK_ZOOM_RANGE.min,
+    max: FALLBACK_ZOOM_RANGE.max,
+    step: FALLBACK_ZOOM_RANGE.step,
+    value,
+  };
+  slider.min = zoomState.min;
+  slider.max = zoomState.max;
+  slider.step = zoomState.step;
+  slider.value = value;
+  slider.disabled = false;
+  if (DOM.zoomControl) DOM.zoomControl.classList.remove("hidden");
+  if (DOM.zoomHint)
+    DOM.zoomHint.textContent = "Digital zoom (crops both preview and capture)";
+  updateZoomValueReadout(value);
+  refreshVideoTransform();
+}
+
+function updateZoomValueReadout(value) {
+  if (!DOM.zoomValue) return;
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    DOM.zoomValue.textContent = "1x";
+    return;
+  }
+  const formatted = num.toFixed(2).replace(/\.?0+$/, "");
+  DOM.zoomValue.textContent = `${formatted}x`;
+}
+
+function refreshVideoTransform() {
+  if (!DOM.video) return;
+  const factor = getDigitalZoomFactor();
+  const scalePart = factor > 1 ? ` scale(${factor})` : "";
+  const transform = `scaleX(-1)${scalePart}`;
+  DOM.video.style.transform = transform;
+  DOM.video.style.webkitTransform = transform;
+}
+
+function getDigitalZoomFactor() {
+  if (zoomState.mode !== "digital") return 1;
+  const value = Number(zoomState.value);
+  return Number.isFinite(value) && value > 1 ? value : 1;
+}
+
+function applyDigitalZoomCrop(sx, sy, sWidth, sHeight) {
+  const factor = getDigitalZoomFactor();
+  if (factor <= 1) return { sx, sy, sWidth, sHeight };
+  const zoomedWidth = sWidth / factor;
+  const zoomedHeight = sHeight / factor;
+  return {
+    sx: sx + (sWidth - zoomedWidth) / 2,
+    sy: sy + (sHeight - zoomedHeight) / 2,
+    sWidth: zoomedWidth,
+    sHeight: zoomedHeight,
+  };
+}
+
+function getTrackCapabilities(track) {
+  if (!track || typeof track.getCapabilities !== "function") return null;
+  try {
+    return track.getCapabilities();
+  } catch (err) {
+    console.warn("Unable to read media track capabilities", err);
+    return null;
+  }
+}
 
 // Photo mode capture
 async function capturePhotoFlow() {
@@ -1786,7 +2315,7 @@ async function capturePhotoFlow() {
   const photo = await countdownAndSnap();
   const finalUrl = await finalizeToPrint(photo, selectedOverlay);
   showFinal(finalUrl);
-  recordAnalytics('photo', selectedOverlay);
+  recordAnalytics("photo", selectedOverlay);
   addToGallery(finalUrl);
 }
 
@@ -1885,8 +2414,8 @@ async function captureVideo360Flow() {
 }
 function drawToCanvasFromVideo() {
   const v = DOM.video;
-  const c = document.createElement('canvas');
-  const isPortrait = DOM.videoWrap.classList.contains('view-portrait');
+  const c = document.createElement("canvas");
+  const isPortrait = DOM.videoWrap.classList.contains("view-portrait");
 
   // Demo or no camera stream ready: draw a placeholder frame
   if (demoMode || !v || !v.videoWidth || !v.videoHeight) {
@@ -1895,16 +2424,18 @@ function drawToCanvasFromVideo() {
     const base = 900; // arbitrary size
     c.width = Math.round((base * aspectW) / aspectH);
     c.height = base;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext("2d");
     // Gradient background placeholder
     const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
-    grad.addColorStop(0, '#222'); grad.addColorStop(1, '#555');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.fillStyle = '#fff';
-    ctx.font = '28px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText('Demo Mode', c.width / 2, c.height / 2 - 10);
-    ctx.fillText(isPortrait ? '9:16' : '16:9', c.width / 2, c.height / 2 + 26);
+    grad.addColorStop(0, "#222");
+    grad.addColorStop(1, "#555");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#fff";
+    ctx.font = "28px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText("Demo Mode", c.width / 2, c.height / 2 - 10);
+    ctx.fillText(isPortrait ? "9:16" : "16:9", c.width / 2, c.height / 2 + 26);
     return c;
   }
 
@@ -1912,7 +2443,10 @@ function drawToCanvasFromVideo() {
   const videoH = v.videoHeight;
 
   if (isPortrait) {
-    const targetAspect = (typeof captureAspectRatio === 'number' && captureAspectRatio > 0) ? captureAspectRatio : (9 / 16);
+    const targetAspect =
+      typeof captureAspectRatio === "number" && captureAspectRatio > 0
+        ? captureAspectRatio
+        : 9 / 16;
     let sWidth, sHeight, sx, sy;
     sHeight = videoH;
     sWidth = sHeight * targetAspect;
@@ -1922,14 +2456,22 @@ function drawToCanvasFromVideo() {
     }
     sx = (videoW - sWidth) / 2;
     sy = (videoH - sHeight) / 2;
+    const portraitCrop = applyDigitalZoomCrop(sx, sy, sWidth, sHeight);
+    sx = portraitCrop.sx;
+    sy = portraitCrop.sy;
+    sWidth = portraitCrop.sWidth;
+    sHeight = portraitCrop.sHeight;
 
     c.width = sWidth;
     c.height = sHeight;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext("2d");
     ctx.drawImage(v, sx, sy, sWidth, sHeight, 0, 0, c.width, c.height);
   } else {
     // Crop to strict target aspect for landscape to match preview
-    const targetAspect = (typeof captureAspectRatio === 'number' && captureAspectRatio > 0) ? captureAspectRatio : (16 / 9);
+    const targetAspect =
+      typeof captureAspectRatio === "number" && captureAspectRatio > 0
+        ? captureAspectRatio
+        : 16 / 9;
     let sWidth, sHeight, sx, sy;
     sWidth = videoW;
     sHeight = sWidth / targetAspect;
@@ -1939,62 +2481,52 @@ function drawToCanvasFromVideo() {
     }
     sx = (videoW - sWidth) / 2;
     sy = (videoH - sHeight) / 2;
+    const landscapeCrop = applyDigitalZoomCrop(sx, sy, sWidth, sHeight);
+    sx = landscapeCrop.sx;
+    sy = landscapeCrop.sy;
+    sWidth = landscapeCrop.sWidth;
+    sHeight = landscapeCrop.sHeight;
 
     c.width = sWidth;
     c.height = sHeight;
-    const ctx = c.getContext('2d');
+    const ctx = c.getContext("2d");
     ctx.drawImage(v, sx, sy, sWidth, sHeight, 0, 0, c.width, c.height);
   }
   return c;
 }
 function updateCaptureAspect() {
   if (!DOM.videoContainer) return;
-  const isPortrait = DOM.videoWrap.classList.contains('view-portrait');
+  const isPortrait = DOM.videoWrap.classList.contains("view-portrait");
   let ratio = null;
-  if (typeof captureAspectRatio === 'number' && captureAspectRatio > 0) {
+  if (typeof captureAspectRatio === "number" && captureAspectRatio > 0) {
     ratio = captureAspectRatio;
   }
   if (isPortrait) {
-    const aspect = ratio || (9 / 16);
+    const aspect = ratio || 9 / 16;
     DOM.videoContainer.style.aspectRatio = `${aspect} / 1`;
   } else {
-    const aspect = ratio || (16 / 9);
+    const aspect = ratio || 16 / 9;
     DOM.videoContainer.style.aspectRatio = `${aspect} / 1`;
   }
 }
 
 function setCaptureAspect(aspect) {
-  if (typeof aspect === 'number' && aspect > 0) {
+  if (typeof aspect === "number" && aspect > 0) {
     captureAspectRatio = aspect;
   } else {
     captureAspectRatio = null;
   }
   updateCaptureAspect();
 }
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    try {
-      if (location.protocol.startsWith('http')) img.crossOrigin = 'anonymous';
-    } catch (_) { }
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-async function getOrientationFromImage(imgSrc) {
-  const img = await loadImage(imgSrc);
-  if (img.naturalHeight > img.naturalWidth) return 'portrait';
-  return 'landscape';
-}
-
 async function applyOverlay(canvas, overlaySrc) {
   if (!overlaySrc) return canvas;
   try {
     const ov = await loadImage(overlaySrc);
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     // Optionally mask spot color to transparency
-    const overlayToDraw = SPOT_MASK.enabled ? createMaskedOverlayCanvas(ov, SPOT_MASK.color, SPOT_MASK.tolerance) : ov;
+    const overlayToDraw = SPOT_MASK.enabled
+      ? createMaskedOverlayCanvas(ov, SPOT_MASK.color, SPOT_MASK.tolerance)
+      : ov;
     // Default preview behavior used to be 'cover'; switch to 'contain' for print-safety helpers below
     drawImageCover(ctx, overlayToDraw, 0, 0, canvas.width, canvas.height);
   } catch (e) {
@@ -2005,129 +2537,68 @@ async function applyOverlay(canvas, overlaySrc) {
 
 // Draw image/canvas into a destination rect using CSS-like object-fit: cover math
 function drawImageCover(ctx, img, dx, dy, dw, dh) {
-  const iw = img.naturalWidth || img.width; const ih = img.naturalHeight || img.height;
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
   const scale = Math.max(dw / iw, dh / ih);
-  const rw = iw * scale; const rh = ih * scale;
-  const rx = dx + (dw - rw) / 2; const ry = dy + (dh - rh) / 2;
+  const rw = iw * scale;
+  const rh = ih * scale;
+  const rx = dx + (dw - rw) / 2;
+  const ry = dy + (dh - rh) / 2;
   ctx.drawImage(img, rx, ry, rw, rh);
 }
 
 // Draw image/canvas into a destination rect preserving aspect without cropping
 function drawImageContain(ctx, img, dx, dy, dw, dh) {
-  const iw = img.naturalWidth || img.width; const ih = img.naturalHeight || img.height;
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
   const scale = Math.min(dw / iw, dh / ih);
-  const rw = iw * scale; const rh = ih * scale;
-  const rx = dx + (dw - rw) / 2; const ry = dy + (dh - rh) / 2;
+  const rw = iw * scale;
+  const rh = ih * scale;
+  const rx = dx + (dw - rw) / 2;
+  const ry = dy + (dh - rh) / 2;
   ctx.drawImage(img, rx, ry, rw, rh);
 }
 
-function toNumber(val, fallback) {
-  const num = Number(val);
-  return Number.isFinite(num) ? num : fallback;
+function clamp(val, min, max) {
+  if (!Number.isFinite(val)) return min;
+  return Math.min(Math.max(val, min), max);
 }
 
-function detectDoubleColumnSlots(img, rows) {
-  try {
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (!w || !h) return null;
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, w, h).data;
-    const cols = 2;
-    const colWidth = w / cols;
-    const marginX = Math.max(2, Math.floor(colWidth * 0.08));
-    const stepX = Math.max(1, Math.floor(colWidth / 80));
-    const alphaThreshold = 32;
-    const minSlotHeight = Math.max(10, Math.floor(h * 0.08));
-    const expandY = Math.floor(h * 0.005);
-    const results = Array.from({ length: cols }, () => []);
-
-    for (let col = 0; col < cols; col++) {
-      const xStart = Math.max(0, Math.floor(col * colWidth + marginX));
-      const xEnd = Math.min(w - 1, Math.floor((col + 1) * colWidth - marginX));
-      let inSlot = false;
-      let slotStart = 0;
-      for (let y = 0; y < h; y++) {
-        let alphaSum = 0;
-        let count = 0;
-        for (let x = xStart; x <= xEnd; x += stepX) {
-          alphaSum += data[(y * w + x) * 4 + 3];
-          count++;
-        }
-        const avgAlpha = alphaSum / (count || 1);
-        if (!inSlot && avgAlpha < alphaThreshold) {
-          inSlot = true;
-          slotStart = y;
-        } else if (inSlot && avgAlpha >= alphaThreshold) {
-          const slotHeight = y - slotStart;
-          if (slotHeight >= minSlotHeight) {
-            const y1 = Math.max(0, slotStart - expandY);
-            const y2 = Math.min(h, y + expandY);
-            results[col].push({
-              x: col * colWidth + marginX,
-              y: y1,
-              w: colWidth - marginX * 2,
-              h: Math.max(1, y2 - y1)
-            });
-          }
-          inSlot = false;
-        }
-      }
-      if (inSlot) {
-        const slotHeight = h - slotStart;
-        if (slotHeight >= minSlotHeight) {
-          const y1 = Math.max(0, slotStart - expandY);
-          const y2 = h;
-          results[col].push({
-            x: col * colWidth + marginX,
-            y: y1,
-            w: colWidth - marginX * 2,
-            h: Math.max(1, y2 - y1)
-          });
-        }
-      }
-      results[col].sort((a, b) => a.y - b.y);
-      if (results[col].length > rows) {
-        results[col] = results[col].slice(0, rows);
-      }
-    }
-
-    if (results.every((arr) => arr.length === rows)) {
-      return results;
-    }
-    return null;
-  } catch (e) {
-    console.warn('Slot detection failed', e);
-    return null;
-  }
+function formatSizeValue(num) {
+  if (!Number.isFinite(num) || num <= 0) return "";
+  const trimmed = num.toFixed(2).replace(/\.?0+$/, "");
+  return trimmed;
 }
 
 // Convert hex like #rrggbb to {r,g,b}
 function hexToRgb(hex) {
-  const m = (hex || '').trim().match(/^#?([0-9a-f]{6})$/i);
+  const m = (hex || "").trim().match(/^#?([0-9a-f]{6})$/i);
   if (!m) return { r: 0, g: 0, b: 0 };
   const n = parseInt(m[1], 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 function colorClose(r, g, b, target, tol) {
-  return Math.abs(r - target.r) <= tol && Math.abs(g - target.g) <= tol && Math.abs(b - target.b) <= tol;
+  return (
+    Math.abs(r - target.r) <= tol &&
+    Math.abs(g - target.g) <= tol &&
+    Math.abs(b - target.b) <= tol
+  );
 }
 
 // Create a canvas from an image where spot-color pixels become transparent
 function createMaskedOverlayCanvas(img, hexColor, tolerance) {
   const rgb = hexToRgb(hexColor);
-  const c = document.createElement('canvas');
-  const w = c.width = img.naturalWidth || img.width;
-  const h = c.height = img.naturalHeight || img.height;
-  const x = c.getContext('2d');
+  const c = document.createElement("canvas");
+  const w = (c.width = img.naturalWidth || img.width);
+  const h = (c.height = img.naturalHeight || img.height);
+  const x = c.getContext("2d");
   x.drawImage(img, 0, 0);
   const data = x.getImageData(0, 0, w, h);
   const d = data.data;
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const r = d[i],
+      g = d[i + 1],
+      b = d[i + 2];
     if (colorClose(r, g, b, rgb, tolerance)) d[i + 3] = 0; // make transparent
   }
   x.putImageData(data, 0, 0);
@@ -2139,46 +2610,58 @@ async function runStripSequence(template) {
   lastCaptureFlow = () => runStripSequence(template); // Store this function for retake
   // 3 photos automatically with pauses
   const shots = [];
-  const lastShotImg = document.getElementById('lastShot');
-  const { state: previewState, prevAspect } = await prepareStripCapture(template);
+  const lastShotImg = document.getElementById("lastShot");
+  const { state: previewState, prevAspect } =
+    await prepareStripCapture(template);
   let previewRestored = false;
   setBoothControlsVisible(false);
-  if (lastShotImg) lastShotImg.style.display = 'none';
+  if (lastShotImg) lastShotImg.style.display = "none";
   for (let i = 0; i < 3; i++) {
-    if (lastShotImg) lastShotImg.style.display = 'none';
+    if (lastShotImg) lastShotImg.style.display = "none";
     const snap = await countdownAndSnap();
     shots.push(snap);
     if (i < 2) {
       try {
         if (lastShotImg) {
-          lastShotImg.src = snap.toDataURL('image/png');
-          lastShotImg.style.display = 'block';
+          lastShotImg.src = snap.toDataURL("image/png");
+          lastShotImg.style.display = "block";
           await delay(1200);
-          lastShotImg.style.display = 'none';
+          lastShotImg.style.display = "none";
         }
-      } catch (_) { }
+      } catch (_) {}
       const remaining = 3000 - (lastShotImg ? 1200 : 0);
       if (remaining > 0) await delay(remaining);
     }
   }
   try {
     const stripUrl = await composeStrip(template, shots);
-    restorePreviewState(previewState); previewRestored = true;
-    if (DOM.liveOverlay) DOM.liveOverlay.style.opacity = previewState.overlayOpacity || '';
+    restorePreviewState(previewState, {
+      liveOverlay: DOM.liveOverlay,
+      videoWrap: DOM.videoWrap,
+    });
+    previewRestored = true;
+    if (DOM.liveOverlay)
+      DOM.liveOverlay.style.opacity = previewState.overlayOpacity || "";
     showFinal(stripUrl);
-    recordAnalytics('strip', template.src);
+    recordAnalytics("strip", template.src);
   } finally {
-    if (!previewRestored) restorePreviewState(previewState);
+    if (!previewRestored)
+      restorePreviewState(previewState, {
+        liveOverlay: DOM.liveOverlay,
+        videoWrap: DOM.videoWrap,
+      });
     setCaptureAspect(prevAspect);
   }
 }
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function delay(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 async function showCountdown(text) {
   const co = DOM.countdownOverlay;
   co.textContent = text;
-  co.classList.add('show');
+  co.classList.add("show");
   await delay(800);
-  co.classList.remove('show');
+  co.classList.remove("show");
   await delay(200);
 }
 async function runCaptureCountdown() {
@@ -2188,7 +2671,9 @@ async function runCaptureCountdown() {
   }
 }
 async function countdownAndSnap() {
-  await runCaptureCountdown();
+  for (let n = 3; n > 0; n--) {
+    await showCountdown(n);
+  }
   const shot = drawToCanvasFromVideo();
   triggerFlash();
   return shot;
@@ -2198,43 +2683,51 @@ function triggerFlash() {
   const fo = DOM.flashOverlay;
   if (!fo) return;
   // Restart animation by toggling class
-  fo.classList.remove('flash');
+  fo.classList.remove("flash");
   // Force reflow to restart the animation reliably
   void fo.offsetWidth;
-  fo.classList.add('flash');
+  fo.classList.add("flash");
   // Clean up after animation ends (fallback timeout as well)
-  const cleanup = () => fo.classList.remove('flash');
-  fo.addEventListener('animationend', cleanup, { once: true });
+  const cleanup = () => fo.classList.remove("flash");
+  fo.addEventListener("animationend", cleanup, { once: true });
   setTimeout(cleanup, 600);
 }
 
 // Compose photostrip
 async function composeStrip(template, photos) {
   const bg = await loadImage(template.src);
-  const isPortrait = (template.layout === 'vertical' || template.layout === 'double_column' || template.layout === 'double-column');
+  const isPortrait =
+    template.layout === "vertical" ||
+    template.layout === "double_column" ||
+    template.layout === "double-column";
   const targetW = isPortrait ? 1200 : 1800; // 4x6 at 300dpi
   const targetH = isPortrait ? 1800 : 1200;
-  const c = document.createElement('canvas');
-  c.width = targetW; c.height = targetH;
-  const ctx = c.getContext('2d');
+  const c = document.createElement("canvas");
+  c.width = targetW;
+  c.height = targetH;
+  const ctx = c.getContext("2d");
   // Fill background
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, targetW, targetH);
 
-  if (template.layout === 'double_column' || template.layout === 'double-column') {
+  if (
+    template.layout === "double_column" ||
+    template.layout === "double-column"
+  ) {
     // Two identical 2x6 strips on a 4x6 sheet
     renderDoubleColumn(c, photos, bg, template);
-  } else if (template.layout === 'vertical') {
+  } else if (template.layout === "vertical") {
     // Draw template first
     drawImageContain(ctx, bg, 0, 0, targetW, targetH);
     const padding = Math.round(targetH * 0.03);
     const slotH = Math.floor((targetH - padding * 4) / 3);
     const slotW = targetW - padding * 2;
     for (let i = 0; i < 3; i++) {
-      const x = padding, y = padding + i * (slotH + padding);
+      const x = padding,
+        y = padding + i * (slotH + padding);
       drawImageContain(ctx, photos[i], x, y, slotW, slotH);
     }
-  } else if (template.layout === 'horizontal') {
+  } else if (template.layout === "horizontal") {
     drawImageContain(ctx, bg, 0, 0, targetW, targetH);
     const padding = Math.round(targetW * 0.03);
     const slotW = Math.floor((targetW - padding * 5) / 4); // 3 slots + one decorative column
@@ -2244,38 +2737,55 @@ async function composeStrip(template, photos) {
       const y = padding;
       drawImageContain(ctx, photos[i], x, y, slotW, slotH);
     }
-  } else if (template.layout === 'double_column' || template.layout === 'double-column') {
+  } else if (
+    template.layout === "double_column" ||
+    template.layout === "double-column"
+  ) {
     // Handled above
-  } else if (template.layout === 'spot-mask' || template.layout === 'spotmask') {
+  } else if (
+    template.layout === "spot-mask" ||
+    template.layout === "spotmask"
+  ) {
     drawImageContain(ctx, bg, 0, 0, targetW, targetH);
-    const regions = await detectMaskRegions(bg, SPOT_MASK.color, SPOT_MASK.tolerance);
+    const regions = await detectMaskRegions(
+      bg,
+      SPOT_MASK.color,
+      SPOT_MASK.tolerance,
+    );
     const max = Math.min(photos.length, regions.length);
     for (let i = 0; i < max; i++) {
-      const r = regions[i]; if (!r) break;
+      const r = regions[i];
+      if (!r) break;
       drawImageContain(ctx, photos[i], r.x, r.y, r.w, r.h);
     }
-    const masked = createMaskedOverlayCanvas(bg, SPOT_MASK.color, SPOT_MASK.tolerance);
+    const masked = createMaskedOverlayCanvas(
+      bg,
+      SPOT_MASK.color,
+      SPOT_MASK.tolerance,
+    );
     drawImageContain(ctx, masked, 0, 0, targetW, targetH);
-  } else if (template.layout === 'custom' && template.slots) {
+  } else if (template.layout === "custom" && template.slots) {
     drawImageContain(ctx, bg, 0, 0, targetW, targetH);
     for (let i = 0; i < Math.min(photos.length, template.slots.length); i++) {
       const s = template.slots[i];
       drawImageContain(ctx, photos[i], s.x, s.y, s.w, s.h);
     }
   }
-  return c.toDataURL('image/png');
+  return c.toDataURL("image/png");
 }
 
 // Compose a single photo into a print-safe 4x6 canvas without cropping
 async function finalizeToPrint(photoCanvas, overlaySrc) {
-  const isPortrait = DOM.videoWrap && DOM.videoWrap.classList.contains('view-portrait');
+  const isPortrait =
+    DOM.videoWrap && DOM.videoWrap.classList.contains("view-portrait");
   const targetW = isPortrait ? 1200 : 1800;
   const targetH = isPortrait ? 1800 : 1200;
-  const c = document.createElement('canvas');
-  c.width = targetW; c.height = targetH;
-  const ctx = c.getContext('2d');
+  const c = document.createElement("canvas");
+  c.width = targetW;
+  c.height = targetH;
+  const ctx = c.getContext("2d");
   // Background fill
-  ctx.fillStyle = '#000';
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, targetW, targetH);
   // Place captured photo with contain (no crop)
   drawImageContain(ctx, photoCanvas, 0, 0, targetW, targetH);
@@ -2283,32 +2793,33 @@ async function finalizeToPrint(photoCanvas, overlaySrc) {
   if (overlaySrc) {
     try {
       const ov = await loadImage(overlaySrc);
-      const overlayToDraw = (SPOT_MASK && SPOT_MASK.enabled)
-        ? createMaskedOverlayCanvas(ov, SPOT_MASK.color, SPOT_MASK.tolerance)
-        : ov;
+      const overlayToDraw =
+        SPOT_MASK && SPOT_MASK.enabled
+          ? createMaskedOverlayCanvas(ov, SPOT_MASK.color, SPOT_MASK.tolerance)
+          : ov;
       drawImageContain(ctx, overlayToDraw, 0, 0, targetW, targetH);
-    } catch (e) { console.error('Print overlay load failed', e); }
+    } catch (e) {
+      console.error("Print overlay load failed", e);
+    }
   }
-  return c.toDataURL('image/png');
+  return c.toDataURL("image/png");
 }
 
 /**
  * Render 3 photos into a duplicated 2-column strip behind a 3-slot overlay.
  * End result = two identical columns of 3 photos each.
- * 
- * @param {HTMLCanvasElement} canvas 
+ *
+ * @param {HTMLCanvasElement} canvas
  * @param {(HTMLImageElement|HTMLCanvasElement)[]} photos - exactly 3 captured photos
  * @param {HTMLImageElement} overlayImage - PNG with 3 transparent slots in one column
  */
 function renderDoubleColumn(canvas, photos, overlayImage, template) {
-  const ctx = canvas.getContext('2d');
-  const cols = 2;   // duplicate columns
-  const rows = 3;   // three slots
-  // Reserve a header area at the top for graphics/logo on the template
-  const headerPct = Math.max(0, Math.min(0.5, toNumber(template && (template.headerPct || template.header_percent), 0.2)));
-  const columnPadPct = Math.max(0, Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)));
-  const slotSpacingPct = Math.max(0, Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)));
-  const footerPct = Math.max(0, Math.min(0.3, toNumber(template && template.footerPct, 0.03)));
+  const ctx = canvas.getContext("2d");
+  const cols = 2; // duplicate columns
+  const rows = 3; // three slots
+  // Reserve header/footer/spacing using shared template metrics helpers
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } =
+    getStripTemplatePercents(template);
 
   const columnW = canvas.width / cols;
   const columnPad = columnPadPct * columnW;
@@ -2320,11 +2831,15 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
   const slotH = Math.max(1, usableH / rows);
   const startY = headerH + slotSpacing;
 
-  const cachedSlots = template && template.__slotMetrics && template.__slotMetrics.slots;
-  const detectedSlots = cachedSlots || detectDoubleColumnSlots(overlayImage, rows);
+  const cachedSlots =
+    template && template.__slotMetrics && template.__slotMetrics.slots;
+  const detectedSlots =
+    cachedSlots || detectDoubleColumnSlots(overlayImage, rows);
   if (detectedSlots) {
-    const scaleX = canvas.width / (overlayImage.naturalWidth || overlayImage.width || 1);
-    const scaleY = canvas.height / (overlayImage.naturalHeight || overlayImage.height || 1);
+    const scaleX =
+      canvas.width / (overlayImage.naturalWidth || overlayImage.width || 1);
+    const scaleY =
+      canvas.height / (overlayImage.naturalHeight || overlayImage.height || 1);
     for (let row = 0; row < rows; row++) {
       const photo = photos[row];
       if (!photo) continue;
@@ -2359,20 +2874,22 @@ async function detectMaskRegions(img, hexColor, tolerance) {
   const rgb = hexToRgb(hexColor);
   const w = img.naturalWidth || img.width;
   const h = img.naturalHeight || img.height;
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d");
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;
   const visited = new Uint8Array(w * h);
   const regions = [];
   const stack = [];
-  const idx = (x, y) => (y * w + x);
+  const idx = (x, y) => y * w + x;
   const match = (x, y) => {
-    const i = idx(x, y) * 4; return colorClose(d[i], d[i + 1], d[i + 2], rgb, tolerance);
+    const i = idx(x, y) * 4;
+    return colorClose(d[i], d[i + 1], d[i + 2], rgb, tolerance);
   };
-  const minArea = Math.max(50, Math.floor((w * h) * 0.001)); // ignore tiny noise
+  const minArea = Math.max(50, Math.floor(w * h * 0.001)); // ignore tiny noise
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const p = idx(x, y);
@@ -2380,8 +2897,13 @@ async function detectMaskRegions(img, hexColor, tolerance) {
       visited[p] = 1;
       if (!match(x, y)) continue;
       // flood fill
-      let minX = x, maxX = x, minY = y, maxY = y, area = 0;
-      stack.length = 0; stack.push([x, y]);
+      let minX = x,
+        maxX = x,
+        minY = y,
+        maxY = y,
+        area = 0;
+      stack.length = 0;
+      stack.push([x, y]);
       while (stack.length) {
         const [sx, sy] = stack.pop();
         const sp = idx(sx, sy);
@@ -2390,21 +2912,37 @@ async function detectMaskRegions(img, hexColor, tolerance) {
         if (!visited[sp]) visited[sp] = 1;
         if (!match(sx, sy)) continue;
         area++;
-        if (sx < minX) minX = sx; if (sx > maxX) maxX = sx; if (sy < minY) minY = sy; if (sy > maxY) maxY = sy;
+        if (sx < minX) minX = sx;
+        if (sx > maxX) maxX = sx;
+        if (sy < minY) minY = sy;
+        if (sy > maxY) maxY = sy;
         // neighbors
-        const neigh = [[sx + 1, sy], [sx - 1, sy], [sx, sy + 1], [sx, sy - 1]];
+        const neigh = [
+          [sx + 1, sy],
+          [sx - 1, sy],
+          [sx, sy + 1],
+          [sx, sy - 1],
+        ];
         for (const [nx, ny] of neigh) {
           const np = idx(nx, ny);
-          if (nx >= 0 && nx < w && ny >= 0 && ny < h && !visited[np]) { visited[np] = 1; stack.push([nx, ny]); }
+          if (nx >= 0 && nx < w && ny >= 0 && ny < h && !visited[np]) {
+            visited[np] = 1;
+            stack.push([nx, ny]);
+          }
         }
       }
       if (area >= minArea) {
-        regions.push({ x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 });
+        regions.push({
+          x: minX,
+          y: minY,
+          w: maxX - minX + 1,
+          h: maxY - minY + 1,
+        });
       }
     }
   }
   // Sort regions top-to-bottom, then left-to-right
-  regions.sort((a, b) => a.y === b.y ? a.x - b.x : a.y - b.y);
+  regions.sort((a, b) => (a.y === b.y ? a.x - b.x : a.y - b.y));
   return regions;
 }
 
@@ -2431,93 +2969,97 @@ function showFinal(assetOrUrl) {
   currentFinalAsset = asset;
   clearTimeout(hidePreviewTimer); // Clear any existing timer
   const img = DOM.finalStrip;
-  const prevFit = img ? img.style.objectFit : '';
-  if (img) img.style.objectFit = 'contain';
-  if (img && asset.type === 'image') {
-    img.classList.remove('hidden');
-    img.style.display = 'block';
-    img.src = asset.url;
-  } else if (img) {
-    img.style.display = asset.poster ? 'block' : 'none';
-    if (asset.poster) img.src = asset.poster;
-    img.classList.add('hidden');
-  }
-  const videoEl = DOM.finalVideo;
-  if (videoEl) {
-    if (asset.type === 'video') {
-      videoEl.classList.remove('hidden');
-      videoEl.style.display = 'block';
-      try { videoEl.pause(); } catch (_) { }
-      videoEl.removeAttribute('src');
-      videoEl.load();
-      videoEl.src = asset.url;
-      if (asset.poster) videoEl.poster = asset.poster; else videoEl.removeAttribute('poster');
-      videoEl.loop = true;
-      videoEl.muted = true;
-      videoEl.controls = true;
-      videoEl.load();
-      try { videoEl.play().catch(() => { }); } catch (_) { }
-    } else {
-      try { videoEl.pause(); } catch (_) { }
-      videoEl.classList.add('hidden');
-      videoEl.style.display = 'none';
-      videoEl.removeAttribute('src');
-      videoEl.load();
-    }
-  }
+  const prevFit = img ? img.style.objectFit : "";
+  if (img) img.style.objectFit = "contain";
   const qrContainer = DOM.qrCodeContainer;
   const qrCanvas = DOM.qrCode;
   const panel = DOM.finalPreview;
 
+  if (panel) panel.classList.remove("qr-ready");
   // Reset form from previous use
-  DOM.emailInput.value = '';
+  DOM.emailInput.value = "";
   const sendBtn = DOM.sendBtn;
-  sendBtn.textContent = 'Send';
+  sendBtn.textContent = "Send";
   sendBtn.disabled = false;
 
-  DOM.retakeBtn.style.display = allowRetake ? 'block' : 'none';
+  DOM.retakeBtn.style.display = allowRetake ? "block" : "none";
   DOM.retakeBtn.disabled = !lastCaptureFlow;
-  if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = 'block';
+  if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "block";
 
   const offline = offlineModeActive();
   // Default: hide QR/link until we have a public URL
-  if (qrContainer) qrContainer.classList.add('hidden');
-  if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = 'none';
-  if (DOM.qrHint) { DOM.qrHint.style.display = 'none'; DOM.qrHint.textContent = ''; }
-  if (DOM.shareStatus) { DOM.shareStatus.style.display = 'none'; }
+  if (qrContainer) qrContainer.classList.add("hidden");
+  if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
+  if (DOM.qrHint) {
+    DOM.qrHint.style.display = "none";
+    DOM.qrHint.textContent = "";
+  }
+  if (DOM.shareStatus) {
+    DOM.shareStatus.style.display = "none";
+  }
   if (!offline && cloudinaryEnabled()) {
     // Prepare a public Cloudinary link, then show QR when ready
     lastShareUrl = null;
-    if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Preparing link…'; DOM.shareStatus.style.display = 'inline-flex'; }
-    publishShareAsset(asset).then((publicUrl) => {
-      lastShareUrl = (publicUrl && /^https?:/i.test(publicUrl)) ? publicUrl : null;
-      if (lastShareUrl) {
-        renderQrCode(qrCanvas, lastShareUrl);
-        if (DOM.shareLink) { DOM.shareLink.href = lastShareUrl; DOM.shareLink.textContent = lastShareUrl; }
-        if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = 'flex';
-        if (qrContainer) qrContainer.classList.remove('hidden');
-        if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Link ready'; }
-      } else {
-        if (DOM.qrHint) { DOM.qrHint.textContent = 'QR disabled: Cloudinary link not available.'; DOM.qrHint.style.display = 'block'; }
-        if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Upload failed'; }
-      }
-    }).catch(() => {
-      if (DOM.qrHint) { DOM.qrHint.textContent = 'QR disabled: Cloudinary link not available.'; DOM.qrHint.style.display = 'block'; }
-      if (DOM.shareStatus) { DOM.shareStatus.textContent = 'Upload failed'; }
-    });
+    if (DOM.shareStatus) {
+      DOM.shareStatus.textContent = "Preparing link…";
+      DOM.shareStatus.style.display = "inline-flex";
+    }
+    publishShareImage(url)
+      .then((publicUrl) => {
+        lastShareUrl =
+          publicUrl && /^https?:/i.test(publicUrl) ? publicUrl : null;
+        if (lastShareUrl) {
+          renderQrCode(qrCanvas, lastShareUrl);
+          if (DOM.shareLink) {
+            DOM.shareLink.href = lastShareUrl;
+            DOM.shareLink.textContent = lastShareUrl;
+          }
+          if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+          if (qrContainer) qrContainer.classList.remove("hidden");
+          if (panel) panel.classList.add("qr-ready");
+          if (DOM.shareStatus) {
+            DOM.shareStatus.textContent = "Link ready";
+          }
+        } else {
+          if (DOM.qrHint) {
+            DOM.qrHint.textContent =
+              "QR disabled: Cloudinary link not available.";
+            DOM.qrHint.style.display = "block";
+          }
+          if (DOM.shareStatus) {
+            DOM.shareStatus.textContent = "Upload failed";
+          }
+        }
+      })
+      .catch(() => {
+        if (DOM.qrHint) {
+          DOM.qrHint.textContent =
+            "QR disabled: Cloudinary link not available.";
+          DOM.qrHint.style.display = "block";
+        }
+        if (DOM.shareStatus) {
+          DOM.shareStatus.textContent = "Upload failed";
+        }
+      });
   } else {
     // No internet or Cloudinary disabled
-    if (offline && DOM.qrHint) { DOM.qrHint.textContent = 'Offline: QR disabled'; DOM.qrHint.style.display = 'block'; }
-    if (!cloudinaryEnabled() && DOM.qrHint) { DOM.qrHint.textContent = 'Enable Cloudinary in Admin to show QR'; DOM.qrHint.style.display = 'block'; }
+    if (offline && DOM.qrHint) {
+      DOM.qrHint.textContent = "Offline: QR disabled";
+      DOM.qrHint.style.display = "block";
+    }
+    if (!cloudinaryEnabled() && DOM.qrHint) {
+      DOM.qrHint.textContent = "Enable Cloudinary in Admin to show QR";
+      DOM.qrHint.style.display = "block";
+    }
   }
-  panel.classList.add('show');
+  panel.classList.add("show");
   resetIdleTimer();
   hidePreviewTimer = setTimeout(hideFinal, 15000);
 
   if (img) {
-    panel.addEventListener('transitionend', function once() {
-      img.style.objectFit = prevFit || '';
-      panel.removeEventListener('transitionend', once);
+    panel.addEventListener("transitionend", function once() {
+      img.style.objectFit = prevFit || "";
+      panel.removeEventListener("transitionend", once);
     });
   }
 
@@ -2529,55 +3071,76 @@ function renderQrCode(canvas, text) {
     QRCode.toCanvas(canvas, text, { width: 200, margin: 1 }, function (error) {
       if (error) console.error(error);
     });
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 // Build a slug for the current event selection to organize uploads per event
 function getCurrentEventSlug() {
   try {
-    const val = (DOM.eventSelect && DOM.eventSelect.value) ? DOM.eventSelect.value : '';
-    if (!val) return '';
+    const val =
+      DOM.eventSelect && DOM.eventSelect.value ? DOM.eventSelect.value : "";
+    if (!val) return "";
     // value is like "fall:halloween" or "school:hawks"; use it directly
-    return String(val).toLowerCase().replace(/[^a-z0-9:_\-]+/g, '-').replace(/:+/g, '-');
-  } catch (_) { return ''; }
+    return String(val)
+      .toLowerCase()
+      .replace(/[^a-z0-9:_\-]+/g, "-")
+      .replace(/:+/g, "-");
+  } catch (_) {
+    return "";
+  }
 }
 
 // --- Event name storage helpers ---
 function getEventNamesMap() {
-  try { return JSON.parse(localStorage.getItem('photoboothEventNames') || '{}'); } catch (_) { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem("photoboothEventNames") || "{}");
+  } catch (_) {
+    return {};
+  }
 }
 function getStoredEventName(key) {
-  if (!key) return '';
+  if (!key) return "";
   const map = getEventNamesMap();
-  return map[key] || '';
+  return map[key] || "";
 }
 function saveStoredEventName(key, name) {
   if (!key) return;
   const map = getEventNamesMap();
-  if (name) map[key] = name; else delete map[key];
-  localStorage.setItem('photoboothEventNames', JSON.stringify(map));
+  if (name) map[key] = name;
+  else delete map[key];
+  localStorage.setItem("photoboothEventNames", JSON.stringify(map));
 }
 
 // --- Export current event (settings + theme) ---
 function exportCurrentEvent() {
   const key = DOM.eventSelect && DOM.eventSelect.value;
-  if (!key || !activeTheme) { alert('Select an event first.'); return; }
-  const name = getStoredEventName(key) || (activeTheme.welcome && activeTheme.welcome.title) || key;
+  if (!key || !activeTheme) {
+    alert("Select an event first.");
+    return;
+  }
+  const name =
+    getStoredEventName(key) ||
+    (activeTheme.welcome && activeTheme.welcome.title) ||
+    key;
   const payload = {
     key,
     name,
     exported_at: new Date().toISOString(),
-    theme: activeTheme
+    theme: activeTheme,
   };
-  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload, null, 2));
-  const a = document.createElement('a');
-  const slug = (name || key).toLowerCase().replace(/[^a-z0-9\-]+/g, '-');
+  const dataStr =
+    "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(payload, null, 2));
+  const a = document.createElement("a");
+  const slug = (name || key).toLowerCase().replace(/[^a-z0-9\-]+/g, "-");
   a.href = dataStr;
-  a.download = `photobooth-event-${slug || 'export'}.json`;
+  a.download = `photobooth-event-${slug || "export"}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  showToast('Event exported');
+  showToast("Event exported");
 }
 
 async function publishShareAsset(assetOrUrl) {
@@ -2611,39 +3174,56 @@ async function publishShareAsset(assetOrUrl) {
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
       const form = new FormData();
-      const evSlug = (typeof getCurrentEventSlug === 'function') ? getCurrentEventSlug() : '';
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const base = (cfg.folderBase || 'photobooth/events').replace(/\/$/, '');
-      const baseName = `${evSlug || 'capture'}-${ts}.${shareExt}`;
-      const file = new File([blob], baseName, { type: blob.type || (isVideo ? 'video/webm' : 'image/png') });
-      form.append('file', file);
-      form.append('upload_preset', cfg.preset);
-      if (evSlug) form.append('folder', `${base}/${evSlug}`);
-      const resourceType = isVideo ? 'video' : 'image';
-      const endpoint = `https://api.cloudinary.com/v1_1/${cfg.cloud}/${resourceType}/upload`;
-      const resp = await fetch(endpoint, { method: 'POST', body: form });
+      // Provide a meaningful filename so Cloudinary can use it as the base public_id
+      const evSlug =
+        typeof getCurrentEventSlug === "function" ? getCurrentEventSlug() : "";
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const baseName = `${evSlug || "photo"}-${ts}.png`;
+      const file = new File([blob], baseName, {
+        type: blob.type || "image/png",
+      });
+      form.append("file", file);
+      form.append("upload_preset", cfg.preset);
+      // Put each event's images into its own folder
+      const base = (cfg.folderBase || "photobooth/events").replace(/\/$/, "");
+      if (evSlug) form.append("folder", `${base}/${evSlug}`);
+      const resp = await fetch(
+        `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
+        { method: "POST", body: form },
+      );
       const json = await resp.json();
       if (json && json.secure_url) return json.secure_url;
-    } catch (e) { console.warn('Cloudinary upload failed', e); }
+    } catch (e) {
+      console.warn("Cloudinary upload failed", e);
+    }
   }
 
-  if (!('serviceWorker' in navigator) || !location.protocol.startsWith('http')) return null;
+  // 2) Otherwise try Service Worker (works on same device/origin after SW installs)
+  if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http"))
+    return null;
   try {
     await Promise.race([
       navigator.serviceWorker.ready,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('sw-timeout')), 2000))
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error("sw-timeout")), 2000),
+      ),
     ]);
-  } catch (_e) { }
+  } catch (_e) {}
   const reg = await navigator.serviceWorker.getRegistration();
   const active = reg?.active || navigator.serviceWorker.controller;
   if (!active) return null;
   const buffer = await blob.arrayBuffer();
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const channel = new MessageChannel();
-  const ack = new Promise((resolve) => { channel.port1.onmessage = (ev) => resolve(ev.data); });
-  active.postMessage({ type: 'store-share', id, buffer, mime: blob.type, ext: shareExt }, [channel.port2]);
+  const ack = new Promise((resolve) => {
+    channel.port1.onmessage = (ev) => resolve(ev.data);
+  });
+  active.postMessage({ type: "store-share", id, buffer, mime: blob.type }, [
+    channel.port2,
+  ]);
   const reply = await ack; // {ok, url}
-  if (reply && reply.ok && reply.url) return new URL(reply.url, location.origin).href;
+  if (reply && reply.ok && reply.url)
+    return new URL(reply.url, location.origin).href;
   return null;
 }
 
@@ -2657,16 +3237,20 @@ async function openShareLink() {
   if (!url) return;
   try {
     // Ensure the asset is retrievable (esp. right after SW publish) and open a stable blob URL
-    const resp = await fetch(url, { cache: 'reload' });
-    if (!resp.ok) throw new Error('Link not ready');
+    const resp = await fetch(url, { cache: "reload" });
+    if (!resp.ok) throw new Error("Link not ready");
     const blob = await resp.blob();
     const objUrl = URL.createObjectURL(blob);
-    window.open(objUrl, '_blank', 'noopener');
+    window.open(objUrl, "_blank", "noopener");
     // Revoke after some time to avoid leaks
     setTimeout(() => URL.revokeObjectURL(objUrl), 30000);
   } catch (e) {
     // Fallback to opening the original URL
-    try { window.open(url, '_blank', 'noopener'); } catch (_) { location.href = url; }
+    try {
+      window.open(url, "_blank", "noopener");
+    } catch (_) {
+      location.href = url;
+    }
   }
 }
 async function copyShareLink() {
@@ -2678,9 +3262,9 @@ async function copyShareLink() {
   }
   try {
     await navigator.clipboard.writeText(url);
-    showToast('Link copied');
+    showToast("Link copied");
   } catch (e) {
-    showToast('Copy failed');
+    showToast("Copy failed");
   }
 }
 async function downloadShareAsset() {
@@ -2688,46 +3272,35 @@ async function downloadShareAsset() {
   const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
-    const resp = await fetch(url, { cache: 'reload' });
-    if (!resp.ok) throw new Error('Link not ready');
+    const resp = await fetch(url, { cache: "reload" });
+    if (!resp.ok) throw new Error("Link not ready");
     const blob = await resp.blob();
     const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = objUrl;
-    const isVideo = asset && asset.type === 'video';
-    const ext = (() => {
-      const mime = (asset && asset.mimeType) || (blob && blob.type) || '';
-      if (mime.includes('mp4')) return 'mp4';
-      if (mime.includes('webm')) return 'webm';
-      if (mime.includes('gif')) return 'gif';
-      if (mime.includes('jpeg') || mime.includes('jpg')) return 'jpg';
-      if (mime.includes('png')) return 'png';
-      return isVideo ? 'webm' : 'png';
-    })();
-    a.download = `photobooth.${ext}`;
+    a.download = "photobooth.png";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(objUrl), 30000);
   } catch (e) {
     // Fallback: open in new tab; user can save manually
-    try { window.open(url, '_blank', 'noopener'); } catch (_) { location.href = url; }
+    try {
+      window.open(url, "_blank", "noopener");
+    } catch (_) {
+      location.href = url;
+    }
   }
 }
 
 function hideFinal() {
-  DOM.finalPreview.classList.remove('show');
-  DOM.qrCodeContainer.classList.add('hidden');
-  if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = 'none';
-  if (DOM.shareStatus) DOM.shareStatus.style.display = 'none';
-  DOM.retakeBtn.style.display = 'none';
-  if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = 'none';
-  if (DOM.finalVideo) {
-    try { DOM.finalVideo.pause(); } catch (_) { }
-    DOM.finalVideo.removeAttribute('src');
-    DOM.finalVideo.load();
-    DOM.finalVideo.classList.add('hidden');
-  }
+  DOM.finalPreview.classList.remove("show");
+  DOM.finalPreview.classList.remove("qr-ready");
+  DOM.qrCodeContainer.classList.add("hidden");
+  if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
+  if (DOM.shareStatus) DOM.shareStatus.style.display = "none";
+  DOM.retakeBtn.style.display = "none";
+  if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "none";
   lastCaptureFlow = null; // Clear the stored flow
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
@@ -2737,7 +3310,7 @@ function hideFinal() {
 
 function retakePhoto() {
   hideFinal();
-  if (typeof lastCaptureFlow === 'function') {
+  if (typeof lastCaptureFlow === "function") {
     setTimeout(lastCaptureFlow, 500); // Give a small delay for the UI to hide
   }
 }
@@ -2773,7 +3346,7 @@ function cancelHideTimer() {
 
 function startHideTimerIfIdle() {
   // If email input is empty, restart the hide timer
-  if (DOM.emailInput.value.trim() === '') {
+  if (DOM.emailInput.value.trim() === "") {
     cancelHideTimer();
     hidePreviewTimer = setTimeout(hideFinal, 4000);
   }
@@ -2792,52 +3365,58 @@ function sendEmail(event) {
     // Queue locally for later sending
     const ok = queuePendingEmail(email, asset);
     if (ok) {
-      sendBtn.textContent = 'Queued';
+      sendBtn.textContent = "Queued";
       updatePendingUI();
       hidePreviewTimer = setTimeout(hideFinal, 1200);
     } else {
-      alert('Could not queue email. Check storage space.');
+      alert("Could not queue email. Check storage space.");
     }
     return;
   }
 
-  sendBtn.textContent = 'Sending...';
+  sendBtn.textContent = "Sending...";
   sendBtn.disabled = true;
 
   const cfg = getEmailJsConfig();
   const templateParams = {
     to_email: email,
-    photo_url: lastShareUrl || (asset && asset.type === 'video' ? imgUrl : (asset && asset.url)) || imgUrl,
-    link_url: lastShareUrl || '',
-    image_data_url: imgUrl
+    photo_url: lastShareUrl || imgUrl,
+    link_url: lastShareUrl || "",
+    image_data_url: imgUrl,
   };
 
-  emailjs.send(cfg.service, cfg.template, templateParams)
-    .then(function (response) {
-      console.log('SUCCESS!', response.status, response.text);
-      sendBtn.textContent = 'Sent!';
+  emailjs.send(cfg.service, cfg.template, templateParams).then(
+    function (response) {
+      console.log("SUCCESS!", response.status, response.text);
+      sendBtn.textContent = "Sent!";
       hidePreviewTimer = setTimeout(hideFinal, 3000);
-    }, function (error) {
+    },
+    function (error) {
       const errMsg = formatEmailError(error);
-      console.error('Email send failed:', error);
-      sendBtn.textContent = 'Failed!';
+      console.error("Email send failed:", error);
+      sendBtn.textContent = "Failed!";
       sendBtn.disabled = false;
-      alert('Email failed: ' + errMsg);
-    });
+      alert("Email failed: " + errMsg);
+    },
+  );
 
-  recordAnalytics('email', email);
+  recordAnalytics("email", email);
 }
 
 function formatEmailError(err) {
-  if (!err) return 'unknown error';
-  if (typeof err === 'string') return err;
+  if (!err) return "unknown error";
+  if (typeof err === "string") return err;
   if (err.text) return err.text;
   if (err.message) return err.message;
-  if (typeof err.status !== 'undefined') {
-    const statusText = err.statusText || err.text || '';
+  if (typeof err.status !== "undefined") {
+    const statusText = err.statusText || err.text || "";
     return `${err.status} ${statusText}`.trim();
   }
-  try { return JSON.stringify(err); } catch (_) { return String(err); }
+  try {
+    return JSON.stringify(err);
+  } catch (_) {
+    return String(err);
+  }
 }
 
 function appendEmailText(text) {
@@ -2850,7 +3429,7 @@ function appendEmailText(text) {
 function getAnalytics() {
   const defaults = { total_sessions: 0, overlay_usage: {}, emails: [] };
   try {
-    const data = localStorage.getItem('photoboothAnalytics');
+    const data = localStorage.getItem("photoboothAnalytics");
     return data ? JSON.parse(data) : defaults;
   } catch (e) {
     return defaults;
@@ -2859,78 +3438,111 @@ function getAnalytics() {
 
 // --- Offline queue helpers ---
 function offlineModeActive() {
-  try { if (getOfflinePref()) return true; } catch (_) { }
-  try { if (String(location.protocol).startsWith('file')) return true; } catch (_) { }
+  try {
+    if (getOfflinePref()) return true;
+  } catch (_) {}
+  try {
+    if (String(location.protocol).startsWith("file")) return true;
+  } catch (_) {}
   return !navigator.onLine ? true : false;
 }
-function getOfflinePref() { return localStorage.getItem('offlineMode') === 'true'; }
-function setOfflinePref(v) { localStorage.setItem('offlineMode', v ? 'true' : 'false'); }
-function getPending() { try { return JSON.parse(localStorage.getItem('photoboothPending') || '[]'); } catch (_) { return []; } }
-function setPending(arr) { localStorage.setItem('photoboothPending', JSON.stringify(arr || [])); }
-function queuePendingEmail(email, asset) {
+function getOfflinePref() {
+  return localStorage.getItem("offlineMode") === "true";
+}
+function setOfflinePref(v) {
+  localStorage.setItem("offlineMode", v ? "true" : "false");
+}
+function getPending() {
+  try {
+    return JSON.parse(localStorage.getItem("photoboothPending") || "[]");
+  } catch (_) {
+    return [];
+  }
+}
+function setPending(arr) {
+  localStorage.setItem("photoboothPending", JSON.stringify(arr || []));
+}
+function queuePendingEmail(email, dataUrl) {
   try {
     const q = getPending();
-    const normalized = normalizeFinalAsset(asset);
-    const imageData = normalized ? (normalized.type === 'image' ? normalized.url : (normalized.poster || '')) : '';
     q.push({
       id: Date.now().toString(36),
       email,
-      image: imageData,
-      assetType: normalized ? normalized.type : 'image',
+      image: dataUrl,
       createdAt: new Date().toISOString(),
-      event: DOM.eventSelect && DOM.eventSelect.value
+      event: DOM.eventSelect && DOM.eventSelect.value,
     });
-    setPending(q); return true;
-  } catch (e) { return false; }
+    setPending(q);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 function updatePendingUI() {
   const q = getPending();
   if (DOM.sendPendingBtn) {
     DOM.sendPendingBtn.textContent = `Send Pending (${q.length})`;
-    DOM.sendPendingBtn.disabled = (q.length === 0) || !navigator.onLine;
+    DOM.sendPendingBtn.disabled = q.length === 0 || !navigator.onLine;
   }
   // Badge on admin button
-  const adminBtn = document.getElementById('adminBtn');
+  const adminBtn = document.getElementById("adminBtn");
   if (adminBtn) {
-    adminBtn.textContent = q.length ? `⚙️ (${q.length})` : '⚙️';
+    adminBtn.textContent = q.length ? `⚙️ (${q.length})` : "⚙️";
   }
 }
 async function sendPendingNow() {
   const q = getPending();
-  if (!q.length) { showToast('No pending emails'); return; }
-  if (!navigator.onLine) { alert('Go online to send'); return; }
-  let sent = 0, failed = 0;
+  if (!q.length) {
+    showToast("No pending emails");
+    return;
+  }
+  if (!navigator.onLine) {
+    alert("Go online to send");
+    return;
+  }
+  let sent = 0,
+    failed = 0;
   for (const item of q.slice()) {
     try {
       // Try to publish to Cloudinary/SW for a link if available
       let share = null;
       try {
-        const pendingAsset = item.image ? { type: 'image', url: item.image, poster: item.image } : null;
-        if (pendingAsset) share = await publishShareAsset(pendingAsset);
-      } catch (_) { }
+        share = await publishShareImage(item.image);
+      } catch (_) {}
       const params = {
         to_email: item.email,
         photo_url: share || item.image,
-        link_url: share || '',
-        image_data_url: item.image
+        link_url: share || "",
+        image_data_url: item.image,
       };
       const cfg = getEmailJsConfig();
       await emailjs.send(cfg.service, cfg.template, params);
       sent++;
       // remove from queue
       const cur = getPending();
-      const idx = cur.findIndex(x => x.id === item.id);
-      if (idx >= 0) { cur.splice(idx, 1); setPending(cur); }
-    } catch (e) { failed++; }
+      const idx = cur.findIndex((x) => x.id === item.id);
+      if (idx >= 0) {
+        cur.splice(idx, 1);
+        setPending(cur);
+      }
+    } catch (e) {
+      failed++;
+    }
   }
   updatePendingUI();
-  showToast(`Pending sent: ${sent}${failed ? `, failed: ${failed}` : ''}`);
+  showToast(`Pending sent: ${sent}${failed ? `, failed: ${failed}` : ""}`);
 }
 
 // Cache active theme assets for offline use (PWA/HTTPS only)
 async function makeAvailableOffline() {
-  if (!('caches' in window) || !('serviceWorker' in navigator) || !location.protocol.startsWith('http')) {
-    alert('Offline caching requires HTTPS and a service worker. Open your Cloudflare URL.');
+  if (
+    !("caches" in window) ||
+    !("serviceWorker" in navigator) ||
+    !location.protocol.startsWith("http")
+  ) {
+    alert(
+      "Offline caching requires HTTPS and a service worker. Open your Cloudflare URL.",
+    );
     return;
   }
   try {
@@ -2938,41 +3550,65 @@ async function makeAvailableOffline() {
     const theme = activeTheme || getSelectedThemeTarget();
     if (theme) {
       // Backgrounds
-      const bgList = Array.isArray(theme.backgroundsTmp) ? theme.backgroundsTmp : Array.isArray(theme.backgrounds) ? theme.backgrounds : (theme.background ? [theme.background] : []);
-      bgList.filter(Boolean).forEach(u => urls.add(u));
+      const bgList = Array.isArray(theme.backgroundsTmp)
+        ? theme.backgroundsTmp
+        : Array.isArray(theme.backgrounds)
+          ? theme.backgrounds
+          : theme.background
+            ? [theme.background]
+            : [];
+      bgList.filter(Boolean).forEach((u) => urls.add(u));
       // Logo
       if (theme.logo) urls.add(theme.logo);
       // Overlays
-      getOverlayList(theme).forEach(o => { const s = typeof o === 'string' ? o : (o && o.src) || ''; if (s) urls.add(s); });
+      getOverlayList(theme).forEach((o) => {
+        const s = typeof o === "string" ? o : (o && o.src) || "";
+        if (s) urls.add(s);
+      });
       // Templates
-      getTemplateList(theme).forEach(t => { if (t && t.src) urls.add(t.src); });
+      getTemplateList(theme).forEach((t) => {
+        if (t && t.src) urls.add(t.src);
+      });
     }
-    if (urls.size === 0) { showToast('No assets to cache'); return; }
-    const cache = await caches.open('pb-offline-assets-v1');
-    let ok = 0, fail = 0;
-    await Promise.all(Array.from(urls).map(async (u) => {
-      try {
-        const resp = await fetch(u, { cache: 'reload' });
-        if (resp.ok) { await cache.put(new Request(u), resp.clone()); ok++; } else { fail++; }
-      } catch (_) { fail++; }
-    }));
-    showToast(`Cached ${ok} assets${fail ? `, failed ${fail}` : ''}`);
+    if (urls.size === 0) {
+      showToast("No assets to cache");
+      return;
+    }
+    const cache = await caches.open("pb-offline-assets-v1");
+    let ok = 0,
+      fail = 0;
+    await Promise.all(
+      Array.from(urls).map(async (u) => {
+        try {
+          const resp = await fetch(u, { cache: "reload" });
+          if (resp.ok) {
+            await cache.put(new Request(u), resp.clone());
+            ok++;
+          } else {
+            fail++;
+          }
+        } catch (_) {
+          fail++;
+        }
+      }),
+    );
+    showToast(`Cached ${ok} assets${fail ? `, failed ${fail}` : ""}`);
   } catch (e) {
-    alert('Cache failed: ' + (e && e.message ? e.message : e));
+    alert("Cache failed: " + (e && e.message ? e.message : e));
   }
 }
 
 function recordAnalytics(type, value) {
   const data = getAnalytics();
-  if (type === 'photo' || type === 'strip') {
+  if (type === "photo" || type === "strip") {
     data.total_sessions = (data.total_sessions || 0) + 1;
     data.overlay_usage[value] = (data.overlay_usage[value] || 0) + 1;
-  } else if (type === 'email') {
+  } else if (type === "email") {
     if (!data.emails.includes(value)) {
       data.emails.push(value);
     }
   }
-  localStorage.setItem('photoboothAnalytics', JSON.stringify(data));
+  localStorage.setItem("photoboothAnalytics", JSON.stringify(data));
 }
 
 function displayAnalytics() {
@@ -2981,13 +3617,17 @@ function displayAnalytics() {
 }
 
 function toggleAnalytics() {
-  DOM.analytics.classList.toggle('hidden');
+  DOM.analytics.classList.toggle("hidden");
   displayAnalytics();
 }
 
 function clearAnalytics() {
-  if (confirm('Are you sure you want to delete all analytics data? This cannot be undone.')) {
-    localStorage.removeItem('photoboothAnalytics');
+  if (
+    confirm(
+      "Are you sure you want to delete all analytics data? This cannot be undone.",
+    )
+  ) {
+    localStorage.removeItem("photoboothAnalytics");
     displayAnalytics();
   }
 }
@@ -2995,18 +3635,18 @@ function clearAnalytics() {
 // --- Theme Management ---
 function saveTheme() {
   if (!DOM.themeName) {
-    alert('Theme creation is disabled in the simplified editor layout.');
+    alert("Theme creation is disabled in the simplified editor layout.");
     return;
   }
   const themeName = DOM.themeName.value.trim();
   if (!themeName) {
-    alert('Please enter a theme name.');
+    alert("Please enter a theme name.");
     return;
   }
 
   const pickerSelection = getFontPickerSelection();
-  const headingFamily = pickerSelection.heading || 'Comic Neue';
-  const bodyFamily = pickerSelection.body || headingFamily || 'Comic Neue';
+  const headingFamily = pickerSelection.heading || "Comic Neue";
+  const bodyFamily = pickerSelection.body || headingFamily || "Comic Neue";
   const headingCss = composeFontString(headingFamily);
   const bodyCss = composeFontString(bodyFamily);
 
@@ -3025,8 +3665,8 @@ function saveTheme() {
       title: DOM.themeWelcomeTitle.value || "Welcome!",
       portrait: "",
       landscape: "",
-      prompt: DOM.themeWelcomePrompt.value || "Touch to start"
-    }
+      prompt: DOM.themeWelcomePrompt.value || "Touch to start",
+    },
   };
 
   ensureFontLoaded(headingFamily, true);
@@ -3036,444 +3676,149 @@ function saveTheme() {
   const logoFile = DOM.themeLogo.files[0];
   const overlayFiles = DOM.themeOverlays.files;
   const templateFiles = DOM.themeTemplates.files;
-  const templatesFolder = DOM.themeTemplatesFolder && DOM.themeTemplatesFolder.value ? DOM.themeTemplatesFolder.value.trim() : '';
-  const overlaysFolder = DOM.themeOverlaysFolder && DOM.themeOverlaysFolder.value ? DOM.themeOverlaysFolder.value.trim() : '';
+  const templatesFolder =
+    DOM.themeTemplatesFolder && DOM.themeTemplatesFolder.value
+      ? DOM.themeTemplatesFolder.value.trim()
+      : "";
+  const overlaysFolder =
+    DOM.themeOverlaysFolder && DOM.themeOverlaysFolder.value
+      ? DOM.themeOverlaysFolder.value.trim()
+      : "";
 
   const filePromises = [];
 
   if (backgroundFile) {
-    filePromises.push(uploadAsset(backgroundFile, 'backgrounds').then(url => { if (url) newTheme.background = url; }));
+    filePromises.push(
+      uploadAsset(backgroundFile, "backgrounds").then((url) => {
+        if (url) newTheme.background = url;
+      }),
+    );
   }
   if (logoFile) {
-    filePromises.push(uploadAsset(logoFile, 'logo').then(url => { if (url) newTheme.logo = url; }));
+    filePromises.push(
+      uploadAsset(logoFile, "logo").then((url) => {
+        if (url) newTheme.logo = url;
+      }),
+    );
   }
   for (const file of overlayFiles) {
-    filePromises.push(uploadAsset(file, 'overlays').then(url => { if (url) newTheme.overlays.push(url); }));
+    filePromises.push(
+      uploadAsset(file, "overlays").then((url) => {
+        if (url) newTheme.overlays.push(url);
+      }),
+    );
   }
   if (overlaysFolder) {
-    newTheme.overlaysFolder = overlaysFolder.endsWith('/') ? overlaysFolder : overlaysFolder + '/';
+    newTheme.overlaysFolder = overlaysFolder.endsWith("/")
+      ? overlaysFolder
+      : overlaysFolder + "/";
   }
   for (const file of templateFiles) {
-    filePromises.push(uploadAsset(file, 'templates').then(url => { if (url) newTheme.templates.push({ src: url, layout: 'double_column' }); }));
+    filePromises.push(
+      uploadAsset(file, "templates").then((url) => {
+        if (url) newTheme.templates.push({ src: url, layout: "double_column" });
+      }),
+    );
   }
   if (templatesFolder) {
-    newTheme.templatesFolder = templatesFolder.endsWith('/') ? templatesFolder : templatesFolder + '/';
+    newTheme.templatesFolder = templatesFolder.endsWith("/")
+      ? templatesFolder
+      : templatesFolder + "/";
   }
 
   Promise.all(filePromises).then(() => {
     // Try to load/record the chosen fonts so they're available immediately
     ensureFontLoadedForFontString(newTheme.fontHeading);
     ensureFontLoadedForFontString(newTheme.fontBody);
-    const newKey = themeName.toLowerCase().replace(/\s/g, '-');
+    const newKey = themeName.toLowerCase().replace(/\s/g, "-");
     themes[newKey] = newTheme;
     saveThemesToStorage();
     populateThemeSelector(newKey);
     setEventSelection(newKey);
     loadTheme(newKey);
     if (DOM.themeEditorModeSelect) {
-      DOM.themeEditorModeSelect.value = 'edit';
-      setThemeEditorMode('edit');
+      DOM.themeEditorModeSelect.value = "edit";
+      setThemeEditorMode("edit");
     } else {
-      setThemeEditorMode('edit');
+      setThemeEditorMode("edit");
     }
     alert(`Theme '${themeName}' saved!`);
   });
 }
 
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function getAssetIndex() {
-  if (!themes._meta) themes._meta = {};
-  if (!themes._meta.assetIndex) themes._meta.assetIndex = {};
-  return themes._meta.assetIndex;
-}
-async function fileSha256Hex(file) {
-  const buf = await file.arrayBuffer();
-  const hash = await crypto.subtle.digest('SHA-256', buf);
-  const bytes = new Uint8Array(hash);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-function extFromName(name, fallback) {
-  const m = (name || '').match(/\.([a-z0-9]+)$/i); return m ? m[1].toLowerCase() : (fallback || 'png');
-}
 // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
-async function uploadAsset(file, kind) {
-  try {
-    const index = getAssetIndex();
-    const hash = await fileSha256Hex(file);
-    if (index[hash]) return index[hash];
-    const cfg = getCloudinaryConfig();
-    if (cfg.use && cfg.cloud && cfg.preset) {
-      const form = new FormData();
-      const evSlug = (typeof getCurrentEventSlug === 'function') ? getCurrentEventSlug() : 'event';
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const base = (cfg.folderBase || 'photobooth/events').replace(/\/$/, '');
-      const folder = `${base}/${evSlug}/${kind || 'misc'}`;
-      const fname = `${kind || 'file'}-${hash}.${extFromName(file && file.name, 'png')}`;
-      const wrapped = new File([file], fname, { type: file.type || 'application/octet-stream' });
-      form.append('file', wrapped);
-      form.append('upload_preset', cfg.preset);
-      form.append('folder', folder);
-      const resp = await fetch(`https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`, { method: 'POST', body: form });
-      const json = await resp.json();
-      if (json && json.secure_url) { index[hash] = json.secure_url; saveThemesToStorage(); return json.secure_url; }
-    }
-  } catch (_) { }
-  // Fallback to local embedding
-  try { return await readFileAsDataURL(file); } catch (_) { return ''; }
-}
-
-function saveThemesToStorage() {
-  // Normalize to avoid duplicates across overlays/templates, and strip empties
-  ensureBuiltinThemes();
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins('core themes missing before save');
-  }
-  try { normalizeAllThemes(); } catch (_e) { }
-  localStorage.setItem('photoboothThemes', JSON.stringify(themes));
-  // Best-effort remote sync
-  syncThemesRemote().catch(() => { });
-}
-
-function cloneThemeValue(val) {
-  if (Array.isArray(val)) return val.map(cloneThemeValue);
-  if (val && typeof val === 'object') {
-    const out = {};
-    for (const key of Object.keys(val)) {
-      out[key] = cloneThemeValue(val[key]);
-    }
-    return out;
-  }
-  return val;
-}
-
-function addMissingDefaults(target, source) {
-  if (!source || typeof source !== 'object') return;
-  if (!target || typeof target !== 'object') return;
-  for (const key of Object.keys(source)) {
-    const src = source[key];
-    const tgt = target ? target[key] : undefined;
-    if (Array.isArray(src)) {
-      if (!Array.isArray(tgt) || tgt.length === 0) {
-        target[key] = src.slice();
-      }
-    } else if (src && typeof src === 'object') {
-      if (!tgt || typeof tgt !== 'object') {
-        target[key] = cloneThemeValue(src);
-      } else {
-        addMissingDefaults(tgt, src);
-      }
-    } else {
-      const needs = tgt === undefined || tgt === null || (typeof tgt === 'string' && tgt.trim() === '');
-      if (needs) {
-        target[key] = src;
-      }
-    }
-  }
-}
-
-function pruneMisplacedBuiltinThemes(target) {
-  if (!target || typeof target !== 'object') return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== 'object') continue;
-    if (BUILTIN_THEMES[rootKey] && BUILTIN_THEMES[rootKey].name) {
-      group.name = BUILTIN_THEMES[rootKey].name;
-    }
-    for (const extraKey of Object.keys(group)) {
-      if (!['name', 'themes', 'holidays'].includes(extraKey)) {
-        delete group[extraKey];
-      }
-    }
-    for (const bucket of ['themes', 'holidays']) {
-      if (!group[bucket] || typeof group[bucket] !== 'object') continue;
-      for (const key of Object.keys(group[bucket])) {
-        const loc = BUILTIN_THEME_LOCATIONS[key];
-        if (loc && (loc.root !== rootKey || loc.bucket !== bucket)) {
-          delete group[bucket][key];
-        }
-      }
-    }
-  }
-}
-
-
-function ensureBuiltinThemes() {
-  if (!themes || typeof themes !== 'object') themes = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const builtinGroup = BUILTIN_THEMES[rootKey];
-    if (!builtinGroup || typeof builtinGroup !== 'object') continue;
-    if (!themes[rootKey] || typeof themes[rootKey] !== 'object') {
-      themes[rootKey] = cloneThemeValue(builtinGroup);
-      continue;
-    }
-    const targetGroup = themes[rootKey];
-    // Ensure optgroup metadata like name exists
-    addMissingDefaults(targetGroup, builtinGroup);
-    for (const bucket of ['themes', 'holidays']) {
-      if (!builtinGroup[bucket] || typeof builtinGroup[bucket] !== 'object') continue;
-      if (!targetGroup[bucket] || typeof targetGroup[bucket] !== 'object') {
-        targetGroup[bucket] = {};
-      }
-      const targetBucket = targetGroup[bucket];
-      for (const subKey of Object.keys(builtinGroup[bucket])) {
-        const builtinTheme = builtinGroup[bucket][subKey];
-        if (!targetBucket[subKey] || typeof targetBucket[subKey] !== 'object') {
-          targetBucket[subKey] = cloneThemeValue(builtinTheme);
-        } else {
-          addMissingDefaults(targetBucket[subKey], builtinTheme);
-        }
-      }
-    }
-  }
-  pruneMisplacedBuiltinThemes(themes);
-}
-
-function hasCoreBuiltins(obj) {
-  try {
-    return !!(obj && obj.general && obj.general.themes && obj.general.themes.birthday && obj.fall && obj.fall.holidays && obj.fall.holidays.halloween);
-  } catch (_) { return false; }
-}
-
-function resetThemesToBuiltins(reason) {
-  console.warn('Resetting themes to built-ins:', reason || 'unknown');
-  themes = cloneThemeValue(BUILTIN_THEMES);
-  try { localStorage.removeItem('photoboothThemes'); } catch (_) { }
-}
-
-function mergePlainObject(baseObj, overrideObj) {
-  const baseClone = (baseObj && typeof baseObj === 'object' && !Array.isArray(baseObj))
-    ? cloneThemeValue(baseObj)
-    : {};
-  if (!overrideObj || typeof overrideObj !== 'object' || Array.isArray(overrideObj)) {
-    if (Array.isArray(overrideObj)) return overrideObj.slice();
-    return baseClone;
-  }
-  const out = baseClone || {};
-  for (const key of Object.keys(overrideObj)) {
-    const value = overrideObj[key];
-    if (Array.isArray(value)) out[key] = value.slice();
-    else if (value && typeof value === 'object') out[key] = mergePlainObject(out[key], value);
-    else out[key] = value;
-  }
-  return out;
-}
-
-const stringOrEmpty = (val) => typeof val === 'string' ? val.trim() : '';
-const arrayFromMaybeList = (list) => Array.isArray(list) ? list.filter(Boolean) : [];
-const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
-
-function applyThemeFallbacks(baseLeaf, merged, storedLeaf) {
-  if (!baseLeaf || typeof baseLeaf !== 'object' || !merged || typeof merged !== 'object') return;
-  applyBackgroundFallback(baseLeaf, merged, storedLeaf);
-  applyTemplatesFallback(baseLeaf, merged, storedLeaf);
-  applyOverlaysFallback(baseLeaf, merged, storedLeaf);
-  applyArrayFallback(baseLeaf, merged, 'overlaysRemoved');
-  applyArrayFallback(baseLeaf, merged, 'templatesRemoved');
-  mergeWelcomeAndMeta(baseLeaf, merged);
-}
-
-function applyBackgroundFallback(baseLeaf, merged, storedLeaf) {
-  const baseList = arrayFromMaybeList(baseLeaf.backgrounds);
-  const baseSingle = stringOrEmpty(baseLeaf.background);
-  const mergedList = arrayFromMaybeList(merged.backgrounds);
-  const mergedSingle = stringOrEmpty(merged.background);
-  const storedList = arrayFromMaybeList(storedLeaf && storedLeaf.backgrounds);
-  const storedSingle = stringOrEmpty(storedLeaf && storedLeaf.background);
-  const storedAllowsFallback = !storedLeaf || (!storedList.length && !storedSingle);
-
-  if (!storedAllowsFallback) return;
-  if (!baseList.length && !baseSingle) return;
-  if (mergedList.length || mergedSingle) return;
-
-  if (baseList.length) merged.backgrounds = baseList.slice();
-  if (baseSingle) merged.background = baseLeaf.background;
-  if (typeof baseLeaf.backgroundIndex === 'number') {
-    merged.backgroundIndex = baseLeaf.backgroundIndex;
-  }
-}
-
-function applyTemplatesFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.templatesFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.templates);
-  if (baseLeaf.templatesFolder && !merged.templatesFolder && !storedFolder) {
-    merged.templatesFolder = baseLeaf.templatesFolder;
-  }
-  const baseTemplates = Array.isArray(baseLeaf.templates) ? baseLeaf.templates : null;
-  const mergedTemplates = Array.isArray(merged.templates) ? merged.templates : null;
-  if (baseTemplates && baseTemplates.length && (!mergedTemplates || mergedTemplates.length === 0) && !storedArrayExists) {
-    merged.templates = baseTemplates.map((tpl) => mergePlainObject(tpl, {}));
-  }
-}
-
-function applyOverlaysFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.overlaysFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.overlays);
-  if (baseLeaf.overlaysFolder && !merged.overlaysFolder && !storedFolder) {
-    merged.overlaysFolder = baseLeaf.overlaysFolder;
-  }
-  const baseOverlays = Array.isArray(baseLeaf.overlays) ? baseLeaf.overlays : null;
-  const mergedOverlays = Array.isArray(merged.overlays) ? merged.overlays : null;
-  if (baseOverlays && baseOverlays.length && (!mergedOverlays || mergedOverlays.length === 0) && !storedArrayExists) {
-    merged.overlays = baseOverlays.slice();
-  }
-}
-
-function applyArrayFallback(baseLeaf, merged, prop) {
-  if (Array.isArray(baseLeaf[prop]) && !Array.isArray(merged[prop])) {
-    merged[prop] = baseLeaf[prop].slice();
-  }
-}
-
-function mergeWelcomeAndMeta(baseLeaf, merged) {
-  if (baseLeaf.welcome) merged.welcome = mergePlainObject(baseLeaf.welcome, merged.welcome);
-  if (baseLeaf.accent && !merged.accent) merged.accent = baseLeaf.accent;
-  if (baseLeaf.accent2 && !merged.accent2) merged.accent2 = baseLeaf.accent2;
-  if (baseLeaf.font && !merged.font) merged.font = baseLeaf.font;
-  if (baseLeaf.fontHeading && !merged.fontHeading) merged.fontHeading = baseLeaf.fontHeading;
-  if (baseLeaf.fontBody && !merged.fontBody) merged.fontBody = baseLeaf.fontBody;
-}
-
-function mergeThemeLeaf(baseLeaf, storedLeaf) {
-  if (storedLeaf === null || storedLeaf === undefined) {
-    return cloneThemeValue(baseLeaf);
-  }
-  if (Array.isArray(storedLeaf)) return storedLeaf.slice();
-  if (typeof storedLeaf !== 'object') return storedLeaf;
-  const merged = mergePlainObject(baseLeaf, storedLeaf);
-  applyThemeFallbacks(baseLeaf, merged, storedLeaf);
-  return merged;
-}
-
-function fixBuiltinThemePlacements(target) {
-  if (!target || typeof target !== 'object') return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== 'object') continue;
-    for (const bucket of ['themes', 'holidays']) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== 'object') continue;
-      for (const subKey of Object.keys({ ...sub })) {
-        const loc = BUILTIN_THEME_LOCATIONS[subKey];
-        if (!loc || (loc.root === rootKey && loc.bucket === bucket)) continue;
-        const currentTheme = sub[subKey];
-        delete sub[subKey];
-        if (!target[loc.root]) target[loc.root] = cloneThemeValue(BUILTIN_THEMES[loc.root] || { name: loc.root });
-        if (!target[loc.root][loc.bucket]) target[loc.root][loc.bucket] = {};
-        const base = BUILTIN_THEMES[loc.root] && BUILTIN_THEMES[loc.root][loc.bucket]
-          ? BUILTIN_THEMES[loc.root][loc.bucket][subKey]
-          : null;
-        target[loc.root][loc.bucket][subKey] = mergeThemeLeaf(base, currentTheme);
-      }
-    }
-  }
-}
-
-function mergeStoredThemes(base, stored) {
-  if (!base || typeof base !== 'object' || !stored || typeof stored !== 'object') return;
-  for (const key of Object.keys(stored)) {
-    const storedGroup = stored[key];
-    if (storedGroup && typeof storedGroup === 'object' && !Array.isArray(storedGroup)) {
-      const bucketKey = storedGroup.themes ? 'themes' : (storedGroup.holidays ? 'holidays' : null);
-      const baseGroup = base[key];
-      if (bucketKey) {
-        if (!baseGroup || typeof baseGroup !== 'object') {
-          base[key] = cloneThemeValue(storedGroup);
-          continue;
-        }
-        if (!baseGroup[bucketKey]) baseGroup[bucketKey] = {};
-        const baseBucket = baseGroup[bucketKey];
-        const storedBucket = storedGroup[bucketKey] || {};
-        for (const subKey of Object.keys(storedBucket)) {
-          baseBucket[subKey] = mergeThemeLeaf(baseBucket[subKey], storedBucket[subKey]);
-        }
-        for (const prop of Object.keys(storedGroup)) {
-          if (prop === 'themes' || prop === 'holidays') continue;
-          const val = storedGroup[prop];
-          if (Array.isArray(val)) baseGroup[prop] = val.slice();
-          else if (val && typeof val === 'object') baseGroup[prop] = mergePlainObject(baseGroup[prop], val);
-          else baseGroup[prop] = val;
-        }
-      } else {
-        base[key] = mergeThemeLeaf(baseGroup, storedGroup);
-      }
-    } else {
-      base[key] = cloneThemeValue(storedGroup);
-    }
-  }
-}
-
-function loadThemesFromStorage() {
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins('missing core themes before storage merge');
-  }
-  const storedThemes = localStorage.getItem('photoboothThemes');
-  if (storedThemes) {
-    try {
-      const parsed = JSON.parse(storedThemes);
-      mergeStoredThemes(themes, parsed);
-      fixBuiltinThemePlacements(themes);
-      ensureBuiltinThemes();
-      try { normalizeAllThemes(); } catch (_e) { }
-      if (!hasCoreBuiltins(themes)) {
-        resetThemesToBuiltins('stored themes missing core entries');
-      }
-    } catch (err) {
-      console.warn('Failed to parse stored themes', err);
-    }
-  }
-  const globalLogo = getGlobalLogo();
-  if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
-  // Attempt remote load and prefer remote if available
-  loadThemesRemote().catch(() => { });
-}
-
 // Folder import (device-only) helpers
 async function handleOverlayFolderPick(e) {
-  const key = getSelectedThemeKey(); const target = getSelectedThemeTarget();
-  if (!key || !target) { alert('Select a theme first.'); e.target.value = ''; return; }
-  const files = Array.from(e.target.files || []).filter(f => /^image\//i.test(f.type));
-  if (!files.length) { e.target.value = ''; return; }
+  const key = getSelectedThemeKey();
+  const target = getSelectedThemeTarget();
+  if (!key || !target) {
+    alert("Select a theme first.");
+    e.target.value = "";
+    return;
+  }
+  const files = Array.from(e.target.files || []).filter((f) =>
+    /^image\//i.test(f.type),
+  );
+  if (!files.length) {
+    e.target.value = "";
+    return;
+  }
   if (!Array.isArray(target.overlays)) target.overlays = [];
-  const promises = files.map(f => uploadAsset(f, 'overlays').then(u => { if (u) target.overlays.push(u); }));
+  const promises = files.map((f) =>
+    uploadAsset(f, "overlays").then((u) => {
+      if (u) target.overlays.push(u);
+    }),
+  );
   await Promise.all(promises);
-  try { normalizeThemeObject(target); } catch (_e) { }
+  try {
+    normalizeThemeObject(target);
+  } catch (_e) {}
   saveThemesToStorage();
   loadTheme(key);
   syncThemeEditorWithActiveTheme();
   showToast(`Imported ${files.length} overlays`);
-  e.target.value = '';
+  e.target.value = "";
 }
 
 async function handleTemplateFolderPick(e) {
-  const key = getSelectedThemeKey(); const target = getSelectedThemeTarget();
-  if (!key || !target) { alert('Select a theme first.'); e.target.value = ''; return; }
-  const files = Array.from(e.target.files || []).filter(f => /^image\//i.test(f.type));
-  if (!files.length) { e.target.value = ''; return; }
+  const key = getSelectedThemeKey();
+  const target = getSelectedThemeTarget();
+  if (!key || !target) {
+    alert("Select a theme first.");
+    e.target.value = "";
+    return;
+  }
+  const files = Array.from(e.target.files || []).filter((f) =>
+    /^image\//i.test(f.type),
+  );
+  if (!files.length) {
+    e.target.value = "";
+    return;
+  }
   if (!Array.isArray(target.templates)) target.templates = [];
-  const promises = files.map(f => uploadAsset(f, 'templates').then(u => { if (u) target.templates.push({ src: u, layout: 'double_column' }); }));
+  const promises = files.map((f) =>
+    uploadAsset(f, "templates").then((u) => {
+      if (u) target.templates.push({ src: u, layout: "double_column" });
+    }),
+  );
   await Promise.all(promises);
-  try { normalizeThemeObject(target); } catch (_e) { }
+  try {
+    normalizeThemeObject(target);
+  } catch (_e) {}
   saveThemesToStorage();
   loadTheme(key);
   syncThemeEditorWithActiveTheme();
   showToast(`Imported ${files.length} templates`);
-  e.target.value = '';
+  e.target.value = "";
 }
 
 // --- Font Management ---
-const FONT_FALLBACK_STACK = "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-const DEFAULT_FONT_PREVIEW = 'Welcome to Fletch Photobooth';
+const FONT_FALLBACK_STACK =
+  "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+const DEFAULT_FONT_PREVIEW = "Welcome to Fletch Photobooth";
 let fontCatalog = { available: [], defaults: {}, pairings: [] };
-const CUSTOM_PAIRINGS_STORAGE_KEY = 'photoboothCustomPairings';
+const CUSTOM_PAIRINGS_STORAGE_KEY = "photoboothCustomPairings";
 let baseFontPairings = [];
 let customFontPairings = [];
 let fontPickerInitialized = false;
@@ -3482,7 +3827,7 @@ let ignoreFontPickerEvents = false;
 let quickPicksExpanded = false;
 
 function normalizePairingField(value) {
-  return (value || '').toString().trim();
+  return (value || "").toString().trim();
 }
 
 function normalizePairingDef(def) {
@@ -3499,13 +3844,17 @@ function normalizePairingDef(def) {
 }
 
 function pairingKey(def) {
-  return `${normalizePairingField(def.heading).toLowerCase()}::${normalizePairingField(def.body).toLowerCase()}`;
+  return `${normalizePairingField(
+    def.heading,
+  ).toLowerCase()}::${normalizePairingField(def.body).toLowerCase()}`;
 }
 
 function loadCustomFontPairings() {
   if (customFontPairings.length) return customFontPairings.slice();
   try {
-    const raw = JSON.parse(localStorage.getItem(CUSTOM_PAIRINGS_STORAGE_KEY) || '[]');
+    const raw = JSON.parse(
+      localStorage.getItem(CUSTOM_PAIRINGS_STORAGE_KEY) || "[]",
+    );
     if (Array.isArray(raw)) {
       customFontPairings = raw.map(normalizePairingDef).filter(Boolean);
     } else {
@@ -3518,10 +3867,15 @@ function loadCustomFontPairings() {
 }
 
 function saveCustomFontPairings(list) {
-  customFontPairings = Array.isArray(list) ? list.map(normalizePairingDef).filter(Boolean) : [];
+  customFontPairings = Array.isArray(list)
+    ? list.map(normalizePairingDef).filter(Boolean)
+    : [];
   try {
-    localStorage.setItem(CUSTOM_PAIRINGS_STORAGE_KEY, JSON.stringify(customFontPairings));
-  } catch (_) { }
+    localStorage.setItem(
+      CUSTOM_PAIRINGS_STORAGE_KEY,
+      JSON.stringify(customFontPairings),
+    );
+  } catch (_) {}
 }
 
 function mergeCustomPairingsIntoCatalog() {
@@ -3552,41 +3906,44 @@ function renderCustomPairingsList() {
   const wrap = DOM.customPairingsList;
   if (!wrap) return;
   const extras = loadCustomFontPairings();
-  wrap.innerHTML = '';
+  wrap.innerHTML = "";
   if (!extras.length) {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'custom-pairings-empty';
-    placeholder.textContent = 'No custom quick picks yet.';
+    const placeholder = document.createElement("div");
+    placeholder.className = "custom-pairings-empty";
+    placeholder.textContent = "No custom quick picks yet.";
     wrap.appendChild(placeholder);
     return;
   }
   extras.forEach((pair) => {
-    const item = document.createElement('div');
-    item.className = 'custom-pairing-row';
-    const label = document.createElement('div');
-    label.className = 'custom-pairing-label';
+    const item = document.createElement("div");
+    item.className = "custom-pairing-row";
+    const label = document.createElement("div");
+    label.className = "custom-pairing-label";
     const heading = normalizePairingField(pair.heading);
     const body = normalizePairingField(pair.body);
     const notes = normalizePairingField(pair.notes);
-    label.textContent = notes ? `${heading} + ${body} — ${notes}` : `${heading} + ${body}`;
-    const actions = document.createElement('div');
-    actions.className = 'custom-pairing-actions';
-    const applyBtn = document.createElement('button');
-    applyBtn.type = 'button';
-    applyBtn.textContent = 'Apply';
-    applyBtn.addEventListener('click', () => {
-      const previewText = normalizePairingField(pair.preview) || findPairingPreview(pair);
+    label.textContent = notes
+      ? `${heading} + ${body} — ${notes}`
+      : `${heading} + ${body}`;
+    const actions = document.createElement("div");
+    actions.className = "custom-pairing-actions";
+    const applyBtn = document.createElement("button");
+    applyBtn.type = "button";
+    applyBtn.textContent = "Apply";
+    applyBtn.addEventListener("click", () => {
+      const previewText =
+        normalizePairingField(pair.preview) || findPairingPreview(pair);
       applyFontSelection(heading, body, {
         keepPairing: true,
         headingPreviewText: previewText,
-        bodyPreviewText: getFontPreviewText(body)
+        bodyPreviewText: getFontPreviewText(body),
       });
-      showToast('Pairing applied');
+      showToast("Pairing applied");
     });
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'link-button';
-    removeBtn.textContent = 'Remove';
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "link-button";
+    removeBtn.textContent = "Remove";
     removeBtn.dataset.removePairing = pairingKey(pair);
     actions.appendChild(applyBtn);
     actions.appendChild(removeBtn);
@@ -3601,17 +3958,21 @@ function handleAddQuickPickPairing() {
   const heading = normalizePairingField(DOM.addPairingHeading.value);
   const body = normalizePairingField(DOM.addPairingBody.value);
   if (!heading || !body) {
-    alert('Enter both a heading and body font.');
+    alert("Enter both a heading and body font.");
     return;
   }
-  const notes = normalizePairingField(DOM.addPairingNotes && DOM.addPairingNotes.value);
-  const preview = normalizePairingField(DOM.addPairingPreview && DOM.addPairingPreview.value);
+  const notes = normalizePairingField(
+    DOM.addPairingNotes && DOM.addPairingNotes.value,
+  );
+  const preview = normalizePairingField(
+    DOM.addPairingPreview && DOM.addPairingPreview.value,
+  );
   const candidate = normalizePairingDef({ heading, body, notes, preview });
   if (!candidate) return;
   const current = loadCustomFontPairings();
   const key = pairingKey(candidate);
   if (current.some((pair) => pairingKey(pair) === key)) {
-    alert('That pairing already exists.');
+    alert("That pairing already exists.");
     return;
   }
   current.push(candidate);
@@ -3624,13 +3985,13 @@ function handleAddQuickPickPairing() {
   applyFontSelection(candidate.heading, candidate.body, {
     keepPairing: true,
     headingPreviewText: preview || findPairingPreview(candidate),
-    bodyPreviewText: getFontPreviewText(candidate.body)
+    bodyPreviewText: getFontPreviewText(candidate.body),
   });
-  DOM.addPairingHeading.value = '';
-  DOM.addPairingBody.value = '';
-  if (DOM.addPairingNotes) DOM.addPairingNotes.value = '';
-  if (DOM.addPairingPreview) DOM.addPairingPreview.value = '';
-  showToast('Quick pick added');
+  DOM.addPairingHeading.value = "";
+  DOM.addPairingBody.value = "";
+  if (DOM.addPairingNotes) DOM.addPairingNotes.value = "";
+  if (DOM.addPairingPreview) DOM.addPairingPreview.value = "";
+  showToast("Quick pick added");
 }
 
 function handleRemoveQuickPickPairing(key) {
@@ -3641,23 +4002,26 @@ function handleRemoveQuickPickPairing(key) {
   mergeCustomPairingsIntoCatalog();
   renderQuickPickButtons();
   renderCustomPairingsList();
-  showToast('Quick pick removed');
+  showToast("Quick pick removed");
 }
 
 function setupCustomPairingControls() {
   if (DOM.quickPickForm) {
-    DOM.quickPickForm.addEventListener('submit', (event) => {
+    DOM.quickPickForm.addEventListener("submit", (event) => {
       event.preventDefault();
       handleAddQuickPickPairing();
     });
   } else if (DOM.addPairingBtn) {
-    DOM.addPairingBtn.addEventListener('click', handleAddQuickPickPairing);
+    DOM.addPairingBtn.addEventListener("click", handleAddQuickPickPairing);
   }
   if (DOM.customPairingsList) {
-    DOM.customPairingsList.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target.closest('[data-remove-pairing]') : null;
+    DOM.customPairingsList.addEventListener("click", (event) => {
+      const target =
+        event.target instanceof HTMLElement
+          ? event.target.closest("[data-remove-pairing]")
+          : null;
       if (!target) return;
-      const key = target.getAttribute('data-remove-pairing');
+      const key = target.getAttribute("data-remove-pairing");
       if (key) handleRemoveQuickPickPairing(key);
     });
   }
@@ -3666,44 +4030,51 @@ function setupCustomPairingControls() {
 
 function getStoredFonts() {
   try {
-    const raw = localStorage.getItem('photoboothFonts');
+    const raw = localStorage.getItem("photoboothFonts");
     const local = raw ? JSON.parse(raw) : [];
     // Fire-and-forget remote merge so new fonts sync to other devices
-    loadFontsRemote().then(remote => {
-      if (Array.isArray(remote) && remote.length) {
-        const merged = mergeFonts(local, remote);
-        localStorage.setItem('photoboothFonts', JSON.stringify(merged));
-      }
-    }).catch(() => { });
+    loadFontsRemote()
+      .then((remote) => {
+        if (Array.isArray(remote) && remote.length) {
+          const merged = mergeFonts(local, remote);
+          localStorage.setItem("photoboothFonts", JSON.stringify(merged));
+        }
+      })
+      .catch(() => {});
     return local;
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 function saveStoredFonts(fonts) {
-  localStorage.setItem('photoboothFonts', JSON.stringify(fonts));
-  syncFontsRemote(fonts).catch(() => { });
+  localStorage.setItem("photoboothFonts", JSON.stringify(fonts));
+  syncFontsRemote(fonts).catch(() => {});
   queueFontPickerRefresh({ preserveSelection: true });
 }
 
 function queueFontPickerRefresh(options = {}) {
   if (!fontPickerInitialized) return;
-  reloadFontPickerOptions(options).catch(() => { });
+  reloadFontPickerOptions(options).catch(() => {});
 }
 
 function slugifyFontName(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return (name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 function composeFontString(family) {
-  if (!family) return '';
+  if (!family) return "";
   return `'${family}', ${FONT_FALLBACK_STACK}`;
 }
 
 function primaryFontFamily(fontStr) {
-  if (!fontStr) return '';
+  if (!fontStr) return "";
   const m = fontStr.match(/'([^']+)'/);
   if (m) return m[1];
-  return fontStr.split(',')[0].trim();
+  return fontStr.split(",")[0].trim();
 }
 
 function ensureFontLoadedForFontString(fontStr) {
@@ -3712,19 +4083,28 @@ function ensureFontLoadedForFontString(fontStr) {
 }
 
 function ensureFontLoaded(family, storeIfNew = false) {
-  const fam = (family || '').replace(/^['"]|['"]$/g, '').trim();
+  const fam = (family || "").replace(/^['"]|['"]$/g, "").trim();
   if (!fam) return;
-  const id = 'gf-' + slugifyFontName(fam);
+  const id = "gf-" + slugifyFontName(fam);
   if (!document.getElementById(id)) {
-    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fam).replace(/%20/g, '+')}&display=swap`;
-    const link = document.createElement('link');
-    link.id = id; link.rel = 'stylesheet'; link.href = href;
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+      fam,
+    ).replace(/%20/g, "+")}&display=swap`;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = href;
     document.head.appendChild(link);
   }
   if (storeIfNew) {
     const fonts = getStoredFonts();
-    if (!fonts.find(f => f.type === 'family' && f.value.toLowerCase() === fam.toLowerCase())) {
-      fonts.push({ type: 'family', value: fam });
+    if (
+      !fonts.find(
+        (f) =>
+          f.type === "family" && f.value.toLowerCase() === fam.toLowerCase(),
+      )
+    ) {
+      fonts.push({ type: "family", value: fam });
       saveStoredFonts(fonts);
       updateFontSuggestions();
       renderCurrentFonts();
@@ -3733,46 +4113,66 @@ function ensureFontLoaded(family, storeIfNew = false) {
 }
 
 function addFontByFamily() {
-  const fam = (DOM.addFontFamily && DOM.addFontFamily.value || '').replace(/^['"]|['"]$/g, '').trim();
-  if (!fam) { alert('Enter a font family name.'); return; }
+  const fam = ((DOM.addFontFamily && DOM.addFontFamily.value) || "")
+    .replace(/^['"]|['"]$/g, "")
+    .trim();
+  if (!fam) {
+    alert("Enter a font family name.");
+    return;
+  }
   ensureFontLoaded(fam, true);
   alert(`Added Google Font: ${fam}`);
 }
 
 function addFontByUrl() {
-  const url = (DOM.addFontUrl && DOM.addFontUrl.value || '').trim();
-  if (!url) { alert('Paste a Google Fonts CSS URL.'); return; }
-  try { new URL(url); } catch (e) { alert('Invalid URL.'); return; }
-  const id = 'gf-url-' + btoa(url).replace(/=/g, '');
+  const url = ((DOM.addFontUrl && DOM.addFontUrl.value) || "").trim();
+  if (!url) {
+    alert("Paste a Google Fonts CSS URL.");
+    return;
+  }
+  try {
+    new URL(url);
+  } catch (e) {
+    alert("Invalid URL.");
+    return;
+  }
+  const id = "gf-url-" + btoa(url).replace(/=/g, "");
   if (!document.getElementById(id)) {
-    const link = document.createElement('link');
-    link.id = id; link.rel = 'stylesheet'; link.href = url;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = url;
     document.head.appendChild(link);
   }
   const fonts = getStoredFonts();
-  if (!fonts.find(f => f.type === 'url' && f.value === url)) {
-    let famLabel = '';
+  if (!fonts.find((f) => f.type === "url" && f.value === url)) {
+    let famLabel = "";
     try {
       const u = new URL(url);
-      const fam = u.searchParams.get('family');
-      famLabel = fam ? fam.split(':')[0].replace(/\+/g, ' ') : '';
-    } catch (_e) { }
-    fonts.push({ type: 'url', value: url, label: famLabel });
+      const fam = u.searchParams.get("family");
+      famLabel = fam ? fam.split(":")[0].replace(/\+/g, " ") : "";
+    } catch (_e) {}
+    fonts.push({ type: "url", value: url, label: famLabel });
     saveStoredFonts(fonts);
   }
   updateFontSuggestions();
   renderCurrentFonts();
-  alert('Font URL added.');
+  alert("Font URL added.");
 }
 
 function updateFontSuggestions() {
-  const dl = document.getElementById('fontSuggestions');
+  const dl = document.getElementById("fontSuggestions");
   if (!dl) return;
-  dl.innerHTML = '';
-  const suggestions = new Set(['Comic Neue', 'Creepster', 'Inter', 'Montserrat']);
+  dl.innerHTML = "";
+  const suggestions = new Set([
+    "Comic Neue",
+    "Creepster",
+    "Inter",
+    "Montserrat",
+  ]);
   const fonts = getStoredFonts();
-  fonts.forEach(f => {
-    const fam = f.type === 'family' ? f.value : (f.label || '').trim();
+  fonts.forEach((f) => {
+    const fam = f.type === "family" ? f.value : (f.label || "").trim();
     if (fam) suggestions.add(fam);
   });
   if (Array.isArray(fontCatalog.available)) {
@@ -3780,30 +4180,39 @@ function updateFontSuggestions() {
       if (font && font.name) suggestions.add(font.name);
     });
   }
-  Array.from(suggestions).sort((a, b) => a.localeCompare(b)).forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    dl.appendChild(opt);
-  });
+  Array.from(suggestions)
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      dl.appendChild(opt);
+    });
 }
 
 function renderCurrentFonts() {
   if (!DOM.currentFonts) return;
   const fonts = getStoredFonts();
-  if (fonts.length === 0) { DOM.currentFonts.textContent = 'No added fonts yet.'; return; }
-  const parts = fonts.map(f => f.type === 'family' ? f.value : (f.label || 'Custom URL'));
-  DOM.currentFonts.textContent = `Available fonts: ${parts.join(', ')}`;
+  if (fonts.length === 0) {
+    DOM.currentFonts.textContent = "No added fonts yet.";
+    return;
+  }
+  const parts = fonts.map((f) =>
+    f.type === "family" ? f.value : f.label || "Custom URL",
+  );
+  DOM.currentFonts.textContent = `Available fonts: ${parts.join(", ")}`;
 }
 
 function loadFontsFromStorage() {
   const fonts = getStoredFonts();
-  fonts.forEach(f => {
-    if (f.type === 'family') ensureFontLoaded(f.value, false);
-    if (f.type === 'url') {
-      const id = 'gf-url-' + btoa(f.value).replace(/=/g, '');
+  fonts.forEach((f) => {
+    if (f.type === "family") ensureFontLoaded(f.value, false);
+    if (f.type === "url") {
+      const id = "gf-url-" + btoa(f.value).replace(/=/g, "");
       if (!document.getElementById(id)) {
-        const link = document.createElement('link');
-        link.id = id; link.rel = 'stylesheet'; link.href = f.value;
+        const link = document.createElement("link");
+        link.id = id;
+        link.rel = "stylesheet";
+        link.href = f.value;
         document.head.appendChild(link);
       }
     }
@@ -3817,8 +4226,11 @@ function loadFontsFromStorage() {
 
 function injectStylesheetOnce(href) {
   if (!href) return;
-  const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-  if (existing.some(l => (l instanceof HTMLLinkElement) && l.href === href)) return;
+  const existing = Array.from(
+    document.querySelectorAll('link[rel="stylesheet"]'),
+  );
+  if (existing.some((l) => l instanceof HTMLLinkElement && l.href === href))
+    return;
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = href;
@@ -3827,7 +4239,9 @@ function injectStylesheetOnce(href) {
 
 function getFontPreviewText(name) {
   if (!name) return DEFAULT_FONT_PREVIEW;
-  const match = (Array.isArray(fontCatalog.available) ? fontCatalog.available : []).find(f => f && f.name && f.name.toLowerCase() === name.toLowerCase());
+  const match = (
+    Array.isArray(fontCatalog.available) ? fontCatalog.available : []
+  ).find((f) => f && f.name && f.name.toLowerCase() === name.toLowerCase());
   return (match && match.preview) || DEFAULT_FONT_PREVIEW;
 }
 
@@ -3841,7 +4255,10 @@ function findPairingPreview(pairing, fonts = fontCatalog.available) {
   const heading = pairing.heading;
   if (heading && Array.isArray(fonts)) {
     const normalized = normalizeFontFamilyName(heading);
-    const match = fonts.find((font) => font && normalizeFontFamilyName(font.name || font.value) === normalized);
+    const match = fonts.find(
+      (font) =>
+        font && normalizeFontFamilyName(font.name || font.value) === normalized,
+    );
     if (match && match.preview) return match.preview;
   }
   return getFontPreviewText(heading);
@@ -3850,13 +4267,13 @@ function findPairingPreview(pairing, fonts = fontCatalog.available) {
 function populateFontPickerOptions(fonts) {
   const list = Array.isArray(fonts) ? fonts : [];
   const selects = [DOM.headingFontSelect, DOM.bodyFontSelect];
-  selects.forEach(sel => {
+  selects.forEach((sel) => {
     if (!sel) return;
     const current = sel.value;
-    sel.innerHTML = '';
-    list.forEach(font => {
+    sel.innerHTML = "";
+    list.forEach((font) => {
       if (!font || !font.name) return;
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = font.name;
       opt.textContent = font.name;
       opt.style.fontFamily = composeFontString(font.name);
@@ -3871,9 +4288,11 @@ function populateFontPickerOptions(fonts) {
 
 function ensureOptionExists(select, family) {
   if (!select || !family) return;
-  const exists = Array.from(select.options).some(opt => opt.value.toLowerCase() === family.toLowerCase());
+  const exists = Array.from(select.options).some(
+    (opt) => opt.value.toLowerCase() === family.toLowerCase(),
+  );
   if (!exists) {
-    const opt = document.createElement('option');
+    const opt = document.createElement("option");
     opt.value = family;
     opt.textContent = family;
     opt.style.fontFamily = composeFontString(family);
@@ -3883,26 +4302,38 @@ function ensureOptionExists(select, family) {
 
 function getFontPickerSelection() {
   return {
-    heading: DOM.headingFontSelect ? DOM.headingFontSelect.value : '',
-    body: DOM.bodyFontSelect ? DOM.bodyFontSelect.value : ''
+    heading: DOM.headingFontSelect ? DOM.headingFontSelect.value : "",
+    body: DOM.bodyFontSelect ? DOM.bodyFontSelect.value : "",
   };
 }
 
 function updateFontPreviewElements(heading, body, options = {}) {
-  const headingPreview = DOM.headingFontPreview;
-  const bodyPreview = DOM.bodyFontPreview;
-  const headingText = options.headingPreviewText || getFontPreviewText(heading);
+  refreshStylePreviewText({
+    headingPreviewText:
+      options.headingPreviewText || getFontPreviewText(heading),
+    bodyPreviewText: options.bodyPreviewText || getFontPreviewText(body),
+  });
+}
+
+function refreshStylePreviewText(options = {}) {
+  const heading = (DOM.headingFontSelect && DOM.headingFontSelect.value) || "";
+  const body = (DOM.bodyFontSelect && DOM.bodyFontSelect.value) || heading;
+  const headingText =
+    valueFromInput(DOM.themeWelcomeTitle) ||
+    options.headingPreviewText ||
+    getFontPreviewText(heading);
   const bodyText = options.bodyPreviewText || getFontPreviewText(body);
-  if (headingPreview) {
-    headingPreview.style.fontFamily = composeFontString(heading || '');
-    const textNode = headingPreview.querySelector('.font-preview-text');
-    if (textNode) textNode.textContent = headingText;
-  }
-  if (bodyPreview) {
-    bodyPreview.style.fontFamily = composeFontString(body || '');
-    const textNode = bodyPreview.querySelector('.font-preview-text');
-    if (textNode) textNode.textContent = bodyText;
-  }
+  const eventName =
+    valueFromInput(DOM.eventNameInput) || getFontPreviewText(heading || body);
+  const prompt = valueFromInput(DOM.themeWelcomePrompt) || "Touch to start";
+  if (DOM.stylePreviewHeading)
+    DOM.stylePreviewHeading.textContent =
+      headingText || "Welcome to the photobooth!";
+  if (DOM.stylePreviewSubheading)
+    DOM.stylePreviewSubheading.textContent = eventName || "Event Title";
+  if (DOM.stylePreviewBody)
+    DOM.stylePreviewBody.textContent = bodyText || DEFAULT_FONT_PREVIEW;
+  if (DOM.stylePreviewButton) DOM.stylePreviewButton.textContent = prompt;
 }
 
 function setFontPickerSelection(heading, body, options = {}) {
@@ -3918,26 +4349,30 @@ function setFontPickerSelection(heading, body, options = {}) {
   ignoreFontPickerEvents = false;
   updateFontPreviewElements(heading, body, options);
   if (!options.keepPairing && DOM.fontPairingSelect) {
-    DOM.fontPairingSelect.value = '';
+    DOM.fontPairingSelect.value = "";
   }
 }
 
 function applyFontsToActiveTheme(headingName, bodyName, options = {}) {
   const target = getSelectedThemeTarget();
   if (!target) return;
-  const heading = headingName || primaryFontFamily(target.fontHeading || target.font || '');
-  const body = bodyName || primaryFontFamily(target.fontBody || target.font || '');
+  const heading =
+    headingName || primaryFontFamily(target.fontHeading || target.font || "");
+  const body =
+    bodyName || primaryFontFamily(target.fontBody || target.font || "");
   if (heading) ensureFontLoaded(heading, false);
   if (body) ensureFontLoaded(body, false);
-  if (heading) target.fontHeading = composeFontString(heading); else delete target.fontHeading;
-  if (body) target.fontBody = composeFontString(body); else delete target.fontBody;
-  target.font = composeFontString(body || heading || 'Comic Neue');
+  if (heading) target.fontHeading = composeFontString(heading);
+  else delete target.fontHeading;
+  if (body) target.fontBody = composeFontString(body);
+  else delete target.fontBody;
+  target.font = composeFontString(body || heading || "Comic Neue");
   if (activeTheme === target) {
     applyThemeFontStyles(target);
     renderCurrentAssets(target);
   }
   saveThemesToStorage();
-  if (!options.quiet) showToast('Fonts updated');
+  if (!options.quiet) showToast("Fonts updated");
   syncThemeEditorSummary();
 }
 
@@ -3949,27 +4384,34 @@ function applyFontSelection(heading, body, options = {}) {
 
 function refreshFontPickerUI(theme, options = {}) {
   const defaults = fontCatalog.defaults || {};
-  const fallback = fontCatalog.available && fontCatalog.available.length ? fontCatalog.available[0].name : '';
-  const heading = options.heading
-    || primaryFontFamily(theme && (theme.fontHeading || theme.font) || '')
-    || defaults.heading
-    || fallback
-    || '';
-  const body = options.body
-    || primaryFontFamily(theme && (theme.fontBody || theme.font) || '')
-    || defaults.body
-    || heading
-    || fallback
-    || '';
+  const fallback =
+    fontCatalog.available && fontCatalog.available.length
+      ? fontCatalog.available[0].name
+      : "";
+  const heading =
+    options.heading ||
+    primaryFontFamily((theme && (theme.fontHeading || theme.font)) || "") ||
+    defaults.heading ||
+    fallback ||
+    "";
+  const body =
+    options.body ||
+    primaryFontFamily((theme && (theme.fontBody || theme.font)) || "") ||
+    defaults.body ||
+    heading ||
+    fallback ||
+    "";
   setFontPickerSelection(heading, body, { keepPairing: true });
 }
 
 function updateQuickPickExpansion() {
   const wrap = DOM.fontQuickPicks;
   if (!wrap) return;
-  wrap.classList.toggle('expanded', quickPicksExpanded);
+  wrap.classList.toggle("expanded", quickPicksExpanded);
   if (DOM.fontQuickPicksToggle) {
-    DOM.fontQuickPicksToggle.textContent = quickPicksExpanded ? 'show less' : 'show all';
+    DOM.fontQuickPicksToggle.textContent = quickPicksExpanded
+      ? "show less"
+      : "show all";
   }
 }
 
@@ -3981,45 +4423,66 @@ function toggleQuickPicks() {
 function renderQuickPickButtons() {
   const wrap = DOM.fontQuickPicks;
   if (!wrap) return;
-  wrap.innerHTML = '';
-  const pairings = Array.isArray(fontCatalog.pairings) ? fontCatalog.pairings.slice() : [];
+  wrap.innerHTML = "";
+  const pairings = Array.isArray(fontCatalog.pairings)
+    ? fontCatalog.pairings.slice()
+    : [];
   if (DOM.fontQuickPicksToggle) {
-    DOM.fontQuickPicksToggle.style.display = pairings.length ? 'inline' : 'none';
+    DOM.fontQuickPicksToggle.style.display = pairings.length
+      ? "inline"
+      : "none";
   }
   if (!pairings.length) {
-    const note = document.createElement('div');
-    note.style.fontSize = '0.9em';
-    note.style.opacity = '0.7';
-    note.textContent = 'No quick picks configured yet.';
+    const note = document.createElement("div");
+    note.style.fontSize = "0.9em";
+    note.style.opacity = "0.7";
+    note.textContent = "No quick picks configured yet.";
     wrap.appendChild(note);
     return;
   }
-  const seasonalWords = ["Christmas", "Holiday", "Spooky", "Valentine", "Easter", "New Year"];
+  const seasonalWords = [
+    "Christmas",
+    "Holiday",
+    "Spooky",
+    "Valentine",
+    "Easter",
+    "New Year",
+  ];
   pairings.sort((a, b) => {
     if (a.isCustom && !b.isCustom) return -1;
     if (!a.isCustom && b.isCustom) return 1;
-    const aSeason = a.preview && seasonalWords.some(w => a.preview.includes(w));
-    const bSeason = b.preview && seasonalWords.some(w => b.preview.includes(w));
+    const aSeason =
+      a.preview && seasonalWords.some((w) => a.preview.includes(w));
+    const bSeason =
+      b.preview && seasonalWords.some((w) => b.preview.includes(w));
     if (aSeason === bSeason) return 0;
     return aSeason ? -1 : 1;
   });
-  pairings.forEach(pair => {
+  pairings.forEach((pair) => {
     const heading = pair.heading;
     const body = pair.body;
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = `quick-pick-card${pair.isCustom ? ' quick-pick-card-custom' : ''}`;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = `quick-pick-card${
+      pair.isCustom ? " quick-pick-card-custom" : ""
+    }`;
     const previewText = findPairingPreview(pair);
     card.innerHTML = `
-      <div class="quick-pick-label${pair.isCustom ? ' quick-pick-label-custom' : ''}">${pair.isCustom ? 'Custom quick pick' : 'Quick pick'}</div>
-      <div class="quick-pick-title">${heading} + ${body}${pair.notes ? ` — ${pair.notes}` : ''}</div>
-      <div class="quick-pick-preview" style="font-family: ${composeFontString(heading)};">${previewText}</div>
+      <div class="quick-pick-label${
+        pair.isCustom ? " quick-pick-label-custom" : ""
+      }">${pair.isCustom ? "Custom quick pick" : "Quick pick"}</div>
+      <div class="quick-pick-title">${heading} + ${body}${
+        pair.notes ? ` — ${pair.notes}` : ""
+      }</div>
+      <div class="quick-pick-preview" style="font-family: ${composeFontString(
+        heading,
+      )};">${previewText}</div>
     `;
-    card.addEventListener('click', () => {
+    card.addEventListener("click", () => {
       applyFontSelection(heading, body, {
         keepPairing: true,
         headingPreviewText: previewText,
-        bodyPreviewText: getFontPreviewText(body)
+        bodyPreviewText: getFontPreviewText(body),
       });
     });
     wrap.appendChild(card);
@@ -4032,53 +4495,69 @@ async function reloadFontPickerOptions(options = {}) {
   const preserveSelection = !!options.preserveSelection;
   const previous = preserveSelection ? getFontPickerSelection() : null;
   let base = { available: [], defaults: {}, pairings: [] };
-  const manifestCandidates = ['fonts.json', './fonts.json', '/fonts.json'];
+  const manifestCandidates = ["fonts.json", "./fonts.json", "/fonts.json"];
   for (const candidate of manifestCandidates) {
     try {
-      const res = await fetch(candidate, { cache: 'no-store' });
+      const res = await fetch(candidate, { cache: "no-store" });
       if (res && res.ok) {
         base = await res.json();
         break;
       }
     } catch (e) {
-      console.warn('Failed to load fonts manifest from', candidate, e);
+      console.warn("Failed to load fonts manifest from", candidate, e);
     }
   }
   const stored = getStoredFonts();
   const extras = stored
-    .filter(f => f && f.type === 'family' && f.value)
-    .map(f => ({ name: f.value, weights: [400], ital: false, preview: DEFAULT_FONT_PREVIEW }));
+    .filter((f) => f && f.type === "family" && f.value)
+    .map((f) => ({
+      name: f.value,
+      weights: [400],
+      ital: false,
+      preview: DEFAULT_FONT_PREVIEW,
+    }));
   const merged = [];
   const seen = new Set();
-  [...(Array.isArray(base.available) ? base.available : []), ...extras].forEach(font => {
-    if (!font || !font.name) return;
-    const key = font.name.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    merged.push({
-      name: font.name,
-      weights: Array.isArray(font.weights) && font.weights.length ? font.weights : [400],
-      ital: !!font.ital,
-      preview: font.preview || DEFAULT_FONT_PREVIEW
-    });
-  });
+  [...(Array.isArray(base.available) ? base.available : []), ...extras].forEach(
+    (font) => {
+      if (!font || !font.name) return;
+      const key = font.name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push({
+        name: font.name,
+        weights:
+          Array.isArray(font.weights) && font.weights.length
+            ? font.weights
+            : [400],
+        ital: !!font.ital,
+        preview: font.preview || DEFAULT_FONT_PREVIEW,
+      });
+    },
+  );
   fontCatalog = {
     available: merged,
     defaults: base.defaults || {},
-    pairings: Array.isArray(base.pairings) ? base.pairings.slice() : []
+    pairings: Array.isArray(base.pairings) ? base.pairings.slice() : [],
   };
-  baseFontPairings = Array.isArray(fontCatalog.pairings) ? fontCatalog.pairings.slice() : [];
+  baseFontPairings = Array.isArray(fontCatalog.pairings)
+    ? fontCatalog.pairings.slice()
+    : [];
   mergeCustomPairingsIntoCatalog();
   const href = buildGoogleFontsURL(fontCatalog.available);
   if (href) injectStylesheetOnce(href);
   populateFontPickerOptions(fontCatalog.available);
   renderQuickPickButtons();
   renderCustomPairingsList();
-  if (previous && previous.heading) ensureOptionExists(DOM.headingFontSelect, previous.heading);
-  if (previous && previous.body) ensureOptionExists(DOM.bodyFontSelect, previous.body);
+  if (previous && previous.heading)
+    ensureOptionExists(DOM.headingFontSelect, previous.heading);
+  if (previous && previous.body)
+    ensureOptionExists(DOM.bodyFontSelect, previous.body);
   const targetTheme = activeTheme || getSelectedThemeTarget();
   if (previous && preserveSelection) {
-    setFontPickerSelection(previous.heading, previous.body, { keepPairing: true });
+    setFontPickerSelection(previous.heading, previous.body, {
+      keepPairing: true,
+    });
   } else {
     refreshFontPickerUI(targetTheme, { quiet: true });
   }
@@ -4086,37 +4565,45 @@ async function reloadFontPickerOptions(options = {}) {
 
 function attachFontPickerListeners() {
   if (DOM.headingFontSelect) {
-    DOM.headingFontSelect.addEventListener('change', () => {
+    DOM.headingFontSelect.addEventListener("change", () => {
       if (ignoreFontPickerEvents) return;
       const heading = DOM.headingFontSelect.value;
-      const body = DOM.bodyFontSelect && DOM.bodyFontSelect.value ? DOM.bodyFontSelect.value : heading;
+      const body =
+        DOM.bodyFontSelect && DOM.bodyFontSelect.value
+          ? DOM.bodyFontSelect.value
+          : heading;
       applyFontSelection(heading, body, { keepPairing: false });
     });
   }
   if (DOM.bodyFontSelect) {
-    DOM.bodyFontSelect.addEventListener('change', () => {
+    DOM.bodyFontSelect.addEventListener("change", () => {
       if (ignoreFontPickerEvents) return;
       const body = DOM.bodyFontSelect.value;
-      const heading = DOM.headingFontSelect && DOM.headingFontSelect.value ? DOM.headingFontSelect.value : body;
+      const heading =
+        DOM.headingFontSelect && DOM.headingFontSelect.value
+          ? DOM.headingFontSelect.value
+          : body;
       applyFontSelection(heading, body, { keepPairing: false });
     });
   }
   if (DOM.fontPairingSelect) {
-    DOM.fontPairingSelect.addEventListener('change', () => {
+    DOM.fontPairingSelect.addEventListener("change", () => {
       if (ignoreFontPickerEvents) return;
       const value = DOM.fontPairingSelect.value;
       if (!value) return;
-      const [heading, body] = value.split('|');
-      const pairing = (fontCatalog.pairings || []).find(p => p.heading === heading && p.body === body);
+      const [heading, body] = value.split("|");
+      const pairing = (fontCatalog.pairings || []).find(
+        (p) => p.heading === heading && p.body === body,
+      );
       applyFontSelection(heading, body, {
         keepPairing: true,
         headingPreviewText: findPairingPreview(pairing),
-        bodyPreviewText: getFontPreviewText(body)
+        bodyPreviewText: getFontPreviewText(body),
       });
     });
   }
   if (DOM.fontQuickPicksToggle) {
-    DOM.fontQuickPicksToggle.addEventListener('click', toggleQuickPicks);
+    DOM.fontQuickPicksToggle.addEventListener("click", toggleQuickPicks);
   }
 }
 
@@ -4134,50 +4621,69 @@ async function setupFontPicker() {
   return fontPickerSetupPromise;
 }
 
-function populateFontSelect(preselectFamily = '') {
-  setupFontPicker().then(() => {
-    const theme = activeTheme || getSelectedThemeTarget() || {};
-    if (preselectFamily) {
-      refreshFontPickerUI(theme, { heading: preselectFamily, body: preselectFamily });
-    } else {
-      refreshFontPickerUI(theme, {});
-    }
-  }).catch(() => { });
+function populateFontSelect(preselectFamily = "") {
+  setupFontPicker()
+    .then(() => {
+      const theme = activeTheme || getSelectedThemeTarget() || {};
+      if (preselectFamily) {
+        refreshFontPickerUI(theme, {
+          heading: preselectFamily,
+          body: preselectFamily,
+        });
+      } else {
+        refreshFontPickerUI(theme, {});
+      }
+    })
+    .catch(() => {});
 }
 
 function setThemeEditorMode(mode) {
-  const resolved = mode || (DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : 'edit');
+  const resolved =
+    mode ||
+    (DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit");
   if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = resolved;
-  const isCreate = resolved === 'create';
-  const isClone = resolved === 'clone';
+  const isCreate = resolved === "create";
+  const isClone = resolved === "clone";
 
-  if (DOM.btnUpdateTheme) DOM.btnUpdateTheme.style.display = isCreate ? 'none' : 'inline-block';
-  if (DOM.btnSaveTheme) DOM.btnSaveTheme.style.display = isCreate ? 'inline-block' : 'none';
-  if (DOM.themeCloneSection) DOM.themeCloneSection.classList.toggle('hidden', !isClone);
-  if (isClone && DOM.themeCloneName && !valueFromInput(DOM.themeCloneName) && activeTheme && activeTheme.name) {
+  if (DOM.btnUpdateTheme)
+    DOM.btnUpdateTheme.style.display = isCreate ? "none" : "inline-block";
+  if (DOM.btnSaveTheme)
+    DOM.btnSaveTheme.style.display = isCreate ? "inline-block" : "none";
+  if (DOM.themeCloneSection)
+    DOM.themeCloneSection.classList.toggle("hidden", !isClone);
+  if (
+    isClone &&
+    DOM.themeCloneName &&
+    !valueFromInput(DOM.themeCloneName) &&
+    activeTheme &&
+    activeTheme.name
+  ) {
     DOM.themeCloneName.value = `${activeTheme.name} Copy`;
   }
-  if (!isClone && DOM.themeCloneName) DOM.themeCloneName.value = '';
+  if (!isClone && DOM.themeCloneName) DOM.themeCloneName.value = "";
 
   if (isCreate) {
     resetCreateThemeModal();
     showCreateThemeModal();
-    if (DOM.themeName) DOM.themeName.value = '';
-    if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = '';
-    if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = '';
+    if (DOM.themeName) DOM.themeName.value = "";
+    if (DOM.themeWelcomeTitle) DOM.themeWelcomeTitle.value = "";
+    if (DOM.themeWelcomePrompt) DOM.themeWelcomePrompt.value = "";
     clearThemeFileInputs();
-    if (DOM.summaryBackground) DOM.summaryBackground.textContent = '';
-    if (DOM.summaryLogo) DOM.summaryLogo.textContent = '';
-    if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = '';
-    if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = '';
-    if (DOM.themeAccent) DOM.themeAccent.value = '#ff0000';
-    if (DOM.themeAccent2) DOM.themeAccent2.value = '#ffffff';
-    setupFontPicker().then(() => {
-      const defaults = fontCatalog && fontCatalog.defaults ? fontCatalog.defaults : {};
-      const heading = defaults.heading || 'Montserrat';
-      const body = defaults.body || 'Inter';
-      refreshFontPickerUI({}, { heading, body });
-    }).catch(() => { });
+    if (DOM.summaryBackground) DOM.summaryBackground.textContent = "";
+    if (DOM.summaryLogo) DOM.summaryLogo.textContent = "";
+    if (DOM.summaryOverlays) DOM.summaryOverlays.textContent = "";
+    if (DOM.summaryTemplates) DOM.summaryTemplates.textContent = "";
+    if (DOM.themeAccent) DOM.themeAccent.value = "#ff0000";
+    if (DOM.themeAccent2) DOM.themeAccent2.value = "#ffffff";
+    setupFontPicker()
+      .then(() => {
+        const defaults =
+          fontCatalog && fontCatalog.defaults ? fontCatalog.defaults : {};
+        const heading = defaults.heading || "Montserrat";
+        const body = defaults.body || "Inter";
+        refreshFontPickerUI({}, { heading, body });
+      })
+      .catch(() => {});
   } else {
     hideCreateThemeModal();
     resetCreateThemeModal();
@@ -4188,74 +4694,243 @@ function setThemeEditorMode(mode) {
 
 const DEFAULT_FONTS_PAYLOAD = {
   available: [
-    { name: 'Comic Neue', weights: [400, 700], preview: 'Welcome to the celebration!' },
-    { name: 'Creepster', weights: [400], preview: 'Spooky season starts now!' },
-    { name: 'Nosifer', weights: [400], preview: 'Dripping thrills at Fletch Photobooth!' },
-    { name: 'Montserrat', weights: [400, 600, 700], preview: 'Modern, clean, and easy to read.' },
-    { name: 'Inter', weights: [400, 600, 700], preview: 'Friendly and versatile for body copy.' },
-    { name: 'Source Sans 3', weights: [400, 600], preview: 'Reliable for long-form event details.' },
-    { name: 'Playfair Display', weights: [400, 600], preview: 'Elegant serif headlines for upscale events.' },
-    { name: 'Raleway', weights: [400, 600], preview: 'Sophisticated sans with personality.' },
-    { name: 'Lora', weights: [400, 600], preview: 'Warm serif that stays readable.' },
-    { name: 'Oswald', weights: [400, 600], preview: 'Tall, bold titles that grab attention.' },
-    { name: 'Poppins', weights: [400, 600], preview: 'Rounded geometric for friendly events.' },
-    { name: 'Lato', weights: [400, 700], preview: 'Balanced body font for signage.' },
-    { name: 'Bangers', weights: [400], preview: "Let's make some noise tonight!" },
-    { name: 'Great Vibes', weights: [400], preview: 'Love is in the air.' },
-    { name: 'Dancing Script', weights: [400, 700], preview: 'Handwritten flair for celebrations.' },
-    { name: 'Mountains of Christmas', weights: [400, 700], preview: 'Merry Christmas from Fletch Photobooth 🎄' },
-    { name: 'Roboto', weights: [400, 500, 700], preview: 'Ultra clear and neutral.' },
-    { name: 'Open Sans', weights: [400, 600, 700], preview: 'Highly legible on dark UIs.' },
-    { name: 'Abril Fatface', weights: [400], preview: 'Glam display for chic events.' },
-    { name: 'Crimson Text', weights: [400, 600, 700], preview: 'Classic bookish elegance.' },
-    { name: 'Work Sans', weights: [400, 600, 700], preview: 'Modern, friendly workhorse.' },
-    { name: 'Sniglet', weights: [400, 800], preview: 'Round and playful for kids.' },
-    { name: 'Cabin', weights: [400, 600, 700], preview: 'Warm, readable companion.' }
+    {
+      name: "Comic Neue",
+      weights: [400, 700],
+      preview: "Welcome to the celebration!",
+    },
+    { name: "Creepster", weights: [400], preview: "Spooky season starts now!" },
+    {
+      name: "Nosifer",
+      weights: [400],
+      preview: "Dripping thrills at Fletch Photobooth!",
+    },
+    {
+      name: "Montserrat",
+      weights: [400, 600, 700],
+      preview: "Modern, clean, and easy to read.",
+    },
+    {
+      name: "Inter",
+      weights: [400, 600, 700],
+      preview: "Friendly and versatile for body copy.",
+    },
+    {
+      name: "Source Sans 3",
+      weights: [400, 600],
+      preview: "Reliable for long-form event details.",
+    },
+    {
+      name: "Playfair Display",
+      weights: [400, 600],
+      preview: "Elegant serif headlines for upscale events.",
+    },
+    {
+      name: "Raleway",
+      weights: [400, 600],
+      preview: "Sophisticated sans with personality.",
+    },
+    {
+      name: "Lora",
+      weights: [400, 600],
+      preview: "Warm serif that stays readable.",
+    },
+    {
+      name: "Oswald",
+      weights: [400, 600],
+      preview: "Tall, bold titles that grab attention.",
+    },
+    {
+      name: "Poppins",
+      weights: [400, 600],
+      preview: "Rounded geometric for friendly events.",
+    },
+    {
+      name: "Lato",
+      weights: [400, 700],
+      preview: "Balanced body font for signage.",
+    },
+    {
+      name: "Bangers",
+      weights: [400],
+      preview: "Let's make some noise tonight!",
+    },
+    { name: "Great Vibes", weights: [400], preview: "Love is in the air." },
+    {
+      name: "Dancing Script",
+      weights: [400, 700],
+      preview: "Handwritten flair for celebrations.",
+    },
+    {
+      name: "Mountains of Christmas",
+      weights: [400, 700],
+      preview: "Merry Christmas from Fletch Photobooth 🎄",
+    },
+    {
+      name: "Roboto",
+      weights: [400, 500, 700],
+      preview: "Ultra clear and neutral.",
+    },
+    {
+      name: "Open Sans",
+      weights: [400, 600, 700],
+      preview: "Highly legible on dark UIs.",
+    },
+    {
+      name: "Abril Fatface",
+      weights: [400],
+      preview: "Glam display for chic events.",
+    },
+    {
+      name: "Crimson Text",
+      weights: [400, 600, 700],
+      preview: "Classic bookish elegance.",
+    },
+    {
+      name: "Work Sans",
+      weights: [400, 600, 700],
+      preview: "Modern, friendly workhorse.",
+    },
+    {
+      name: "Sniglet",
+      weights: [400, 800],
+      preview: "Round and playful for kids.",
+    },
+    {
+      name: "Cabin",
+      weights: [400, 600, 700],
+      preview: "Warm, readable companion.",
+    },
   ],
   defaults: {
-    heading: 'Comic Neue',
-    body: 'Montserrat'
+    heading: "Comic Neue",
+    body: "Montserrat",
   },
   pairings: [
-    { heading: 'Montserrat', body: 'Inter', notes: 'Modern Minimalist', preview: 'Modern & clean for any celebration.' },
-    { heading: 'Roboto', body: 'Open Sans', notes: 'Ultra Readable', preview: 'Crystal-clear on dark backgrounds.' },
-    { heading: 'Raleway', body: 'Open Sans', notes: 'Minimal Harmony', preview: 'Sleek look for promos & tech.' },
-    { heading: 'Playfair Display', body: 'Source Sans 3', notes: 'Timeless Elegance (Weddings/Formal)', preview: 'A timeless moment captured by Fletch Photo.' },
-    { heading: 'Great Vibes', body: 'Montserrat', notes: 'Romantic Flow (Valentine’s/Weddings)', preview: 'Love is in the air at Fletch Photo.' },
-    { heading: 'Abril Fatface', body: 'Lato', notes: 'Chic Impact (Gala/NYE)', preview: 'Ring in the New Year with style ✨' },
-    { heading: 'Great Vibes', body: 'Lora', notes: 'Romantic Elegance (Weddings)', preview: 'Happily ever after starts here.' },
-    { heading: 'Oswald', body: 'Inter', notes: 'Grad Glory (Graduation)', preview: 'Congrats, Grad! 🎓' },
-    { heading: 'Dancing Script', body: 'Poppins', notes: 'Joyful Moments (Birthdays/Family)', preview: 'Happy Birthday from Fletch Photobooth!' },
-    { heading: 'Bangers', body: 'Montserrat', notes: 'Comic Energy (Kids/Spirit)', preview: "Let’s make some noise tonight!" },
-    { heading: 'Sniglet', body: 'Cabin', notes: 'Playtime Fun (Kids)', preview: 'Let’s celebrate with Fletch Photobooth!' },
-    { heading: 'Oswald', body: 'Montserrat', notes: 'Bold Statement (Sports/Birthdays)', preview: 'Big energy for team spirit.' },
-    { heading: 'Poppins', body: 'Lato', notes: 'Friendly Geometric (Elementary)', preview: 'Family Fun Night with Fletch Photo!' },
-    { heading: 'Creepster', body: 'Inter', notes: 'Spooky Season (Halloween)', preview: 'Spooky season starts now!' },
-    { heading: 'Mountains of Christmas', body: 'Inter', notes: 'Festive Cheer (Christmas)', preview: 'Merry Christmas from Fletch Photobooth 🎄' },
-    { heading: 'Raleway', body: 'Lora', notes: 'Warm Whispers (Thanksgiving/Fall)', preview: 'Give thanks with Fletch Photobooth.' }
-  ]
+    {
+      heading: "Montserrat",
+      body: "Inter",
+      notes: "Modern Minimalist",
+      preview: "Modern & clean for any celebration.",
+    },
+    {
+      heading: "Roboto",
+      body: "Open Sans",
+      notes: "Ultra Readable",
+      preview: "Crystal-clear on dark backgrounds.",
+    },
+    {
+      heading: "Raleway",
+      body: "Open Sans",
+      notes: "Minimal Harmony",
+      preview: "Sleek look for promos & tech.",
+    },
+    {
+      heading: "Playfair Display",
+      body: "Source Sans 3",
+      notes: "Timeless Elegance (Weddings/Formal)",
+      preview: "A timeless moment captured by Fletch Photo.",
+    },
+    {
+      heading: "Great Vibes",
+      body: "Montserrat",
+      notes: "Romantic Flow (Valentine’s/Weddings)",
+      preview: "Love is in the air at Fletch Photo.",
+    },
+    {
+      heading: "Abril Fatface",
+      body: "Lato",
+      notes: "Chic Impact (Gala/NYE)",
+      preview: "Ring in the New Year with style ✨",
+    },
+    {
+      heading: "Great Vibes",
+      body: "Lora",
+      notes: "Romantic Elegance (Weddings)",
+      preview: "Happily ever after starts here.",
+    },
+    {
+      heading: "Oswald",
+      body: "Inter",
+      notes: "Grad Glory (Graduation)",
+      preview: "Congrats, Grad! 🎓",
+    },
+    {
+      heading: "Dancing Script",
+      body: "Poppins",
+      notes: "Joyful Moments (Birthdays/Family)",
+      preview: "Happy Birthday from Fletch Photobooth!",
+    },
+    {
+      heading: "Bangers",
+      body: "Montserrat",
+      notes: "Comic Energy (Kids/Spirit)",
+      preview: "Let’s make some noise tonight!",
+    },
+    {
+      heading: "Sniglet",
+      body: "Cabin",
+      notes: "Playtime Fun (Kids)",
+      preview: "Let’s celebrate with Fletch Photobooth!",
+    },
+    {
+      heading: "Oswald",
+      body: "Montserrat",
+      notes: "Bold Statement (Sports/Birthdays)",
+      preview: "Big energy for team spirit.",
+    },
+    {
+      heading: "Poppins",
+      body: "Lato",
+      notes: "Friendly Geometric (Elementary)",
+      preview: "Family Fun Night with Fletch Photo!",
+    },
+    {
+      heading: "Creepster",
+      body: "Inter",
+      notes: "Spooky Season (Halloween)",
+      preview: "Spooky season starts now!",
+    },
+    {
+      heading: "Mountains of Christmas",
+      body: "Inter",
+      notes: "Festive Cheer (Christmas)",
+      preview: "Merry Christmas from Fletch Photobooth 🎄",
+    },
+    {
+      heading: "Raleway",
+      body: "Lora",
+      notes: "Warm Whispers (Thanksgiving/Fall)",
+      preview: "Give thanks with Fletch Photobooth.",
+    },
+  ],
 };
 
 function normalizeFontFamilyName(name) {
-  return (name || '').toString().replace(/^['"]|['"]$/g, '').trim();
+  return (name || "")
+    .toString()
+    .replace(/^['"]|['"]$/g, "")
+    .trim();
 }
 
 function dedupeFontDefs(fonts) {
   const seen = new Set();
   const out = [];
   (Array.isArray(fonts) ? fonts : []).forEach((font) => {
-    if (!font || typeof font !== 'object') return;
+    if (!font || typeof font !== "object") return;
     const cleanName = normalizeFontFamilyName(font.name || font.value);
     if (!cleanName) return;
     const key = cleanName.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
-    const weights = Array.isArray(font.weights) ? font.weights.filter((w) => Number.isFinite(w)).map((w) => Number(w)) : [];
+    const weights = Array.isArray(font.weights)
+      ? font.weights.filter((w) => Number.isFinite(w)).map((w) => Number(w))
+      : [];
     out.push({
       name: cleanName,
       weights: weights.length ? weights : undefined,
       ital: Boolean(font.ital),
-      preview: font.preview || font.label || ''
+      preview: font.preview || font.label || "",
     });
   });
   return out;
@@ -4265,119 +4940,157 @@ function normalizeFontsPayload(raw) {
   if (!raw) return null;
   if (Array.isArray(raw)) {
     const converted = raw
-      .filter((item) => item && typeof item === 'object' && item.type === 'family')
+      .filter(
+        (item) => item && typeof item === "object" && item.type === "family",
+      )
       .map((item) => ({
         name: normalizeFontFamilyName(item.value),
         weights: item.weights,
-        preview: item.label || ''
+        preview: item.label || "",
       }))
       .filter((item) => item.name);
     return {
-      available: dedupeFontDefs([...DEFAULT_FONTS_PAYLOAD.available, ...converted]),
+      available: dedupeFontDefs([
+        ...DEFAULT_FONTS_PAYLOAD.available,
+        ...converted,
+      ]),
       defaults: { ...DEFAULT_FONTS_PAYLOAD.defaults },
-      pairings: [...DEFAULT_FONTS_PAYLOAD.pairings]
+      pairings: [...DEFAULT_FONTS_PAYLOAD.pairings],
     };
   }
-  if (typeof raw === 'object') {
-    const available = Array.isArray(raw.available) && raw.available.length
-      ? dedupeFontDefs(raw.available)
-      : dedupeFontDefs(DEFAULT_FONTS_PAYLOAD.available);
+  if (typeof raw === "object") {
+    const available =
+      Array.isArray(raw.available) && raw.available.length
+        ? dedupeFontDefs(raw.available)
+        : dedupeFontDefs(DEFAULT_FONTS_PAYLOAD.available);
     const defaults = {
       ...DEFAULT_FONTS_PAYLOAD.defaults,
-      ...(raw.defaults && typeof raw.defaults === 'object' ? raw.defaults : {})
+      ...(raw.defaults && typeof raw.defaults === "object" ? raw.defaults : {}),
     };
-    const pairings = Array.isArray(raw.pairings) && raw.pairings.length
-      ? raw.pairings
-      : DEFAULT_FONTS_PAYLOAD.pairings;
+    const pairings =
+      Array.isArray(raw.pairings) && raw.pairings.length
+        ? raw.pairings
+        : DEFAULT_FONTS_PAYLOAD.pairings;
     return { available, defaults, pairings };
   }
   return null;
 }
 
 function buildGoogleFontsURL(fonts) {
-  const items = (Array.isArray(fonts) ? fonts : []).filter((font) => font && font.name);
-  if (!items.length) return '';
-  const fams = items.map((font) => {
-    const fam = encodeURIComponent(font.name).replace(/%20/g, '+');
-    const weights = Array.isArray(font.weights) && font.weights.length
-      ? Array.from(new Set(font.weights)).sort((a, b) => a - b)
-      : [400];
-    if (font.ital) {
-      const pairs = [...weights.map((w) => `0,${w}`), ...weights.map((w) => `1,${w}`)].join(';');
-      return `family=${fam}:ital,wght@${pairs}`;
-    }
-    return `family=${fam}:wght@${weights.join(';')}`;
-  }).join('&');
-  return `https://fonts.googleapis.com/css2?${fams}&display=swap`;
+  // Local font files are bundled under /fonts and referenced via fonts.css,
+  // so there is no need to hit Google Fonts at runtime. Keeping this helper
+  // returning an empty string prevents unnecessary network requests while
+  // still allowing callers to guard on a falsy value.
+  void fonts;
+  return "";
 }
 
 function setHeadingFont(family) {
-  const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.heading);
+  const clean =
+    normalizeFontFamilyName(family) ||
+    normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.heading);
   const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
-  document.documentElement.style.setProperty('--font-heading', stack);
-  localStorage.setItem('font.heading', clean);
+  document.documentElement.style.setProperty("--font-heading", stack);
+  localStorage.setItem("font.heading", clean);
 }
 
 function setBodyFont(family) {
-  const clean = normalizeFontFamilyName(family) || normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.body);
+  const clean =
+    normalizeFontFamilyName(family) ||
+    normalizeFontFamilyName(DEFAULT_FONTS_PAYLOAD.defaults.body);
   const stack = `'${clean}', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
-  document.documentElement.style.setProperty('--font-body', stack);
-  document.documentElement.style.setProperty('--font', stack);
-  localStorage.setItem('font.body', clean);
+  document.documentElement.style.setProperty("--font-body", stack);
+  document.documentElement.style.setProperty("--font", stack);
+  localStorage.setItem("font.body", clean);
 }
 
 function findFontPreview(fonts, name) {
   const clean = normalizeFontFamilyName(name);
-  const match = (Array.isArray(fonts) ? fonts : []).find((f) => normalizeFontFamilyName(f.name) === clean);
+  const match = (Array.isArray(fonts) ? fonts : []).find(
+    (f) => normalizeFontFamilyName(f.name) === clean,
+  );
   return match && match.preview ? match.preview : DEFAULT_FONT_PREVIEW;
 }
 
 function renderQuickPicks(args) {
   const { container, pairings, fonts, apply } = args;
-  container.innerHTML = '';
-  const seasonalWords = ['Christmas', 'Holiday', 'Spooky', 'Valentine', 'Easter', 'New Year'];
+  container.innerHTML = "";
+  const priorityOrder = [
+    "Halloween",
+    "Christmas",
+    "New Year",
+    "Fall",
+    "Thanksgiving",
+    "Valentine",
+    "Graduation",
+  ];
+  const seasonalWords = priorityOrder.map((word) => word.toLowerCase());
+  const sortKey = (pair) => {
+    if (!pair || !pair.notes) return Number.MAX_SAFE_INTEGER;
+    const note = pair.notes.toLowerCase();
+    const idx = seasonalWords.findIndex((word) => note.includes(word));
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+  };
   const sorted = [...pairings].sort((a, b) => {
-    const aSeason = a && a.preview && seasonalWords.some((w) => a.preview.includes(w));
-    const bSeason = b && b.preview && seasonalWords.some((w) => b.preview.includes(w));
-    if (aSeason === bSeason) return 0;
-    return aSeason ? -1 : 1;
+    const aKey = sortKey(a);
+    const bKey = sortKey(b);
+    if (aKey === bKey)
+      return ((a && a.heading) || "").localeCompare((b && b.heading) || "");
+    return aKey - bKey;
   });
   sorted.forEach((pairing) => {
     if (!pairing || !pairing.heading || !pairing.body) return;
-    const headingPreview = pairing.preview
-      || findFontPreview(fonts, pairing.heading)
-      || DEFAULT_FONT_PREVIEW;
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'quick-pick-card';
+    const headingPreview =
+      pairing.preview ||
+      findFontPreview(fonts, pairing.heading) ||
+      DEFAULT_FONT_PREVIEW;
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "quick-pick-card";
     card.innerHTML = `
       <div class="quick-pick-label">Quick Pick</div>
-      <div class="quick-pick-fonts"><span class="quick-pick-heading">${pairing.heading}</span> + ${pairing.body}</div>
-      <div class="quick-pick-preview" style="font-family: '${pairing.heading}', system-ui, sans-serif;">${headingPreview}</div>
-      ${pairing.notes ? `<div class="quick-pick-notes">${pairing.notes}</div>` : ''}
+      <div class="quick-pick-fonts"><span class="quick-pick-heading">${
+        pairing.heading
+      }</span> + ${pairing.body}</div>
+      <div class="quick-pick-preview" style="font-family: '${
+        pairing.heading
+      }', system-ui, sans-serif;">${headingPreview}</div>
+      ${
+        pairing.notes
+          ? `<div class="quick-pick-notes">${pairing.notes}</div>`
+          : ""
+      }
     `;
-    card.addEventListener('click', () => apply(pairing.heading, pairing.body, headingPreview));
+    card.addEventListener("click", () =>
+      apply(pairing.heading, pairing.body, headingPreview),
+    );
     container.appendChild(card);
   });
 }
 
 async function setupDualFontPicker(opts) {
   if (!opts || !opts.headingSelect || !opts.bodySelect) return;
-  const endpointRaw = (typeof opts.fontsEndpoint === 'string') ? opts.fontsEndpoint.trim() : '/api/fonts';
+  const endpointRaw =
+    typeof opts.fontsEndpoint === "string"
+      ? opts.fontsEndpoint.trim()
+      : "/api/fonts";
   const endpoint = endpointRaw.length ? endpointRaw : null;
   let payload = null;
   if (endpoint) {
     try {
-      const res = await fetch(endpoint, { cache: 'no-store' });
+      const res = await fetch(endpoint, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         payload = normalizeFontsPayload(data);
       }
     } catch (e) {
-      console.warn('Failed to fetch fonts payload', e);
+      console.warn("Failed to fetch fonts payload", e);
     }
   }
-  const effective = payload || normalizeFontsPayload(DEFAULT_FONTS_PAYLOAD) || DEFAULT_FONTS_PAYLOAD;
+  const effective =
+    payload ||
+    normalizeFontsPayload(DEFAULT_FONTS_PAYLOAD) ||
+    DEFAULT_FONTS_PAYLOAD;
   const fonts = dedupeFontDefs(effective.available);
   const pairings = Array.isArray(effective.pairings) ? effective.pairings : [];
   if (!fonts.length) return;
@@ -4386,9 +5099,9 @@ async function setupDualFontPicker(opts) {
 
   const populate = (sel) => {
     if (!sel) return;
-    sel.innerHTML = '';
+    sel.innerHTML = "";
     fonts.forEach((font) => {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = font.name;
       opt.textContent = font.name;
       opt.style.fontFamily = `'${font.name}', system-ui, sans-serif`;
@@ -4399,133 +5112,124 @@ async function setupDualFontPicker(opts) {
   populate(opts.headingSelect);
   populate(opts.bodySelect);
 
-  const storedHeading = normalizeFontFamilyName(localStorage.getItem('font.heading'));
-  const storedBody = normalizeFontFamilyName(localStorage.getItem('font.body'));
-  const defaultHeading = storedHeading || normalizeFontFamilyName(effective.defaults && effective.defaults.heading) || fonts[0].name;
-  const defaultBody = storedBody || normalizeFontFamilyName(effective.defaults && effective.defaults.body) || fonts[0].name;
+  const storedHeading = normalizeFontFamilyName(
+    localStorage.getItem("font.heading"),
+  );
+  const storedBody = normalizeFontFamilyName(localStorage.getItem("font.body"));
+  const defaultHeading =
+    storedHeading ||
+    normalizeFontFamilyName(effective.defaults && effective.defaults.heading) ||
+    fonts[0].name;
+  const defaultBody =
+    storedBody ||
+    normalizeFontFamilyName(effective.defaults && effective.defaults.body) ||
+    fonts[0].name;
 
   setHeadingFont(defaultHeading);
   setBodyFont(defaultBody);
 
   if (opts.headingSelect) opts.headingSelect.value = defaultHeading;
   if (opts.bodySelect) opts.bodySelect.value = defaultBody;
-  if (opts.headingPreview) {
-    opts.headingPreview.style.fontFamily = `'${defaultHeading}', system-ui, sans-serif`;
-    opts.headingPreview.textContent = findFontPreview(fonts, defaultHeading);
-  }
-  if (opts.bodyPreview) {
-    opts.bodyPreview.style.fontFamily = `'${defaultBody}', system-ui, sans-serif`;
-    opts.bodyPreview.textContent = findFontPreview(fonts, defaultBody);
-  }
+  refreshStylePreviewText();
 
   if (opts.headingSelect) {
-    opts.headingSelect.addEventListener('change', () => {
+    opts.headingSelect.addEventListener("change", () => {
       const val = opts.headingSelect.value;
       setHeadingFont(val);
-      if (opts.headingPreview) {
-        opts.headingPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
-        opts.headingPreview.textContent = findFontPreview(fonts, val);
-      }
-      if (opts.pairingSelect) opts.pairingSelect.value = '';
+      if (opts.pairingSelect) opts.pairingSelect.value = "";
+      refreshStylePreviewText();
     });
   }
 
   if (opts.bodySelect) {
-    opts.bodySelect.addEventListener('change', () => {
+    opts.bodySelect.addEventListener("change", () => {
       const val = opts.bodySelect.value;
       setBodyFont(val);
-      if (opts.bodyPreview) {
-        opts.bodyPreview.style.fontFamily = `'${val}', system-ui, sans-serif`;
-        opts.bodyPreview.textContent = findFontPreview(fonts, val);
-      }
-      if (opts.pairingSelect) opts.pairingSelect.value = '';
+      if (opts.pairingSelect) opts.pairingSelect.value = "";
+      refreshStylePreviewText();
     });
   }
 
   if (opts.pairingSelect) {
     const sel = opts.pairingSelect;
-    sel.innerHTML = '';
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = '-- Choose a pairing --';
+    sel.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "-- Choose a pairing --";
     sel.appendChild(placeholder);
     pairings.forEach((pairing) => {
       if (!pairing || !pairing.heading || !pairing.body) return;
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = `${pairing.heading}|${pairing.body}`;
-      opt.textContent = pairing.notes ? `${pairing.heading} + ${pairing.body} - ${pairing.notes}` : `${pairing.heading} + ${pairing.body}`;
+      opt.textContent = pairing.notes
+        ? `${pairing.heading} + ${pairing.body} - ${pairing.notes}`
+        : `${pairing.heading} + ${pairing.body}`;
       sel.appendChild(opt);
     });
-    sel.addEventListener('change', () => {
+    sel.addEventListener("change", () => {
       if (!sel.value) return;
-      const [h, b] = sel.value.split('|');
+      const [h, b] = sel.value.split("|");
       const pairing = pairings.find((p) => p.heading === h && p.body === b);
       if (opts.headingSelect) opts.headingSelect.value = h;
       if (opts.bodySelect) opts.bodySelect.value = b;
       setHeadingFont(h);
       setBodyFont(b);
       const headingPreviewText = findPairingPreview(pairing, fonts);
-      if (opts.headingPreview) {
-        opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
-        opts.headingPreview.textContent = headingPreviewText;
-      }
-      if (opts.bodyPreview) {
-        opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
-        opts.bodyPreview.textContent = findFontPreview(fonts, b);
-      }
+      refreshStylePreviewText({
+        headingPreviewText,
+        bodyPreviewText: findFontPreview(fonts, b),
+      });
     });
   }
 
-  const qpEl = document.getElementById('quickPicks');
-  const qpToggle = document.getElementById('qpToggle');
+  const qpEl = document.getElementById("quickPicks");
+  const qpToggle = document.getElementById("qpToggle");
   const applyBoth = (h, b, previewText) => {
     if (opts.headingSelect) opts.headingSelect.value = h;
     if (opts.bodySelect) opts.bodySelect.value = b;
     setHeadingFont(h);
     setBodyFont(b);
     const bodyPreviewText = findFontPreview(fonts, b);
-    if (opts.headingPreview) {
-      opts.headingPreview.style.fontFamily = `'${h}', system-ui, sans-serif`;
-      opts.headingPreview.textContent = previewText || findFontPreview(fonts, h);
-    }
-    if (opts.bodyPreview) {
-      opts.bodyPreview.style.fontFamily = `'${b}', system-ui, sans-serif`;
-      opts.bodyPreview.textContent = bodyPreviewText;
-    }
-    if (opts.pairingSelect) opts.pairingSelect.value = '';
+    if (opts.pairingSelect) opts.pairingSelect.value = "";
+    refreshStylePreviewText({
+      headingPreviewText: previewText || findFontPreview(fonts, h),
+      bodyPreviewText: bodyPreviewText,
+    });
   };
 
   if (qpEl && pairings.length) {
     renderQuickPicks({ container: qpEl, pairings, fonts, apply: applyBoth });
     let expanded = false;
     const updateGrid = () => {
-      qpEl.style.maxHeight = expanded ? '' : '220px';
-      qpEl.style.overflow = expanded ? 'visible' : 'hidden';
-      if (qpToggle) qpToggle.textContent = expanded ? 'show less' : 'show all';
+      qpEl.style.maxHeight = expanded ? "" : "220px";
+      qpEl.style.overflow = expanded ? "visible" : "hidden";
+      if (qpToggle) qpToggle.textContent = expanded ? "show less" : "show all";
     };
     updateGrid();
     if (qpToggle) {
-      qpToggle.style.display = 'inline-block';
-      qpToggle.addEventListener('click', () => {
+      qpToggle.style.display = "inline-block";
+      qpToggle.addEventListener("click", () => {
         expanded = !expanded;
         updateGrid();
       });
     }
   } else if (qpToggle) {
-    qpToggle.style.display = 'none';
+    qpToggle.style.display = "none";
   }
+
+  refreshStylePreviewText();
 }
 
 // --- Editing Existing Themes ---
 function getSelectedThemeKey() {
   const eventKey = DOM.eventSelect && DOM.eventSelect.value;
-  return eventKey || '';
+  return eventKey || "";
 }
 function getSelectedThemeTarget() {
   const key = getSelectedThemeKey();
   if (!key) return null;
-  if (key.includes(':')) {
-    const [rootKey, subKey] = key.split(':');
+  if (key.includes(":")) {
+    const [rootKey, subKey] = key.split(":");
     const root = themes[rootKey];
     if (!root) return null;
     if (root.themes && root.themes[subKey]) return root.themes[subKey];
@@ -4535,10 +5239,14 @@ function getSelectedThemeTarget() {
   return themes[key] || null;
 }
 
-async function updateSelectedTheme(reason = '') {
+async function updateSelectedTheme(reason = "") {
   const key = getSelectedThemeKey();
   const target = getSelectedThemeTarget();
-  if (!key || !target) { alert('Select a theme first.'); clearThemeFileInputs(); return; }
+  if (!key || !target) {
+    alert("Select a theme first.");
+    clearThemeFileInputs();
+    return;
+  }
 
   applyThemeBasicsFromEditor(target);
   const folders = readThemeFolderInputs();
@@ -4546,20 +5254,23 @@ async function updateSelectedTheme(reason = '') {
   try {
     assetChanges = await uploadThemeAssetsFromEditor(target);
   } catch (err) {
-    console.error('Failed to upload theme assets', err);
+    console.error("Failed to upload theme assets", err);
     clearThemeFileInputs();
-    alert('Could not update the theme. Check the console for details.');
+    alert("Could not update the theme. Check the console for details.");
     return;
   }
   if (assetChanges && assetChanges.logoUrl) {
     setGlobalLogo(assetChanges.logoUrl, { quiet: true, skipSave: true });
   } else {
     const currentGlobalLogo = getGlobalLogo();
-    if (currentGlobalLogo !== null) applyGlobalLogoToTheme(target, currentGlobalLogo);
+    if (currentGlobalLogo !== null)
+      applyGlobalLogoToTheme(target, currentGlobalLogo);
   }
   applyThemeFolderSettings(target, folders);
 
-  try { normalizeThemeObject(target); } catch (_e) { }
+  try {
+    normalizeThemeObject(target);
+  } catch (_e) {}
   saveThemesToStorage();
 
   populateThemeSelector(key);
@@ -4571,98 +5282,140 @@ async function updateSelectedTheme(reason = '') {
 }
 
 function describeThemeUpdate(changes, reason) {
-  if (!changes) return 'Theme updated';
+  if (!changes) return "Theme updated";
   const parts = [];
   if (changes.backgroundsAdded) {
-    parts.push(`Added ${changes.backgroundsAdded} background${changes.backgroundsAdded === 1 ? '' : 's'}`);
+    parts.push(
+      `Added ${changes.backgroundsAdded} background${
+        changes.backgroundsAdded === 1 ? "" : "s"
+      }`,
+    );
   }
   if (changes.overlaysAdded) {
-    parts.push(`Added ${changes.overlaysAdded} overlay${changes.overlaysAdded === 1 ? '' : 's'}`);
+    parts.push(
+      `Added ${changes.overlaysAdded} overlay${
+        changes.overlaysAdded === 1 ? "" : "s"
+      }`,
+    );
   }
   if (changes.templatesAdded) {
-    parts.push(`Added ${changes.templatesAdded} template${changes.templatesAdded === 1 ? '' : 's'}`);
+    parts.push(
+      `Added ${changes.templatesAdded} template${
+        changes.templatesAdded === 1 ? "" : "s"
+      }`,
+    );
   }
   if (changes.logoUrl) {
-    parts.push('Logo applied to all themes');
+    parts.push("Logo applied to all themes");
   }
-  if (parts.length) return parts.join(' • ');
-  if (reason === 'logo') return 'Logo unchanged';
-  return 'Theme updated';
+  if (parts.length) return parts.join(" • ");
+  if (reason === "logo") return "Logo unchanged";
+  return "Theme updated";
 }
 
 function valueFromInput(node) {
-  return node && typeof node.value === 'string' ? node.value.trim() : '';
+  return node && typeof node.value === "string" ? node.value.trim() : "";
 }
 
 function slugifyThemeName(name) {
-  return (name || '')
+  return (name || "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
 }
 
 function ensureCreateThemeAssets() {
   if (!createThemeAssets) {
-    createThemeAssets = { backgrounds: [], overlays: [], templates: [], logos: [] };
+    createThemeAssets = {
+      backgrounds: [],
+      overlays: [],
+      templates: [],
+      logos: [],
+    };
   }
   return createThemeAssets;
 }
 
 function resetCreateThemeAssets() {
-  createThemeAssets = { backgrounds: [], overlays: [], templates: [], logos: [] };
+  createThemeAssets = {
+    backgrounds: [],
+    overlays: [],
+    templates: [],
+    logos: [],
+  };
 }
 
 function resetCreateThemeModal() {
   resetCreateThemeAssets();
-  if (DOM.createThemeName) DOM.createThemeName.value = '';
-  if (DOM.createThemeSummary) DOM.createThemeSummary.textContent = 'Drop a theme folder to begin.';
-  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+  if (DOM.createThemeName) DOM.createThemeName.value = "";
+  if (DOM.createThemeSummary)
+    DOM.createThemeSummary.textContent = "Drop a theme folder to begin.";
+  if (DOM.createThemeDropZone)
+    DOM.createThemeDropZone.classList.remove("dragover");
   updateThemeEditorSummary();
 }
 
 function showCreateThemeModal() {
-  if (DOM.createThemeModal) DOM.createThemeModal.classList.add('show');
+  if (DOM.createThemeModal) DOM.createThemeModal.classList.add("show");
   updateCreateThemeSummary();
   if (DOM.createThemeName) DOM.createThemeName.focus();
 }
 
 function hideCreateThemeModal() {
-  if (DOM.createThemeModal) DOM.createThemeModal.classList.remove('show');
+  if (DOM.createThemeModal) DOM.createThemeModal.classList.remove("show");
 }
 
 function updateCreateThemeSummary() {
   const summary = DOM.createThemeSummary;
   if (!summary) return;
   if (!createThemeAssets) {
-    summary.textContent = 'Drop a theme folder to begin.';
+    summary.textContent = "Drop a theme folder to begin.";
     updateThemeEditorSummary();
     return;
   }
   const parts = [];
-  const { backgrounds = [], overlays = [], templates = [], logos = [] } = createThemeAssets;
-  if (backgrounds.length) parts.push(`${backgrounds.length} background${backgrounds.length === 1 ? '' : 's'}`);
-  if (overlays.length) parts.push(`${overlays.length} overlay${overlays.length === 1 ? '' : 's'}`);
-  if (templates.length) parts.push(`${templates.length} template${templates.length === 1 ? '' : 's'}`);
-  if (logos.length) parts.push(`${logos.length} logo${logos.length === 1 ? '' : 's'}`);
-  summary.textContent = parts.length ? `Assets ready: ${parts.join(', ')}` : 'No assets detected yet.';
+  const {
+    backgrounds = [],
+    overlays = [],
+    templates = [],
+    logos = [],
+  } = createThemeAssets;
+  if (backgrounds.length)
+    parts.push(
+      `${backgrounds.length} background${backgrounds.length === 1 ? "" : "s"}`,
+    );
+  if (overlays.length)
+    parts.push(`${overlays.length} overlay${overlays.length === 1 ? "" : "s"}`);
+  if (templates.length)
+    parts.push(
+      `${templates.length} template${templates.length === 1 ? "" : "s"}`,
+    );
+  if (logos.length)
+    parts.push(`${logos.length} logo${logos.length === 1 ? "" : "s"}`);
+  summary.textContent = parts.length
+    ? `Assets ready: ${parts.join(", ")}`
+    : "No assets detected yet.";
   updateThemeEditorSummary();
 }
 
 function handleCreateThemeDragOver(event) {
   event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.add('dragover');
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  if (DOM.createThemeDropZone)
+    DOM.createThemeDropZone.classList.add("dragover");
 }
 
 function handleCreateThemeDragLeave(event) {
   event.preventDefault();
-  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+  if (DOM.createThemeDropZone)
+    DOM.createThemeDropZone.classList.remove("dragover");
 }
 
 async function handleCreateThemeDrop(event) {
   event.preventDefault();
-  if (DOM.createThemeDropZone) DOM.createThemeDropZone.classList.remove('dragover');
+  if (DOM.createThemeDropZone)
+    DOM.createThemeDropZone.classList.remove("dragover");
   const files = await extractFilesFromDataTransfer(event.dataTransfer);
   if (files.length) {
     handleCreateThemeFiles(files);
@@ -4683,11 +5436,16 @@ function handleCreateThemeFiles(fileList) {
 }
 
 function categorizeThemeAsset(file) {
-  const rel = (file.webkitRelativePath || file._relativePath || file.name || '').toLowerCase();
-  if (rel.includes('overlay')) return 'overlays';
-  if (rel.includes('template')) return 'templates';
-  if (rel.includes('background')) return 'backgrounds';
-  if (rel.includes('logo')) return 'logos';
+  const rel = (
+    file.webkitRelativePath ||
+    file._relativePath ||
+    file.name ||
+    ""
+  ).toLowerCase();
+  if (rel.includes("overlay")) return "overlays";
+  if (rel.includes("template")) return "templates";
+  if (rel.includes("background")) return "backgrounds";
+  if (rel.includes("logo")) return "logos";
   return null;
 }
 
@@ -4695,16 +5453,20 @@ async function extractFilesFromDataTransfer(dataTransfer) {
   const files = [];
   if (!dataTransfer) return files;
   if (dataTransfer.items && dataTransfer.items.length) {
-    const items = Array.from(dataTransfer.items).filter((item) => item.kind === 'file');
-    const nested = await Promise.all(items.map(async (item) => {
-      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
-      if (entry) {
-        return traverseFileEntry(entry).catch(() => []);
-      }
-      const file = item.getAsFile();
-      return file ? [file] : [];
-    }));
-    nested.forEach(list => files.push(...list));
+    const items = Array.from(dataTransfer.items).filter(
+      (item) => item.kind === "file",
+    );
+    const nested = await Promise.all(
+      items.map(async (item) => {
+        const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+        if (entry) {
+          return traverseFileEntry(entry).catch(() => []);
+        }
+        const file = item.getAsFile();
+        return file ? [file] : [];
+      }),
+    );
+    nested.forEach((list) => files.push(...list));
   } else if (dataTransfer.files && dataTransfer.files.length) {
     files.push(...Array.from(dataTransfer.files));
   }
@@ -4715,85 +5477,117 @@ function readAllDirectoryEntries(reader) {
   return new Promise((resolve) => {
     const entries = [];
     const readEntries = () => {
-      reader.readEntries((batch) => {
-        if (!batch.length) {
-          resolve(entries);
-        } else {
-          entries.push(...batch);
-          readEntries();
-        }
-      }, () => resolve(entries));
+      reader.readEntries(
+        (batch) => {
+          if (!batch.length) {
+            resolve(entries);
+          } else {
+            entries.push(...batch);
+            readEntries();
+          }
+        },
+        () => resolve(entries),
+      );
     };
     readEntries();
   });
 }
 
-async function traverseFileEntry(entry, path = '') {
+async function traverseFileEntry(entry, path = "") {
   if (entry.isFile) {
-    const file = await new Promise((resolve, reject) => entry.file(resolve, reject)).catch(() => null);
+    const file = await new Promise((resolve, reject) =>
+      entry.file(resolve, reject),
+    ).catch(() => null);
     if (!file) return [];
     file._relativePath = path + entry.name;
     return [file];
   }
   if (entry.isDirectory) {
     const entries = await readAllDirectoryEntries(entry.createReader());
-    const nested = await Promise.all(entries.map((ent) => traverseFileEntry(ent, path + entry.name + '/')));
+    const nested = await Promise.all(
+      entries.map((ent) => traverseFileEntry(ent, path + entry.name + "/")),
+    );
     return nested.flat();
   }
   return [];
 }
 
 async function confirmCreateTheme() {
-  const name = valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
+  const name =
+    valueFromInput(DOM.createThemeName) || valueFromInput(DOM.themeName);
   const slug = slugifyThemeName(name);
-  if (!slug) { alert('Enter a valid name for the new theme.'); return; }
-  if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+  if (!slug) {
+    alert("Enter a valid name for the new theme.");
+    return;
+  }
+  if (themes[slug]) {
+    alert("A theme with that name already exists.");
+    return;
+  }
   const assets = ensureCreateThemeAssets();
-  const hasAny = (assets.backgrounds.length + assets.overlays.length + assets.templates.length + assets.logos.length) > 0;
+  const hasAny =
+    assets.backgrounds.length +
+      assets.overlays.length +
+      assets.templates.length +
+      assets.logos.length >
+    0;
   if (!hasAny) {
-    const proceed = confirm('No assets were detected. Create an empty theme?');
+    const proceed = confirm("No assets were detected. Create an empty theme?");
     if (!proceed) return;
   }
   const baseTheme = cloneThemeValue(BUILTIN_THEMES.general.themes.basic || {});
   const newTheme = mergePlainObject(baseTheme, {});
   newTheme.name = name;
-  newTheme.background = '';
+  newTheme.background = "";
   newTheme.backgrounds = [];
   newTheme.overlays = [];
   newTheme.templates = [];
-  newTheme.logo = '';
-  newTheme.overlaysFolder = '';
-  newTheme.templatesFolder = '';
-  newTheme.welcome = mergePlainObject(baseTheme.welcome || {}, newTheme.welcome || {});
+  newTheme.logo = "";
+  newTheme.overlaysFolder = "";
+  newTheme.templatesFolder = "";
+  newTheme.welcome = mergePlainObject(
+    baseTheme.welcome || {},
+    newTheme.welcome || {},
+  );
   newTheme.welcome.title = newTheme.welcome.title || name;
 
   const tasks = [];
   const existingGlobalLogo = getGlobalLogo();
   assets.backgrounds.forEach((file, index) => {
-    tasks.push(uploadAsset(file, 'backgrounds').then((url) => {
-      if (!url) return;
-      ensureArray(newTheme, 'backgrounds');
-      newTheme.backgrounds.push(url);
-      if (!newTheme.background) newTheme.background = url;
-    }));
+    tasks.push(
+      uploadAsset(file, "backgrounds").then((url) => {
+        if (!url) return;
+        ensureArray(newTheme, "backgrounds");
+        newTheme.backgrounds.push(url);
+        if (!newTheme.background) newTheme.background = url;
+      }),
+    );
   });
   assets.overlays.forEach((file) => {
-    tasks.push(uploadAsset(file, 'overlays').then((url) => {
-      if (!url) return;
-      ensureArray(newTheme, 'overlays');
-      newTheme.overlays.push(url);
-    }));
+    tasks.push(
+      uploadAsset(file, "overlays").then((url) => {
+        if (!url) return;
+        ensureArray(newTheme, "overlays");
+        newTheme.overlays.push(url);
+      }),
+    );
   });
   assets.templates.forEach((file) => {
-    tasks.push(uploadAsset(file, 'templates').then((url) => {
-      if (!url) return;
-      ensureArray(newTheme, 'templates');
-      newTheme.templates.push({ src: url, layout: 'double_column' });
-    }));
+    tasks.push(
+      uploadAsset(file, "templates").then((url) => {
+        if (!url) return;
+        ensureArray(newTheme, "templates");
+        newTheme.templates.push({ src: url, layout: "double_column" });
+      }),
+    );
   });
   if (assets.logos.length) {
     const logoFile = assets.logos[0];
-    tasks.push(uploadAsset(logoFile, 'logo').then((url) => { if (url) newTheme.logo = url; }));
+    tasks.push(
+      uploadAsset(logoFile, "logo").then((url) => {
+        if (url) newTheme.logo = url;
+      }),
+    );
   }
 
   try {
@@ -4809,40 +5603,57 @@ async function confirmCreateTheme() {
     setEventSelection(slug);
     loadTheme(slug);
     if (DOM.themeName) DOM.themeName.value = newTheme.name;
-    if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = 'edit';
-    setThemeEditorMode('edit');
+    if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = "edit";
+    setThemeEditorMode("edit");
     hideCreateThemeModal();
     resetCreateThemeModal();
     showToast(`Theme "${name}" created`);
   } catch (err) {
-    console.error('Failed to create theme', err);
-    alert('Could not create theme. See console for details.');
+    console.error("Failed to create theme", err);
+    alert("Could not create theme. See console for details.");
   }
 }
 
 function handleCloneTheme() {
-  if (!activeTheme) { alert('Select a theme to clone first.'); return; }
+  if (!activeTheme) {
+    alert("Select a theme to clone first.");
+    return;
+  }
   const name = valueFromInput(DOM.themeCloneName);
   const slug = slugifyThemeName(name);
-  if (!slug) { alert('Enter a name for the cloned theme.'); return; }
+  if (!slug) {
+    alert("Enter a name for the cloned theme.");
+    return;
+  }
   const currentKey = DOM.eventSelect && DOM.eventSelect.value;
   const location = resolveThemeStorage(currentKey);
   const cloned = cloneThemeValue(activeTheme);
   cloned.name = name;
-  cloned.welcome = mergePlainObject(activeTheme.welcome || {}, cloned.welcome || {});
+  cloned.welcome = mergePlainObject(
+    activeTheme.welcome || {},
+    cloned.welcome || {},
+  );
   if (cloned.welcome) cloned.welcome.title = cloned.welcome.title || name;
 
   let newKey = slug;
-  if (location.bucket && location.parent && typeof location.parent === 'object') {
-    if (!location.parent[location.bucket]) location.parent[location.bucket] = {};
+  if (
+    location.bucket &&
+    location.parent &&
+    typeof location.parent === "object"
+  ) {
+    if (!location.parent[location.bucket])
+      location.parent[location.bucket] = {};
     if (location.parent[location.bucket][slug]) {
-      alert('A theme with that name already exists in this category.');
+      alert("A theme with that name already exists in this category.");
       return;
     }
     location.parent[location.bucket][slug] = cloned;
     newKey = `${location.root}:${slug}`;
   } else {
-    if (themes[slug]) { alert('A theme with that name already exists.'); return; }
+    if (themes[slug]) {
+      alert("A theme with that name already exists.");
+      return;
+    }
     themes[slug] = cloned;
   }
 
@@ -4850,9 +5661,9 @@ function handleCloneTheme() {
   populateThemeSelector(newKey);
   setEventSelection(newKey);
   loadTheme(newKey);
-  if (DOM.themeCloneName) DOM.themeCloneName.value = '';
-  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = 'edit';
-  setThemeEditorMode('edit');
+  if (DOM.themeCloneName) DOM.themeCloneName.value = "";
+  if (DOM.themeEditorModeSelect) DOM.themeEditorModeSelect.value = "edit";
+  setThemeEditorMode("edit");
   showToast(`Cloned theme as "${name}"`);
 }
 
@@ -4869,31 +5680,56 @@ function applyThemeBasicsFromEditor(target) {
     target.fontBody = composeFontString(picker.body);
     ensureFontLoaded(picker.body, false);
   }
-  target.font = composeFontString(picker.body || picker.heading || primaryFontFamily(target.font || '') || 'Comic Neue');
+  target.font = composeFontString(
+    picker.body ||
+      picker.heading ||
+      primaryFontFamily(target.font || "") ||
+      "Comic Neue",
+  );
   target.welcome = target.welcome || {};
-  target.welcome.title = valueFromInput(DOM.themeWelcomeTitle) || target.welcome.title || '';
-  target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt) || target.welcome.prompt || '';
+  target.welcome.title = valueFromInput(DOM.themeWelcomeTitle);
+  target.welcome.prompt = valueFromInput(DOM.themeWelcomePrompt);
+  const eventSize = normalizeSizeValue(
+    DOM.eventTitleSizeInput ? DOM.eventTitleSizeInput.value : "",
+    normalizeSizeValue(target.eventTitleSize, DEFAULT_EVENT_TITLE_SIZE),
+  );
+  target.eventTitleSize = eventSize;
+  if (DOM.eventTitleSizeInput)
+    DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
+  const welcomeSize = normalizeSizeValue(
+    DOM.welcomeTitleSizeInput ? DOM.welcomeTitleSizeInput.value : "",
+    normalizeSizeValue(target.welcome.titleSize, DEFAULT_WELCOME_TITLE_SIZE),
+  );
+  target.welcome.titleSize = welcomeSize;
+  if (DOM.welcomeTitleSizeInput)
+    DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
 }
 
 function normalizeFolderInput(raw) {
-  const trimmed = (raw || '').trim();
-  if (!trimmed) return '';
-  return trimmed.endsWith('/') ? trimmed : trimmed + '/';
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  return trimmed.endsWith("/") ? trimmed : trimmed + "/";
 }
 
 function readThemeFolderInputs() {
   return {
-    overlays: DOM.themeOverlaysFolder ? normalizeFolderInput(valueFromInput(DOM.themeOverlaysFolder)) : null,
-    templates: DOM.themeTemplatesFolder ? normalizeFolderInput(valueFromInput(DOM.themeTemplatesFolder)) : null
+    overlays: DOM.themeOverlaysFolder
+      ? normalizeFolderInput(valueFromInput(DOM.themeOverlaysFolder))
+      : null,
+    templates: DOM.themeTemplatesFolder
+      ? normalizeFolderInput(valueFromInput(DOM.themeTemplatesFolder))
+      : null,
   };
 }
 
 function applyThemeFolderSettings(target, folders) {
-  if (typeof folders.overlays !== 'undefined' && folders.overlays !== null) {
-    if (folders.overlays) target.overlaysFolder = folders.overlays; else delete target.overlaysFolder;
+  if (typeof folders.overlays !== "undefined" && folders.overlays !== null) {
+    if (folders.overlays) target.overlaysFolder = folders.overlays;
+    else delete target.overlaysFolder;
   }
-  if (typeof folders.templates !== 'undefined' && folders.templates !== null) {
-    if (folders.templates) target.templatesFolder = folders.templates; else delete target.templatesFolder;
+  if (typeof folders.templates !== "undefined" && folders.templates !== null) {
+    if (folders.templates) target.templatesFolder = folders.templates;
+    else delete target.templatesFolder;
   }
 }
 
@@ -4906,49 +5742,69 @@ async function uploadThemeAssetsFromEditor(target) {
   let backgroundsAdded = 0;
   let overlaysAdded = 0;
   let templatesAdded = 0;
-  let logoUrl = '';
+  let logoUrl = "";
 
-  const backgroundFile = DOM.themeBackground && DOM.themeBackground.files ? DOM.themeBackground.files[0] : null;
+  const backgroundFile =
+    DOM.themeBackground && DOM.themeBackground.files
+      ? DOM.themeBackground.files[0]
+      : null;
   if (backgroundFile) {
-    tasks.push(uploadAsset(backgroundFile, 'backgrounds').then((url) => {
-      if (!url) return;
-      if (Array.isArray(target.backgrounds)) target.backgrounds.push(url);
-      else if (target.background) { target.backgrounds = [target.background, url]; delete target.backgroundIndex; }
-      else target.background = url;
-      backgroundsAdded += 1;
-    }));
-  }
-
-  const logoFile = DOM.themeLogo && DOM.themeLogo.files ? DOM.themeLogo.files[0] : null;
-  if (logoFile) {
-    tasks.push(uploadAsset(logoFile, 'logo').then((url) => {
-      if (!url) return;
-      target.logo = url;
-      logoUrl = url;
-    }));
-  }
-
-  const overlayFiles = DOM.themeOverlays && DOM.themeOverlays.files ? Array.from(DOM.themeOverlays.files) : [];
-  if (overlayFiles.length) {
-    ensureArray(target, 'overlays');
-    overlayFiles.forEach((file) => {
-      tasks.push(uploadAsset(file, 'overlays').then((url) => {
+    tasks.push(
+      uploadAsset(backgroundFile, "backgrounds").then((url) => {
         if (!url) return;
-        target.overlays.push(url);
-        overlaysAdded += 1;
-      }));
+        if (Array.isArray(target.backgrounds)) target.backgrounds.push(url);
+        else if (target.background) {
+          target.backgrounds = [target.background, url];
+          delete target.backgroundIndex;
+        } else target.background = url;
+        backgroundsAdded += 1;
+      }),
+    );
+  }
+
+  const logoFile =
+    DOM.themeLogo && DOM.themeLogo.files ? DOM.themeLogo.files[0] : null;
+  if (logoFile) {
+    tasks.push(
+      uploadAsset(logoFile, "logo").then((url) => {
+        if (!url) return;
+        target.logo = url;
+        logoUrl = url;
+      }),
+    );
+  }
+
+  const overlayFiles =
+    DOM.themeOverlays && DOM.themeOverlays.files
+      ? Array.from(DOM.themeOverlays.files)
+      : [];
+  if (overlayFiles.length) {
+    ensureArray(target, "overlays");
+    overlayFiles.forEach((file) => {
+      tasks.push(
+        uploadAsset(file, "overlays").then((url) => {
+          if (!url) return;
+          target.overlays.push(url);
+          overlaysAdded += 1;
+        }),
+      );
     });
   }
 
-  const templateFiles = DOM.themeTemplates && DOM.themeTemplates.files ? Array.from(DOM.themeTemplates.files) : [];
+  const templateFiles =
+    DOM.themeTemplates && DOM.themeTemplates.files
+      ? Array.from(DOM.themeTemplates.files)
+      : [];
   if (templateFiles.length) {
-    ensureArray(target, 'templates');
+    ensureArray(target, "templates");
     templateFiles.forEach((file) => {
-      tasks.push(uploadAsset(file, 'templates').then((url) => {
-        if (!url) return;
-        target.templates.push({ src: url, layout: 'double_column' });
-        templatesAdded += 1;
-      }));
+      tasks.push(
+        uploadAsset(file, "templates").then((url) => {
+          if (!url) return;
+          target.templates.push({ src: url, layout: "double_column" });
+          templatesAdded += 1;
+        }),
+      );
     });
   }
 
@@ -4957,177 +5813,100 @@ async function uploadThemeAssetsFromEditor(target) {
 }
 
 function clearThemeFileInputs() {
-  if (DOM.themeBackground) DOM.themeBackground.value = '';
-  if (DOM.themeLogo) DOM.themeLogo.value = '';
-  if (DOM.themeOverlays) DOM.themeOverlays.value = '';
-  if (DOM.themeTemplates) DOM.themeTemplates.value = '';
-}
-
-// --- De-duplication helpers ---
-function arrayUniqueStrings(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const v of arr) {
-    const s = (v || '').toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) { seen.add(s); out.push(s); }
-  }
-  return out;
-}
-function arrayUniqueTemplates(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const t of arr) {
-    if (!t || !t.src) continue;
-    const s = t.src.toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) { seen.add(s); out.push({ src: s, layout: t.layout || 'double_column', slots: t.slots }); }
-  }
-  return out;
-}
-function normalizeThemeObject(t) {
-  if (!t || typeof t !== 'object') return;
-  if (Array.isArray(t.overlays)) t.overlays = arrayUniqueStrings(t.overlays);
-  if (Array.isArray(t.templates)) t.templates = arrayUniqueTemplates(t.templates);
-  // Background normalization: ensure index in range
-  const list = Array.isArray(t.backgrounds) ? t.backgrounds.filter(Boolean) : (t.background ? [t.background] : []);
-  if (Array.isArray(t.backgrounds)) {
-    t.backgrounds = arrayUniqueStrings(list);
-    if (typeof t.backgroundIndex === 'number') {
-      t.backgroundIndex = Math.min(Math.max(t.backgroundIndex, 0), Math.max(t.backgrounds.length - 1, 0));
-    }
-  } else if (t.background && typeof t.background === 'string' && !t.background.trim()) {
-    t.background = '';
-  }
-  const baseFont = (typeof t.font === 'string' && t.font.trim()) ? t.font : '';
-  if ((!t.fontHeading || !t.fontHeading.trim()) && baseFont) t.fontHeading = baseFont;
-  if ((!t.fontBody || !t.fontBody.trim()) && baseFont) t.fontBody = baseFont;
-  if (!t.fontHeading && t.fontBody) t.fontHeading = t.fontBody;
-  if (!t.fontBody && t.fontHeading) t.fontBody = t.fontHeading;
-  if (!t.font || !t.font.trim()) t.font = t.fontBody || t.fontHeading || "'Comic Neue', cursive";
-}
-function normalizeAllThemes() {
-  const keys = Object.keys(themes || {});
-  for (const k of keys) {
-    const group = themes[k];
-    if (!group || typeof group !== 'object') continue;
-    if (group.themes || group.holidays) {
-      const dict = group.themes || group.holidays;
-      for (const sk in dict) normalizeThemeObject(dict[sk]);
-    } else {
-      normalizeThemeObject(group);
-    }
-  }
-}
-
-function forEachThemeEntry(callback) {
-  if (!themes || typeof themes !== 'object' || typeof callback !== 'function') return;
-  const visit = (collection, prefix = '') => {
-    if (!collection || typeof collection !== 'object') return;
-    for (const key of Object.keys(collection)) {
-      if (key === '_meta') continue;
-      const value = collection[key];
-      if (!value || typeof value !== 'object') continue;
-      const nextKey = prefix ? `${prefix}:${key}` : key;
-      if (value.themes || value.holidays) {
-        if (value.themes) visit(value.themes, nextKey);
-        if (value.holidays) visit(value.holidays, nextKey);
-      } else {
-        callback(value, nextKey);
-      }
-    }
-  };
-  visit(themes);
-}
-
-function applyGlobalLogoToTheme(theme, logo) {
-  if (!theme || typeof theme !== 'object') return;
-  if (typeof logo !== 'string') return;
-  theme.logo = logo;
-}
-
-function applyGlobalLogoToAllThemes(logo) {
-  if (typeof logo !== 'string') return;
-  forEachThemeEntry((theme) => applyGlobalLogoToTheme(theme, logo));
-}
-
-function getGlobalLogo() {
-  try {
-    const value = localStorage.getItem(GLOBAL_LOGO_STORAGE_KEY);
-    return value === null ? null : value;
-  } catch (_) { return null; }
+  if (DOM.themeBackground) DOM.themeBackground.value = "";
+  if (DOM.themeLogo) DOM.themeLogo.value = "";
+  if (DOM.themeOverlays) DOM.themeOverlays.value = "";
+  if (DOM.themeTemplates) DOM.themeTemplates.value = "";
 }
 
 function setGlobalLogo(logo, options = {}) {
-  const value = typeof logo === 'string' ? logo : '';
-  try {
-    if (value) localStorage.setItem(GLOBAL_LOGO_STORAGE_KEY, value);
-    else localStorage.removeItem(GLOBAL_LOGO_STORAGE_KEY);
-  } catch (_) { }
+  const value = typeof logo === "string" ? logo : "";
+  setGlobalLogoValue(value);
   applyGlobalLogoToAllThemes(value);
   if (activeTheme) {
     applyGlobalLogoToTheme(activeTheme, value);
     renderCurrentAssets(activeTheme);
   }
-  if (DOM.logo) DOM.logo.src = value || '';
+  if (DOM.logo) DOM.logo.src = value || "";
   if (!options.skipSave) saveThemesToStorage();
-  if (!options.quiet) showToast(value ? 'Logo applied to all themes' : 'Logo cleared for all themes');
+  if (!options.quiet)
+    showToast(
+      value ? "Logo applied to all themes" : "Logo cleared for all themes",
+    );
 }
 
 // Update only the font for the currently selected theme and persist to storage
 function updateCurrentThemeFont() {
   const selection = getFontPickerSelection();
   if (!selection.heading && !selection.body) {
-    alert('Choose heading and body fonts first.');
+    alert("Choose heading and body fonts first.");
     return;
   }
-  applyFontSelection(selection.heading || selection.body, selection.body || selection.heading, { keepPairing: true });
+  applyFontSelection(
+    selection.heading || selection.body,
+    selection.body || selection.heading,
+    { keepPairing: true },
+  );
 }
 
 // --- Remove asset handlers ---
 function removeBackground() {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
   if (!t) return;
   const list = getBackgroundList(t);
   if (!list.length) return;
   if (!Array.isArray(t.backgrounds)) t.backgrounds = list.slice();
-  const idx = (typeof t.backgroundIndex === 'number') ? Math.min(Math.max(t.backgroundIndex, 0), t.backgrounds.length - 1) : 0;
-  if (t.backgrounds[idx]) pushRemoved(key, 'background', t.backgrounds[idx], idx);
+  const idx =
+    typeof t.backgroundIndex === "number"
+      ? Math.min(Math.max(t.backgroundIndex, 0), t.backgrounds.length - 1)
+      : 0;
+  if (t.backgrounds[idx])
+    pushRemoved(key, "background", t.backgrounds[idx], idx);
   t.backgrounds.splice(idx, 1);
-  if (t.backgrounds.length === 0) { t.background = ""; delete t.backgrounds; delete t.backgroundIndex; }
-  else {
+  if (t.backgrounds.length === 0) {
+    t.background = "";
+    delete t.backgrounds;
+    delete t.backgroundIndex;
+  } else {
     t.backgroundIndex = Math.min(idx, t.backgrounds.length - 1);
-    t.background = t.backgrounds[t.backgroundIndex] || '';
+    t.background = t.backgrounds[t.backgroundIndex] || "";
   }
-  saveThemesToStorage(); loadTheme(key);
-  showToast('Background removed');
+  saveThemesToStorage();
+  loadTheme(key);
+  showToast("Background removed");
 }
 function removeBackgroundAt(index) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
   if (!t) return;
   const list = getBackgroundList(t);
   if (index < 0 || index >= list.length) return;
   if (!Array.isArray(t.backgrounds)) t.backgrounds = list.slice();
-  if (t.backgrounds[index]) pushRemoved(key, 'background', t.backgrounds[index], index);
+  if (t.backgrounds[index])
+    pushRemoved(key, "background", t.backgrounds[index], index);
   t.backgrounds.splice(index, 1);
   if (t.backgrounds.length === 0) {
-    t.background = ""; delete t.backgrounds; delete t.backgroundIndex;
+    t.background = "";
+    delete t.backgrounds;
+    delete t.backgroundIndex;
   } else {
-    if (typeof t.backgroundIndex !== 'number') t.backgroundIndex = 0;
-    if (index <= t.backgroundIndex) t.backgroundIndex = Math.max(0, t.backgroundIndex - 1);
-    t.background = t.backgrounds[t.backgroundIndex] || '';
+    if (typeof t.backgroundIndex !== "number") t.backgroundIndex = 0;
+    if (index <= t.backgroundIndex)
+      t.backgroundIndex = Math.max(0, t.backgroundIndex - 1);
+    t.background = t.backgrounds[t.backgroundIndex] || "";
   }
-  saveThemesToStorage(); loadTheme(key);
+  saveThemesToStorage();
+  loadTheme(key);
 }
 function setBackgroundIndex(index) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
   if (!t) return;
   const list = getBackgroundList(t);
   if (index < 0 || index >= list.length) return;
   t.backgrounds = list.slice();
-  t.background = t.backgrounds[index] || '';
+  t.background = t.backgrounds[index] || "";
   t.backgroundIndex = index;
   // Refresh live booth background immediately when editing the active theme
   if (activeTheme === t) {
@@ -5135,59 +5914,83 @@ function setBackgroundIndex(index) {
     renderCurrentAssets(t);
   }
   saveThemesToStorage();
-  showToast('Background selected');
+  showToast("Background selected");
 }
 function removeLogo() {
   const key = DOM.eventSelect && DOM.eventSelect.value;
-  if (!key) { alert('Select a theme first.'); return; }
+  if (!key) {
+    alert("Select a theme first.");
+    return;
+  }
   const currentLogo = getGlobalLogo();
-  if (!currentLogo) { showToast('No shared logo to remove'); return; }
-  pushRemoved(key, 'logo', currentLogo, 0);
-  setGlobalLogo('', { quiet: true, skipSave: true });
+  if (!currentLogo) {
+    showToast("No shared logo to remove");
+    return;
+  }
+  pushRemoved(key, "logo", currentLogo, 0);
+  setGlobalLogo("", { quiet: true, skipSave: true });
   saveThemesToStorage();
   loadTheme(key);
-  showToast('Logo removed from all themes');
+  showToast("Logo removed from all themes");
 }
 function removeOverlay(index) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
-  if (!t || !Array.isArray(t.overlays)) return; const removed = t.overlays.splice(index, 1)[0]; pushRemoved(key, 'overlay', removed, index); saveThemesToStorage(); loadTheme(key);
-  showToast('Overlay removed');
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
+  if (!t || !Array.isArray(t.overlays)) return;
+  const removed = t.overlays.splice(index, 1)[0];
+  pushRemoved(key, "overlay", removed, index);
+  saveThemesToStorage();
+  loadTheme(key);
+  showToast("Overlay removed");
 }
 function removeTemplate(index) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
-  if (!t || !Array.isArray(t.templates)) return; const removed = t.templates.splice(index, 1)[0]; pushRemoved(key, 'template', removed, index); saveThemesToStorage(); loadTheme(key);
-  showToast('Template removed');
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
+  if (!t || !Array.isArray(t.templates)) return;
+  const removed = t.templates.splice(index, 1)[0];
+  pushRemoved(key, "template", removed, index);
+  saveThemesToStorage();
+  loadTheme(key);
+  showToast("Template removed");
 }
 
 // Hide a folder-based overlay/template by adding it to a per-theme blocklist
 function removeFolderOverlay(src) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
-  if (!t) return; if (!Array.isArray(t.overlaysRemoved)) t.overlaysRemoved = [];
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
+  if (!t) return;
+  if (!Array.isArray(t.overlaysRemoved)) t.overlaysRemoved = [];
   if (!t.overlaysRemoved.includes(src)) t.overlaysRemoved.push(src);
-  pushRemoved(key, 'overlay-removed', src, -1);
-  saveThemesToStorage(); loadTheme(key);
-  showToast('Overlay hidden');
+  pushRemoved(key, "overlay-removed", src, -1);
+  saveThemesToStorage();
+  loadTheme(key);
+  showToast("Overlay hidden");
 }
 function removeFolderTemplate(src) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
-  if (!t) return; if (!Array.isArray(t.templatesRemoved)) t.templatesRemoved = [];
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
+  if (!t) return;
+  if (!Array.isArray(t.templatesRemoved)) t.templatesRemoved = [];
   if (!t.templatesRemoved.includes(src)) t.templatesRemoved.push(src);
-  pushRemoved(key, 'template-removed', src, -1);
-  saveThemesToStorage(); loadTheme(key);
-  showToast('Template hidden');
+  pushRemoved(key, "template-removed", src, -1);
+  saveThemesToStorage();
+  loadTheme(key);
+  showToast("Template hidden");
 }
 
 function reorderAssets(kind, from, to) {
-  const key = DOM.eventSelect.value; const t = getSelectedThemeTarget();
+  const key = DOM.eventSelect.value;
+  const t = getSelectedThemeTarget();
   if (!t) return;
-  const arr = kind === 'overlay' ? t.overlays : t.templates;
+  const arr = kind === "overlay" ? t.overlays : t.templates;
   if (!Array.isArray(arr)) return;
-  const len = arr.length; if (from < 0 || from >= len || to < 0 || to >= len) return;
+  const len = arr.length;
+  if (from < 0 || from >= len || to < 0 || to >= len) return;
   const [moved] = arr.splice(from, 1);
   arr.splice(to, 0, moved);
   saveThemesToStorage();
   loadTheme(key);
-  showToast('Order updated');
+  showToast("Order updated");
 }
 
 function pushRemoved(key, kind, item, index) {
@@ -5195,15 +5998,16 @@ function pushRemoved(key, kind, item, index) {
   updateUndoUI();
 }
 function updateUndoUI() {
-  const btn = document.getElementById('undoBtn');
-  const count = document.getElementById('undoCount');
+  const btn = document.getElementById("undoBtn");
+  const count = document.getElementById("undoCount");
   if (btn) btn.disabled = removedStack.length === 0;
-  if (count) count.textContent = removedStack.length ? `(${removedStack.length})` : '';
+  if (count)
+    count.textContent = removedStack.length ? `(${removedStack.length})` : "";
 }
 function getThemeByKey(key) {
   if (!key) return null;
-  if (key.includes(':')) {
-    const [rootKey, subKey] = key.split(':');
+  if (key.includes(":")) {
+    const [rootKey, subKey] = key.split(":");
     const root = themes[rootKey];
     if (!root) return null;
     if (root.themes && root.themes[subKey]) return root.themes[subKey];
@@ -5215,83 +6019,102 @@ function getThemeByKey(key) {
 function undoLastRemoval() {
   const last = removedStack.pop();
   if (!last) return;
-  if (last.kind === 'logo') {
-    setGlobalLogo(last.item || '', { quiet: true, skipSave: true });
+  if (last.kind === "logo") {
+    setGlobalLogo(last.item || "", { quiet: true, skipSave: true });
   }
   const t = getThemeByKey(last.key);
-  if (!t && last.kind !== 'logo') { updateUndoUI(); return; }
-  if (last.kind === 'background' && t) t.background = last.item;
-  else if (last.kind === 'overlay') {
+  if (!t && last.kind !== "logo") {
+    updateUndoUI();
+    return;
+  }
+  if (last.kind === "background" && t) t.background = last.item;
+  else if (last.kind === "overlay") {
     if (!Array.isArray(t.overlays)) t.overlays = [];
     const pos = Math.min(last.index, t.overlays.length);
     t.overlays.splice(pos, 0, last.item);
-  } else if (last.kind === 'template') {
+  } else if (last.kind === "template") {
     if (!Array.isArray(t.templates)) t.templates = [];
     const pos = Math.min(last.index, t.templates.length);
     t.templates.splice(pos, 0, last.item);
-  } else if (last.kind === 'overlay-removed') {
-    if (Array.isArray(t.overlaysRemoved)) t.overlaysRemoved = t.overlaysRemoved.filter(s => s !== last.item);
-  } else if (last.kind === 'template-removed') {
-    if (Array.isArray(t.templatesRemoved)) t.templatesRemoved = t.templatesRemoved.filter(s => s !== last.item);
+  } else if (last.kind === "overlay-removed") {
+    if (Array.isArray(t.overlaysRemoved))
+      t.overlaysRemoved = t.overlaysRemoved.filter((s) => s !== last.item);
+  } else if (last.kind === "template-removed") {
+    if (Array.isArray(t.templatesRemoved))
+      t.templatesRemoved = t.templatesRemoved.filter((s) => s !== last.item);
   }
   saveThemesToStorage();
   if (DOM.eventSelect && DOM.eventSelect.value === last.key) {
     loadTheme(last.key);
   }
   updateUndoUI();
-  showToast('Restored');
+  showToast("Restored");
 }
 
 function getBackgroundList(theme) {
-  if (!theme || typeof theme !== 'object') return [];
-  const explicit = Array.isArray(theme.backgrounds) ? theme.backgrounds.filter(Boolean) : [];
-  const folder = Array.isArray(theme.backgroundsTmp) ? theme.backgroundsTmp.filter(Boolean) : [];
+  if (!theme || typeof theme !== "object") return [];
+  const explicit = Array.isArray(theme.backgrounds)
+    ? theme.backgrounds.filter(Boolean)
+    : [];
+  const folder = Array.isArray(theme.backgroundsTmp)
+    ? theme.backgroundsTmp.filter(Boolean)
+    : [];
   if (explicit.length || folder.length) {
     const seen = new Set();
     const combined = [];
     for (const src of [...folder, ...explicit]) {
-      const key = (src || '').toString();
+      const key = (src || "").toString();
       if (!key || seen.has(key)) continue;
       seen.add(key);
       combined.push(src);
     }
     return combined;
   }
-  const single = (typeof theme.background === 'string' && theme.background.trim()) ? [theme.background] : [];
+  const single =
+    typeof theme.background === "string" && theme.background.trim()
+      ? [theme.background]
+      : [];
   return single;
 }
 
 function getActiveBackground(theme) {
   const list = getBackgroundList(theme);
-  if (list.length === 0) return '';
-  const idx = (typeof theme.backgroundIndex === 'number') ? Math.min(Math.max(theme.backgroundIndex, 0), list.length - 1) : 0;
+  if (list.length === 0) return "";
+  const idx =
+    typeof theme.backgroundIndex === "number"
+      ? Math.min(Math.max(theme.backgroundIndex, 0), list.length - 1)
+      : 0;
   return list[idx];
 }
 
 function ensureFolderPath(path) {
-  if (!path) return '';
+  if (!path) return "";
   const trimmed = path.trim();
-  if (!trimmed) return '';
-  return trimmed.endsWith('/') ? trimmed : trimmed + '/';
+  if (!trimmed) return "";
+  return trimmed.endsWith("/") ? trimmed : trimmed + "/";
 }
 
 function resolveBackgroundFolderPath(theme) {
-  if (!theme || typeof theme !== 'object') return '';
-  const current = getActiveBackground(theme) || '';
-  if (current && current.endsWith('/')) return ensureFolderPath(current);
+  if (!theme || typeof theme !== "object") return "";
+  const current = getActiveBackground(theme) || "";
+  if (current && current.endsWith("/")) return ensureFolderPath(current);
   if (current) {
-    const idx = current.lastIndexOf('/');
+    const idx = current.lastIndexOf("/");
     if (idx >= 0) return ensureFolderPath(current.slice(0, idx + 1));
   }
-  const backgroundProp = (typeof theme.background === 'string') ? theme.background.trim() : '';
+  const backgroundProp =
+    typeof theme.background === "string" ? theme.background.trim() : "";
   if (backgroundProp) {
-    if (backgroundProp.endsWith('/')) return ensureFolderPath(backgroundProp);
-    const idx = backgroundProp.lastIndexOf('/');
+    if (backgroundProp.endsWith("/")) return ensureFolderPath(backgroundProp);
+    const idx = backgroundProp.lastIndexOf("/");
     if (idx >= 0) return ensureFolderPath(backgroundProp.slice(0, idx + 1));
   }
-  const folderProp = (typeof theme.backgroundFolder === 'string') ? theme.backgroundFolder.trim() : '';
+  const folderProp =
+    typeof theme.backgroundFolder === "string"
+      ? theme.backgroundFolder.trim()
+      : "";
   if (folderProp) return ensureFolderPath(folderProp);
-  return '';
+  return "";
 }
 
 // If a theme points its background at a folder (ends with '/'),
@@ -5299,34 +6122,41 @@ function resolveBackgroundFolderPath(theme) {
 async function resolveBackgroundFromFolder(theme) {
   try {
     const path = resolveBackgroundFolderPath(theme);
-    if (!path || !path.endsWith('/')) return '';
-    const cached = Array.isArray(theme && theme.backgroundsTmp) ? theme.backgroundsTmp.filter(Boolean) : [];
+    if (!path || !path.endsWith("/")) return "";
+    const cached = Array.isArray(theme && theme.backgroundsTmp)
+      ? theme.backgroundsTmp.filter(Boolean)
+      : [];
     if (cached.length) return cached[0];
     const manifestList = await resolveBackgroundListFromFolder(theme);
     if (Array.isArray(manifestList) && manifestList.length) {
-      if (theme && typeof theme === 'object') theme.backgroundsTmp = manifestList.slice();
+      if (theme && typeof theme === "object")
+        theme.backgroundsTmp = manifestList.slice();
       return manifestList[0];
     }
-    const names = ['background', 'bg', 'backdrop', 'wallpaper'];
-    const exts = ['png', 'jpg', 'jpeg', 'webp'];
-    const isFileProto = String(location.protocol).startsWith('file');
+    const names = ["background", "bg", "backdrop", "wallpaper"];
+    const exts = ["png", "jpg", "jpeg", "webp"];
+    const isFileProto = String(location.protocol).startsWith("file");
     for (const n of names) {
       for (const e of exts) {
-        const url = path + n + '.' + e;
+        const url = path + n + "." + e;
         try {
           if (isFileProto) {
             // Probe with Image() under file:// since fetch may be blocked
             await probeImage(url);
             return url;
           } else {
-            const resp = await fetch(url, { cache: 'reload' });
+            const resp = await fetch(url, { cache: "reload" });
             if (resp && resp.ok) return url;
           }
-        } catch (_) { /* try next */ }
+        } catch (_) {
+          /* try next */
+        }
       }
     }
-    return '';
-  } catch (_) { return ''; }
+    return "";
+  } catch (_) {
+    return "";
+  }
 }
 
 // Try to load a list of backgrounds from a folder via backgrounds.json.
@@ -5334,81 +6164,105 @@ async function resolveBackgroundFromFolder(theme) {
 async function resolveBackgroundListFromFolder(theme) {
   try {
     const path = resolveBackgroundFolderPath(theme);
-    if (!path || !path.endsWith('/')) return [];
-    const cached = Array.isArray(theme && theme.backgroundsTmp) ? theme.backgroundsTmp.filter(Boolean) : [];
+    if (!path || !path.endsWith("/")) return [];
+    const cached = Array.isArray(theme && theme.backgroundsTmp)
+      ? theme.backgroundsTmp.filter(Boolean)
+      : [];
     if (cached.length) return cached.slice();
     // Only try fetching manifest under http(s). Browsers restrict file:// fetch.
-    if (!String(location.protocol).startsWith('http')) return [];
-    const manifestUrl = path + 'backgrounds.json';
-    const resp = await fetch(manifestUrl, { cache: 'reload' });
+    if (!String(location.protocol).startsWith("http")) return [];
+    const manifestUrl = path + "backgrounds.json";
+    const resp = await fetch(manifestUrl, { cache: "reload" });
     if (!resp.ok) return [];
     const json = await resp.json();
     const out = [];
     if (Array.isArray(json)) {
       for (const it of json) {
-        if (typeof it === 'string') out.push(path + it);
-        else if (it && typeof it === 'object' && typeof it.src === 'string') out.push(path + it.src);
+        if (typeof it === "string") out.push(path + it);
+        else if (it && typeof it === "object" && typeof it.src === "string")
+          out.push(path + it.src);
       }
     }
-    if (theme && typeof theme === 'object') theme.backgroundsTmp = out.slice();
+    if (theme && typeof theme === "object") theme.backgroundsTmp = out.slice();
     return out;
-  } catch (_) { return []; }
+  } catch (_) {
+    return [];
+  }
 }
 
 function probeImage(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(true);
-    img.onerror = () => reject(new Error('not-found'));
-    img.src = url + (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+    img.onerror = () => reject(new Error("not-found"));
+    img.src = url + (url.includes("?") ? "&" : "?") + "v=" + Date.now();
   });
 }
 
 // Load overlays from a folder using overlays.json manifest (HTTP/HTTPS only)
 async function resolveOverlaysFromFolder(theme) {
   try {
-    const folder = (theme && typeof theme.overlaysFolder === 'string') ? theme.overlaysFolder : '';
-    if (!folder || !folder.endsWith('/')) return [];
-    if (!String(location.protocol).startsWith('http')) return [];
-    const url = folder + 'overlays.json';
-    const resp = await fetch(url, { cache: 'reload' });
+    const folder =
+      theme && typeof theme.overlaysFolder === "string"
+        ? theme.overlaysFolder
+        : "";
+    if (!folder || !folder.endsWith("/")) return [];
+    if (!String(location.protocol).startsWith("http")) return [];
+    const url = folder + "overlays.json";
+    const resp = await fetch(url, { cache: "reload" });
     if (!resp.ok) return [];
     const json = await resp.json();
     const out = [];
     if (Array.isArray(json)) {
       for (const it of json) {
-        if (typeof it === 'string') out.push(folder + it);
-        else if (it && typeof it === 'object' && typeof it.src === 'string') out.push(folder + it.src);
+        if (typeof it === "string") out.push(folder + it);
+        else if (it && typeof it === "object" && typeof it.src === "string")
+          out.push(folder + it.src);
       }
     }
     return out;
-  } catch (_) { return []; }
+  } catch (_) {
+    return [];
+  }
 }
 
 // Load templates from a folder using templates.json manifest (HTTP/HTTPS only)
 async function resolveTemplatesFromFolder(theme) {
   try {
-    const folder = (theme && typeof theme.templatesFolder === 'string') ? theme.templatesFolder : '';
-    if (!folder || !folder.endsWith('/')) return [];
-    if (!String(location.protocol).startsWith('http')) return [];
-    const url = folder + 'templates.json';
-    const resp = await fetch(url, { cache: 'reload' });
+    const folder =
+      theme && typeof theme.templatesFolder === "string"
+        ? theme.templatesFolder
+        : "";
+    if (!folder || !folder.endsWith("/")) return [];
+    if (!String(location.protocol).startsWith("http")) return [];
+    const url = folder + "templates.json";
+    const resp = await fetch(url, { cache: "reload" });
     if (!resp.ok) return [];
     const json = await resp.json();
     const out = [];
     if (Array.isArray(json)) {
       for (const it of json) {
-        if (typeof it === 'string') out.push({ src: folder + it, layout: 'double_column' });
-        else if (it && typeof it === 'object' && typeof it.src === 'string') out.push({ src: folder + it.src, layout: it.layout || 'double_column', slots: it.slots });
+        if (typeof it === "string")
+          out.push({ src: folder + it, layout: "double_column" });
+        else if (it && typeof it === "object" && typeof it.src === "string")
+          out.push({
+            src: folder + it.src,
+            layout: it.layout || "double_column",
+            slots: it.slots,
+          });
       }
     }
     return out;
-  } catch (_) { return []; }
+  } catch (_) {
+    return [];
+  }
 }
 
 function exportThemes() {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(themes));
-  const downloadAnchorNode = document.createElement('a');
+  const dataStr =
+    "data:text/json;charset=utf-8," +
+    encodeURIComponent(JSON.stringify(themes));
+  const downloadAnchorNode = document.createElement("a");
   downloadAnchorNode.setAttribute("href", dataStr);
   downloadAnchorNode.setAttribute("download", "photobooth-themes.json");
   document.body.appendChild(downloadAnchorNode); // required for firefox
@@ -5428,13 +6282,13 @@ function handleImport() {
   reader.onload = (event) => {
     try {
       const importedThemes = JSON.parse(event.target.result);
-      themes = { ...themes, ...importedThemes };
+      setThemes({ ...themes, ...importedThemes });
       saveThemesToStorage();
       const current = DOM.eventSelect && DOM.eventSelect.value;
       populateThemeSelector(current || DEFAULT_THEME_KEY);
-      alert('Themes imported successfully!');
+      alert("Themes imported successfully!");
     } catch (e) {
-      alert('Error importing themes: ' + e.message);
+      alert("Error importing themes: " + e.message);
     }
   };
   reader.readAsText(file);
@@ -5442,67 +6296,117 @@ function handleImport() {
 
 // --- Deploy Hook (Git-connected projects) ---
 function loadDeploySettings() {
-  if (DOM.deployHookUrl) DOM.deployHookUrl.value = localStorage.getItem('deployHookUrl') || '';
+  if (DOM.deployHookUrl)
+    DOM.deployHookUrl.value = localStorage.getItem("deployHookUrl") || "";
 }
 
 // --- Rebuild manifests helper (local)
 function rebuildManifestsUI() {
-  const cmd = 'npm run update-manifests';
-  try { navigator.clipboard.writeText(cmd); } catch (_) { }
-  alert('To rebuild overlays/templates/backgrounds manifests, run:\n\n' + cmd + '\n\nThen deploy: npm run deploy or use Deploy Now (Git hooks).');
+  const cmd = "npm run update-manifests";
+  try {
+    navigator.clipboard.writeText(cmd);
+  } catch (_) {}
+  alert(
+    "To rebuild overlays/templates/backgrounds manifests, run:\n\n" +
+      cmd +
+      "\n\nThen deploy: npm run deploy or use Deploy Now (Git hooks).",
+  );
 }
 function saveDeploySettings() {
-  if (DOM.deployHookUrl) localStorage.setItem('deployHookUrl', (DOM.deployHookUrl.value || '').trim());
-  showToast('Deploy hook saved');
+  if (DOM.deployHookUrl)
+    localStorage.setItem(
+      "deployHookUrl",
+      (DOM.deployHookUrl.value || "").trim(),
+    );
+  showToast("Deploy hook saved");
 }
 async function triggerDeployHook() {
   try {
-    const url = (DOM.deployHookUrl && DOM.deployHookUrl.value || '').trim() || localStorage.getItem('deployHookUrl') || '';
-    if (!url) { alert('Set Deploy Hook URL first.'); return; }
-    const r = await fetch(url, { method: 'POST' });
-    if (r.ok) showToast('Deploy triggered'); else showToast('Deploy failed: ' + r.status);
-  } catch (e) { showToast('Deploy error: ' + (e && e.message ? e.message : e)); }
+    const url =
+      ((DOM.deployHookUrl && DOM.deployHookUrl.value) || "").trim() ||
+      localStorage.getItem("deployHookUrl") ||
+      "";
+    if (!url) {
+      alert("Set Deploy Hook URL first.");
+      return;
+    }
+    const r = await fetch(url, { method: "POST" });
+    if (r.ok) showToast("Deploy triggered");
+    else showToast("Deploy failed: " + r.status);
+  } catch (e) {
+    showToast("Deploy error: " + (e && e.message ? e.message : e));
+  }
 }
 
-function copyText(s) { try { navigator.clipboard.writeText(s); showToast('Copied'); } catch (_) { alert('Copy: ' + s); } }
-function copyBuildCmd() { copyText('npm ci && node tools/update-manifests.js && echo skip'); }
-function copyShipCmd() { copyText('npm run ship'); }
+function copyText(s) {
+  try {
+    navigator.clipboard.writeText(s);
+    showToast("Copied");
+  } catch (_) {
+    alert("Copy: " + s);
+  }
+}
+function copyBuildCmd() {
+  copyText("npm ci && node tools/update-manifests.js && echo skip");
+}
+function copyShipCmd() {
+  copyText("npm run ship");
+}
 
 // Helpers to derive overlay/template lists from theme + folder manifests
 function getOverlayList(theme) {
-  if (!theme || typeof theme !== 'object') return [];
-  const removed = new Set(Array.isArray(theme.overlaysRemoved) ? theme.overlaysRemoved : []);
+  if (!theme || typeof theme !== "object") return [];
+  const removed = new Set(
+    Array.isArray(theme.overlaysRemoved) ? theme.overlaysRemoved : [],
+  );
   const folderArr = Array.isArray(theme.overlaysTmp)
-    ? theme.overlaysTmp.filter(u => !removed.has(u)).map(u => ({ src: u, __folder: true }))
+    ? theme.overlaysTmp
+        .filter((u) => !removed.has(u))
+        .map((u) => ({ src: u, __folder: true }))
     : [];
   const localArr = Array.isArray(theme.overlays)
-    ? theme.overlays.map(u => (typeof u === 'string' ? { src: u } : u))
+    ? theme.overlays.map((u) => (typeof u === "string" ? { src: u } : u))
     : [];
   const seen = new Set();
   const out = [];
   for (const o of [...folderArr, ...localArr]) {
-    const k = (o && o.src ? o.src : '').toString().trim();
+    const k = (o && o.src ? o.src : "").toString().trim();
     if (!k || seen.has(k)) continue;
-    seen.add(k); out.push(o);
+    seen.add(k);
+    out.push(o);
   }
   return out;
 }
 
 function getTemplateList(theme) {
-  if (!theme || typeof theme !== 'object') return [];
-  const removed = new Set(Array.isArray(theme.templatesRemoved) ? theme.templatesRemoved : []);
+  if (!theme || typeof theme !== "object") return [];
+  const removed = new Set(
+    Array.isArray(theme.templatesRemoved) ? theme.templatesRemoved : [],
+  );
   const folderArr = Array.isArray(theme.templatesTmp)
-    ? theme.templatesTmp.filter(t => t && t.src && !removed.has(t.src)).map(t => ({ src: t.src, layout: t.layout || 'double_column', slots: t.slots, __folder: true }))
+    ? theme.templatesTmp
+        .filter((t) => t && t.src && !removed.has(t.src))
+        .map((t) => ({
+          src: t.src,
+          layout: t.layout || "double_column",
+          slots: t.slots,
+          __folder: true,
+        }))
     : [];
   const localArr = Array.isArray(theme.templates)
-    ? theme.templates.map(t => ({ src: t.src, layout: t.layout || 'double_column', slots: t.slots }))
+    ? theme.templates.map((t) => ({
+        src: t.src,
+        layout: t.layout || "double_column",
+        slots: t.slots,
+      }))
     : [];
   const seen = new Set();
   const out = [];
   for (const t of [...folderArr, ...localArr]) {
-    const k = (t && t.src ? t.src : '').toString().trim();
+    const k = (t && t.src ? t.src : "").toString().trim();
     if (!k || seen.has(k)) continue;
-    seen.add(k); out.push(t);
+    seen.add(k);
+    out.push(t);
   }
   return out;
 }
@@ -5511,23 +6415,26 @@ function getTemplateList(theme) {
 function setupInstallPrompt() {
   let deferredPrompt = null;
   const btn = DOM.installBtn;
-  if (btn) btn.classList.add('hidden');
-  window.addEventListener('beforeinstallprompt', (e) => {
+  if (btn) btn.classList.add("hidden");
+  window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (btn) btn.classList.remove('hidden');
+    if (btn) btn.classList.remove("hidden");
   });
-  if (btn) btn.onclick = async () => {
-    if (!deferredPrompt) {
-      // iOS Safari has no beforeinstallprompt; show a hint
-      alert('On iPhone/iPad: tap Share → Add to Home Screen');
-      return;
-    }
-    deferredPrompt.prompt();
-    try { await deferredPrompt.userChoice; } catch (_) { }
-    deferredPrompt = null;
-    btn.classList.add('hidden');
-  };
+  if (btn)
+    btn.onclick = async () => {
+      if (!deferredPrompt) {
+        // iOS Safari has no beforeinstallprompt; show a hint
+        alert("On iPhone/iPad: tap Share → Add to Home Screen");
+        return;
+      }
+      deferredPrompt.prompt();
+      try {
+        await deferredPrompt.userChoice;
+      } catch (_) {}
+      deferredPrompt = null;
+      btn.classList.add("hidden");
+    };
 }
 
 Object.assign(window, {
@@ -5570,5 +6477,5 @@ Object.assign(window, {
   triggerDeployHook,
   undoLastRemoval,
   updateCurrentThemeFont,
-  updateSelectedTheme
+  updateSelectedTheme,
 });
