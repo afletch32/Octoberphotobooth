@@ -39,6 +39,7 @@ import {
   restorePreviewState,
   getStripTemplateMetrics,
   detectDoubleColumnSlots,
+  toNumber,
   getStripTemplatePercents,
 } from "./preview.js";
 
@@ -4231,6 +4232,7 @@ function saveTheme() {
   });
 }
 
+async // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
 // Folder import (device-only) helpers

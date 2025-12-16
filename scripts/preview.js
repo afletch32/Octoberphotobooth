@@ -223,6 +223,30 @@ export function detectDoubleColumnSlots(img, rows) {
 export async function getStripTemplateMetrics(template) {
   if (!template || !template.src) return null;
   if (template.__slotMetrics) return template.__slotMetrics;
+  const metrics = {};
+  const img = await loadImage(template.src);
+  const slots = detectDoubleColumnSlots(img, 3);
+  if (slots) metrics.slots = slots;
+  const headerPct = Math.max(
+    0,
+    Math.min(0.5, toNumber(template && (template.headerPct || template.header_percent), 0.2)),
+  );
+  const columnPadPct = Math.max(
+    0,
+    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
+  );
+  const slotSpacingPct = Math.max(
+    0,
+    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
+  );
+  const footerPct = Math.max(
+    0,
+    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
+  );
+  metrics.headerPct = headerPct;
+  metrics.columnPadPct = columnPadPct;
+  metrics.slotSpacingPct = slotSpacingPct;
+  metrics.footerPct = footerPct;
   const metrics = { ...getStripTemplatePercents(template) };
   const img = await loadImage(template.src);
   const slots = detectDoubleColumnSlots(img, 3);
