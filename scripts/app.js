@@ -115,6 +115,10 @@ const DOM = {
   themeEditorEditing: document.getElementById("themeEditorEditing"),
   themeName: document.getElementById("themeName"),
   eventNameInput: document.getElementById("eventNameInput"),
+  eventGalleryNameInput: document.getElementById("eventGalleryNameInput"),
+  eventSlugInput: document.getElementById("eventSlugInput"),
+  galleryHistoryWrapper: document.getElementById("galleryHistoryWrapper"),
+  galleryHistorySelect: document.getElementById("galleryHistorySelect"),
   eventTitleSizeInput: document.getElementById("eventTitleSizeInput"),
   cloudNameInput: document.getElementById("cloudNameInput"),
   cloudPresetInput: document.getElementById("cloudPresetInput"),
@@ -343,9 +347,9 @@ function handleEventSelectChange(event) {
   loadTheme(key);
   highlightThemeQuickSelect(key);
   syncThemeEditorWithActiveTheme();
-  if (DOM.eventNameInput) {
-    DOM.eventNameInput.value = getStoredEventName(key) || "";
-  }
+  updateEventNameAndSlugInputs(key, activeTheme);
+  if (key) refreshGalleryHistoryUI(getStoredEventSlug(key));
+  else refreshGalleryHistoryUI();
   updateThemeEditorSummary();
 }
 
@@ -636,10 +640,13 @@ function setupEventNameInput() {
   DOM.eventNameInput.addEventListener("input", () => {
     const key = DOM.eventSelect && DOM.eventSelect.value;
     if (!key) return;
-    saveStoredEventName(key, DOM.eventNameInput.value.trim());
+    const trimmed = DOM.eventNameInput.value.trim();
+    saveStoredEventName(key, trimmed);
+    updateEventSlugFromName(trimmed);
+    updateGalleryNameFromEventName(trimmed);
     if (DOM.eventTitle) {
       DOM.eventTitle.textContent =
-        DOM.eventNameInput.value.trim() ||
+        trimmed ||
         (activeTheme && activeTheme.welcome && activeTheme.welcome.title) ||
         DOM.eventTitle.textContent;
     }
@@ -1029,6 +1036,16 @@ function getCloudinaryConfig() {
     Boolean(cloud && preset);
   return { cloud, preset, folderBase, use };
 }
+
+function buildCloudinaryFolderPath(slug) {
+  const cfg = getCloudinaryConfig();
+  const base = (cfg.folderBase || "").toString().trim();
+  const cleanBase = base ? base.replace(/\/+$/, "") : "";
+  const cleanSlug = slugifyEventIdentifier(slug || "");
+  if (cleanBase && cleanSlug) return `${cleanBase}/${cleanSlug}`;
+  if (cleanBase) return cleanBase;
+  return cleanSlug;
+}
 function cloudinaryEnabled() {
   const cfg = getCloudinaryConfig();
   return cfg.use;
@@ -1364,7 +1381,7 @@ function refreshTemplatesFromFolder(theme) {
 function syncAdminUiWithTheme(themeKey, theme) {
   const currentKey =
     themeKey || (DOM.eventSelect && DOM.eventSelect.value) || "";
-  const storedName = getStoredEventName(currentKey);
+  const storedName = updateEventNameAndSlugInputs(currentKey, theme);
   if (DOM.eventTitle)
     DOM.eventTitle.textContent =
       storedName || (theme.welcome && theme.welcome.title) || "";
@@ -1382,7 +1399,6 @@ function syncAdminUiWithTheme(themeKey, theme) {
   refreshFontSelectForTheme(theme);
   if (DOM.options) renderOptions();
   syncThemeEditorWithActiveTheme();
-  if (DOM.eventNameInput) DOM.eventNameInput.value = storedName || "";
 }
 
 function loadTheme(themeKey) {
@@ -3489,16 +3505,84 @@ function renderQrCode(canvas, text) {
 }
 
 // Build a slug for the current event selection to organize uploads per event
+function slugifyEventIdentifier(value) {
+  if (!value) return "";
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getEventSlugMap() {
+  try {
+    return JSON.parse(localStorage.getItem("photoboothEventSlugs") || "{}");
+  } catch (_) {
+    return {};
+  }
+}
+
+function getStoredEventSlug(key) {
+  if (!key) return "";
+  const map = getEventSlugMap();
+  return map[key] ? slugifyEventIdentifier(map[key]) : "";
+}
+
+function saveStoredEventSlug(key, slug) {
+  if (!key) return;
+  const map = getEventSlugMap();
+  const clean = slugifyEventIdentifier(slug);
+  if (clean) map[key] = clean;
+  else delete map[key];
+  localStorage.setItem("photoboothEventSlugs", JSON.stringify(map));
+}
+
 function getCurrentEventSlug() {
   try {
-    const val =
-      DOM.eventSelect && DOM.eventSelect.value ? DOM.eventSelect.value : "";
-    if (!val) return "";
-    // value is like "fall:halloween" or "school:hawks"; use it directly
-    return String(val)
-      .toLowerCase()
-      .replace(/[^a-z0-9:_\-]+/g, "-")
-      .replace(/:+/g, "-");
+    const key = DOM.eventSelect && DOM.eventSelect.value ? DOM.eventSelect.value : "";
+    if (!key) return "";
+    const stored = getStoredEventSlug(key);
+    if (stored) return stored;
+    const inputSlug = DOM.eventSlugInput
+      ? slugifyEventIdentifier(DOM.eventSlugInput.value)
+      : "";
+    if (inputSlug) {
+      saveStoredEventSlug(key, inputSlug);
+      return inputSlug;
+    }
+    const fallbackSource =
+      getStoredEventName(key) ||
+      (DOM.eventNameInput && DOM.eventNameInput.value) ||
+      key;
+    const fallback =
+      slugifyEventIdentifier(fallbackSource) || slugifyEventIdentifier(key);
+    if (fallback) saveStoredEventSlug(key, fallback);
+    return fallback;
+  } catch (_) {
+    return "";
+  }
+}
+
+function getCurrentGalleryName() {
+  try {
+    const key = DOM.eventSelect && DOM.eventSelect.value ? DOM.eventSelect.value : "";
+    if (!key) return "";
+    const stored = getStoredGalleryName(key);
+    if (stored) return stored;
+    const inputValue = DOM.eventGalleryNameInput
+      ? cleanGalleryName(DOM.eventGalleryNameInput.value)
+      : "";
+    if (inputValue) {
+      saveStoredGalleryName(key, inputValue);
+      return inputValue;
+    }
+    const fallback =
+      cleanGalleryName(getStoredEventName(key)) ||
+      cleanGalleryName(DOM.eventNameInput && DOM.eventNameInput.value) ||
+      cleanGalleryName(activeTheme?.welcome?.title || "") ||
+      cleanGalleryName(key);
+    if (fallback) saveStoredGalleryName(key, fallback);
+    return fallback;
   } catch (_) {
     return "";
   }
@@ -3525,6 +3609,301 @@ function saveStoredEventName(key, name) {
   localStorage.setItem("photoboothEventNames", JSON.stringify(map));
 }
 
+function getGalleryNamesMap() {
+  try {
+    return JSON.parse(
+      localStorage.getItem("photoboothGalleryNames") || "{}",
+    );
+  } catch (_) {
+    return {};
+  }
+}
+
+function cleanGalleryName(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getStoredGalleryName(key) {
+  if (!key) return "";
+  const map = getGalleryNamesMap();
+  const value = map[key];
+  return cleanGalleryName(value);
+}
+
+function saveStoredGalleryName(key, name) {
+  if (!key) return;
+  const map = getGalleryNamesMap();
+  const clean = cleanGalleryName(name);
+  if (clean) map[key] = clean;
+  else delete map[key];
+  localStorage.setItem("photoboothGalleryNames", JSON.stringify(map));
+}
+
+const GALLERY_HISTORY_KEY = "photoboothGalleryHistory";
+const MAX_GALLERY_HISTORY = 30;
+
+function getGalleryHistoryList() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GALLERY_HISTORY_KEY) || "[]");
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => {
+        const slug = slugifyEventIdentifier(entry.slug);
+        if (!slug) return null;
+        return {
+          slug,
+          name: cleanGalleryName(entry.name) || slug,
+          key: entry.key || null,
+          updatedAt: typeof entry.updatedAt === "number" ? entry.updatedAt : Date.now(),
+        };
+      })
+      .filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveGalleryHistoryList(list) {
+  if (!Array.isArray(list)) return;
+  const pruned = list.slice(0, MAX_GALLERY_HISTORY);
+  localStorage.setItem(GALLERY_HISTORY_KEY, JSON.stringify(pruned));
+}
+
+function rememberGalleryHistory({ key, slug, name }) {
+  const cleanSlug = slugifyEventIdentifier(slug);
+  if (!cleanSlug) return false;
+  const cleanName = cleanGalleryName(name) || cleanSlug;
+  const list = getGalleryHistoryList();
+  const existingIndex = list.findIndex((entry) => entry.slug === cleanSlug);
+  const entry = {
+    slug: cleanSlug,
+    name: cleanName,
+    key: key || null,
+    updatedAt: Date.now(),
+  };
+  if (existingIndex >= 0) list.splice(existingIndex, 1);
+  list.unshift(entry);
+  if (list.length > MAX_GALLERY_HISTORY) list.length = MAX_GALLERY_HISTORY;
+  saveGalleryHistoryList(list);
+  return true;
+}
+
+function refreshGalleryHistoryUI(selectedSlug) {
+  if (!DOM.galleryHistorySelect || !DOM.galleryHistoryWrapper) return;
+  const list = getGalleryHistoryList();
+  const select = DOM.galleryHistorySelect;
+  select.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = list.length
+    ? "Select a saved gallery…"
+    : "No saved galleries yet";
+  select.appendChild(placeholder);
+  list.forEach((entry) => {
+    const option = document.createElement("option");
+    option.value = entry.slug;
+    option.textContent = entry.name
+      ? `${entry.name} (${entry.slug})`
+      : entry.slug;
+    option.dataset.slug = entry.slug;
+    option.dataset.name = entry.name || "";
+    option.dataset.key = entry.key || "";
+    select.appendChild(option);
+  });
+  if (selectedSlug) select.value = selectedSlug;
+  else select.value = "";
+  DOM.galleryHistoryWrapper.classList.toggle("hidden", list.length === 0);
+}
+
+function setupGalleryHistoryControls() {
+  if (!DOM.galleryHistorySelect) return;
+  DOM.galleryHistorySelect.addEventListener("change", () => {
+    const slug = DOM.galleryHistorySelect.value;
+    if (!slug) return;
+    const option = DOM.galleryHistorySelect.options[
+      DOM.galleryHistorySelect.selectedIndex
+    ];
+    const name = option ? option.dataset.name : "";
+    if (!applyGalleryHistorySelection({ slug, name })) {
+      DOM.galleryHistorySelect.value = "";
+    }
+  });
+}
+
+function applyGalleryHistorySelection({ slug, name }) {
+  const key = DOM.eventSelect && DOM.eventSelect.value;
+  if (!key) {
+    showToast("Select an event first.");
+    if (DOM.galleryHistorySelect) DOM.galleryHistorySelect.value = "";
+    return false;
+  }
+  const cleanSlug = slugifyEventIdentifier(slug);
+  if (!cleanSlug) return false;
+  const resolvedName = cleanGalleryName(name) || cleanSlug;
+  if (DOM.eventSlugInput) {
+    DOM.eventSlugInput.value = cleanSlug;
+    DOM.eventSlugInput.dataset.autoGenerated = "false";
+    saveStoredEventSlug(key, cleanSlug);
+  }
+  if (DOM.eventGalleryNameInput) {
+    DOM.eventGalleryNameInput.value = resolvedName;
+    DOM.eventGalleryNameInput.dataset.autoGenerated = "false";
+    saveStoredGalleryName(key, resolvedName);
+  }
+  rememberGalleryHistory({ key, slug: cleanSlug, name: resolvedName });
+  refreshGalleryHistoryUI(cleanSlug);
+  showToast("Gallery loaded", 1800);
+  return true;
+}
+
+function persistCurrentGalleryToHistory(key) {
+  if (!key) return false;
+  const slug = getStoredEventSlug(key);
+  if (!slug) return false;
+  const name =
+    getStoredGalleryName(key) ||
+    cleanGalleryName(DOM.eventGalleryNameInput && DOM.eventGalleryNameInput.value) ||
+    slug;
+  return rememberGalleryHistory({ key, slug, name });
+}
+
+function listSavedGalleries() {
+  return getGalleryHistoryList().map((entry) => ({ ...entry }));
+}
+
+function getCurrentGalleryInfo() {
+  const key = DOM.eventSelect && DOM.eventSelect.value ? DOM.eventSelect.value : "";
+  const slug = getCurrentEventSlug();
+  const name = getCurrentGalleryName() || slug;
+  const cfg = getCloudinaryConfig();
+  const folderPath = buildCloudinaryFolderPath(slug);
+  return {
+    key,
+    slug,
+    name,
+    folder: slug,
+    cloudinary: {
+      enabled: Boolean(cfg.use && cfg.cloud && cfg.preset),
+      cloud: cfg.cloud || "",
+      uploadPreset: cfg.preset || "",
+      folderPath,
+    },
+  };
+}
+
+function selectGalleryBySlug(slug, options = {}) {
+  const cleanSlug = slugifyEventIdentifier(slug);
+  if (!cleanSlug) return false;
+  let requestedName = "";
+  let targetKey = "";
+  if (typeof options === "string") {
+    requestedName = options;
+  } else if (options && typeof options === "object") {
+    requestedName = options.name || options.displayName || "";
+    targetKey = options.key || options.eventKey || "";
+  }
+  if (targetKey && DOM.eventSelect && DOM.eventSelect.value !== targetKey) {
+    if (setEventSelection(targetKey)) {
+      DOM.eventSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  const historyMatch = getGalleryHistoryList().find(
+    (entry) => entry.slug === cleanSlug,
+  );
+  const resolvedName =
+    cleanGalleryName(requestedName) || historyMatch?.name || cleanSlug;
+  return applyGalleryHistorySelection({ slug: cleanSlug, name: resolvedName });
+}
+
+function updateEventNameAndSlugInputs(key, theme) {
+  if (!key) return "";
+  const storedName = getStoredEventName(key) || "";
+  if (DOM.eventNameInput) DOM.eventNameInput.value = storedName;
+  const fallbackSource =
+    storedName ||
+    (theme && theme.welcome && theme.welcome.title) ||
+    key;
+  const fallbackName = cleanGalleryName(fallbackSource);
+  if (DOM.eventGalleryNameInput) {
+    const galleryInput = DOM.eventGalleryNameInput;
+    const storedGalleryName = getStoredGalleryName(key);
+    if (storedGalleryName) {
+      galleryInput.value = storedGalleryName;
+      galleryInput.dataset.autoGenerated =
+        storedGalleryName === fallbackName ? "true" : "false";
+    } else {
+      galleryInput.value = fallbackName;
+      galleryInput.dataset.autoGenerated = "true";
+      if (fallbackName) saveStoredGalleryName(key, fallbackName);
+      else saveStoredGalleryName(key, "");
+    }
+  }
+  if (DOM.eventSlugInput) {
+    const slugInput = DOM.eventSlugInput;
+    const fallbackSource =
+      storedName ||
+      (theme && theme.welcome && theme.welcome.title) ||
+      key;
+    const fallbackCandidate =
+      slugifyEventIdentifier(fallbackSource) || slugifyEventIdentifier(key);
+    const storedSlug = getStoredEventSlug(key);
+    if (storedSlug) {
+      slugInput.value = storedSlug;
+      slugInput.dataset.autoGenerated =
+        storedSlug === fallbackCandidate ? "true" : "false";
+      if (storedSlug !== slugifyEventIdentifier(storedSlug)) {
+        const clean = slugifyEventIdentifier(storedSlug);
+        slugInput.value = clean;
+        if (clean) saveStoredEventSlug(key, clean);
+        else saveStoredEventSlug(key, "");
+      }
+    } else {
+      slugInput.value = fallbackCandidate;
+      slugInput.dataset.autoGenerated = "true";
+      if (fallbackCandidate) saveStoredEventSlug(key, fallbackCandidate);
+      else saveStoredEventSlug(key, "");
+    }
+  }
+  if (persistCurrentGalleryToHistory(key)) {
+    const slug = getStoredEventSlug(key);
+    if (slug) refreshGalleryHistoryUI(slug);
+  }
+  return storedName;
+}
+
+function updateEventSlugFromName(name) {
+  if (!DOM.eventSlugInput) return;
+  const key = DOM.eventSelect && DOM.eventSelect.value;
+  if (!key) return;
+  const slugInput = DOM.eventSlugInput;
+  const shouldAutoUpdate =
+    !slugInput.value || slugInput.dataset.autoGenerated === "true";
+  if (!shouldAutoUpdate) return;
+  const sanitized = slugifyEventIdentifier(name);
+  const fallback = sanitized || slugifyEventIdentifier(key);
+  slugInput.value = fallback;
+  slugInput.dataset.autoGenerated = "true";
+  if (fallback) saveStoredEventSlug(key, fallback);
+  else saveStoredEventSlug(key, "");
+}
+
+function updateGalleryNameFromEventName(name) {
+  if (!DOM.eventGalleryNameInput) return;
+  const key = DOM.eventSelect && DOM.eventSelect.value;
+  if (!key) return;
+  const input = DOM.eventGalleryNameInput;
+  if (input.dataset.autoGenerated !== "true") return;
+  const fallback =
+    cleanGalleryName(name) ||
+    cleanGalleryName(activeTheme?.welcome?.title || "") ||
+    cleanGalleryName(key);
+  input.value = fallback;
+  input.dataset.autoGenerated = "true";
+  if (fallback) saveStoredGalleryName(key, fallback);
+  else saveStoredGalleryName(key, "");
+}
+
 // --- Export current event (settings + theme) ---
 function exportCurrentEvent() {
   const key = DOM.eventSelect && DOM.eventSelect.value;
@@ -3536,9 +3915,16 @@ function exportCurrentEvent() {
     getStoredEventName(key) ||
     (activeTheme.welcome && activeTheme.welcome.title) ||
     key;
+  const galleryName = getCurrentGalleryName() || name;
+  const gallerySlug = getCurrentEventSlug();
   const payload = {
     key,
     name,
+    gallery: {
+      name: galleryName,
+      slug: gallerySlug,
+      folder: gallerySlug,
+    },
     exported_at: new Date().toISOString(),
     theme: activeTheme,
   };
@@ -3636,8 +4022,8 @@ async function publishShareAsset(assetOrUrl) {
       form.append("file", file);
       form.append("upload_preset", cfg.preset);
       // Put each event's images into its own folder
-      const base = (cfg.folderBase || "photobooth/events").replace(/\/$/, "");
-      if (evSlug) form.append("folder", `${base}/${evSlug}`);
+      const folderPath = buildCloudinaryFolderPath(evSlug);
+      if (folderPath) form.append("folder", folderPath);
       const resp = await fetch(
         `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
         { method: "POST", body: form },
@@ -6927,6 +7313,7 @@ function setupInstallPrompt() {
 Object.assign(window, {
   addFontByFamily,
   addFontByUrl,
+  buildCloudinaryFolderPath,
   appendEmailText,
   cancelHideTimer,
   capturePhotoFlow,
@@ -6949,6 +7336,10 @@ Object.assign(window, {
   handleImport,
   makeAvailableOffline,
   openShareLink,
+  getCurrentGalleryInfo,
+  getCloudinaryConfig,
+  listSavedGalleries,
+  selectGalleryBySlug,
   rebuildManifestsUI,
   handleCapture,
   retakePhoto,
