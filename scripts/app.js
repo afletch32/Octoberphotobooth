@@ -1539,27 +1539,7 @@ function applyThemeEditorBasics(theme) {
     DOM.themeOverlaysFolder.value = theme.overlaysFolder || "";
   if (DOM.themeTemplatesFolder)
     DOM.themeTemplatesFolder.value = theme.templatesFolder || "";
-  const eventSize = normalizeSizeValue(
-    theme.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE,
-  );
-  const welcomeSize = normalizeSizeValue(
-    theme.welcome && theme.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE,
-  );
-  document.documentElement.style.setProperty(
-    "--event-title-size",
-    `${eventSize}em`,
-  );
-  document.documentElement.style.setProperty(
-    "--welcome-title-size",
-    `${welcomeSize}em`,
-  );
-  if (DOM.eventTitleSizeInput)
-    DOM.eventTitleSizeInput.value = formatSizeValue(eventSize);
-  if (DOM.welcomeTitleSizeInput)
-    DOM.welcomeTitleSizeInput.value = formatSizeValue(welcomeSize);
-  refreshStylePreviewText();
+  applyHeadingSizes(theme);
 }
 
 function applyThemeEditorColors(theme) {
@@ -4626,18 +4606,25 @@ function saveTheme() {
   });
 }
 
-async // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
+// Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
 // Folder import (device-only) helpers
-async function handleOverlayFolderPick(e) {
+function getSelectedThemeContextOrResetInput(e) {
   const key = getSelectedThemeKey();
   const target = getSelectedThemeTarget();
   if (!key || !target) {
     alert("Select a theme first.");
-    e.target.value = "";
-    return;
+    if (e && e.target) e.target.value = "";
+    return null;
   }
+  return { key, target };
+}
+
+async function handleOverlayFolderPick(e) {
+  const selection = getSelectedThemeContextOrResetInput(e);
+  if (!selection) return;
+  const { key, target } = selection;
   const files = Array.from(e.target.files || []).filter((f) =>
     /^image\//i.test(f.type),
   );
@@ -4663,13 +4650,9 @@ async function handleOverlayFolderPick(e) {
 }
 
 async function handleTemplateFolderPick(e) {
-  const key = getSelectedThemeKey();
-  const target = getSelectedThemeTarget();
-  if (!key || !target) {
-    alert("Select a theme first.");
-    e.target.value = "";
-    return;
-  }
+  const selection = getSelectedThemeContextOrResetInput(e);
+  if (!selection) return;
+  const { key, target } = selection;
   const files = Array.from(e.target.files || []).filter((f) =>
     /^image\//i.test(f.type),
   );
