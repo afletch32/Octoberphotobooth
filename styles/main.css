@@ -789,18 +789,15 @@
       background: rgba(0, 0, 0, 0.6);
     }
 
-    #gallery img {
+    #gallery img,
+    #gallery .gallery-video {
       max-width: 120px;
       margin: 5px;
       border-radius: 6px;
       border: 2px solid #fff;
     }
 
-    #gallery video {
-      max-width: 120px;
-      margin: 5px;
-      border-radius: 6px;
-      border: 2px solid #fff;
+    #gallery .gallery-video {
       background: #000;
     }
 
@@ -1004,7 +1001,7 @@
       align-items: center;
       justify-content: center;
       font-size: clamp(6rem, 20vw, 18rem);
-      font-family: 'Creepster', cursive;
+      font-family: var(--countdown-font, 'Creepster', cursive);
       color: var(--accent);
       text-shadow: 6px 6px 18px #000;
       z-index: 20;
@@ -1176,7 +1173,8 @@
         gap: 18px;
       }
 
-      #finalStrip {
+      #finalStrip,
+      #finalVideo {
         max-width: 88vw;
       }
 
@@ -1201,7 +1199,8 @@
         padding: 12px;
       }
 
-      #finalStrip {
+      #finalStrip,
+      #finalVideo {
         border-width: 6px;
       }
 
