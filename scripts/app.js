@@ -345,6 +345,7 @@ function handleEventSelectChange(event) {
   if (DOM.eventNameInput) {
     DOM.eventNameInput.value = getStoredEventName(key) || "";
   }
+  setStoredThemePreference(key);
   updateThemeEditorSummary();
 }
 
@@ -687,9 +688,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (e) {
     console.warn("Font picker setup failed", e);
   }
-  const initialKey = populateThemeSelector(DEFAULT_THEME_KEY);
+  const initialPreferred = getStoredThemePreference() || DEFAULT_THEME_KEY;
+  const initialKey = populateThemeSelector(initialPreferred);
   if (initialKey) {
     loadTheme(initialKey);
+    setStoredThemePreference(initialKey);
   }
   goAdmin(); // Start on admin screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
@@ -784,9 +787,11 @@ async function loadThemesRemote() {
     if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
     localStorage.setItem("photoboothThemes", JSON.stringify(themes));
     // Refresh UI if already initialized
-    const selected = populateThemeSelector(DEFAULT_THEME_KEY);
+    const preferredKey = getStoredThemePreference() || DEFAULT_THEME_KEY;
+    const selected = populateThemeSelector(preferredKey);
     if (selected) {
       loadTheme(selected);
+      setStoredThemePreference(selected);
     }
     updateSyncStatus("Synced from server");
   } catch (_) {}
@@ -1095,10 +1100,12 @@ function populateThemeSelector(preferredKey, attempt = 0) {
     return null;
   }
   renderThemeQuickSelect(select);
-  const resolved = resolvePreferredThemeKey(preferredKey);
+  const storedPreferred = preferredKey || getStoredThemePreference();
+  const resolved = resolvePreferredThemeKey(storedPreferred);
   if (resolved && !setEventSelection(resolved) && select.options.length > 0) {
     select.selectedIndex = 0;
   }
+  if (select.value) setStoredThemePreference(select.value);
   const selectedKey = (DOM.eventSelect && DOM.eventSelect.value) || null;
   highlightThemeQuickSelect(selectedKey);
   updateThemeEditorSummary();
@@ -2048,8 +2055,8 @@ async function startCamera(autoStartBooth = false) {
   isStartingCamera = true;
 
   try {
-    // Load the theme first to ensure all assets and settings are ready.
-    loadTheme(DOM.eventSelect.value);
+    // Ensure a theme is active before starting camera flows.
+    ensureActiveTheme(DOM.eventSelect && DOM.eventSelect.value);
 
     // If running from file://, most browsers block camera. Offer Demo Mode unless forced.
     if (
@@ -3501,6 +3508,21 @@ function getCurrentEventSlug() {
   } catch (_) {
     return "";
   }
+}
+
+function getStoredThemePreference() {
+  try {
+    return localStorage.getItem(LAST_THEME_STORAGE_KEY) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setStoredThemePreference(key) {
+  try {
+    if (key) localStorage.setItem(LAST_THEME_STORAGE_KEY, key);
+    else localStorage.removeItem(LAST_THEME_STORAGE_KEY);
+  } catch (_) {}
 }
 
 // --- Event name storage helpers ---
