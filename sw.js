@@ -5,6 +5,10 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/styles/main.css',
   '/scripts/app.js',
+  '/scripts/themes.js',
+  '/scripts/theme-storage.js',
+  '/scripts/uploads.js',
+  '/scripts/preview.js',
   '/scripts/config.js',
   '/manifest.json',
   '/fonts.css',
@@ -162,7 +166,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Receive image buffer and store as {scope}/share/{id}.png; reply with URL
+// Receive asset buffer and store under {scope}/share/{id}.{ext}; reply with URL
 self.addEventListener('message', async (event) => {
   const data = event.data || {};
   if (data.type !== 'store-share') return;

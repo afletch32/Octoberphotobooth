@@ -978,6 +978,37 @@
       color: #b6c1d2;
     }
 
+    .mode-duration-settings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mode-duration-settings label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85em;
+      letter-spacing: 0.03em;
+    }
+
+    .mode-duration-settings input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(12, 16, 35, 0.9);
+      color: inherit;
+      font-size: 1em;
+    }
+
+    .mode-duration-note {
+      font-size: 0.78em;
+      color: #9ea9c7;
+      margin-top: -4px;
+    }
+
     #videoWrap {
       flex: 1;
       display: flex;
@@ -986,6 +1017,28 @@
       align-items: center;
       position: relative;
       gap: 12px;
+    }
+
+    .mode-duration-hint {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent2);
+      font-size: 0.95em;
+    }
+
+    .mode-duration-hint span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     #videoContainer {
@@ -1202,122 +1255,46 @@
       animation: pulse 1.5s infinite;
     }
 
-    /* Fun, bubbly start button */
+    /* Start button */
     .start-button {
       position: relative;
-      display: inline-block;
-      padding: 16px 28px;
-      font-size: 1.3em;
-      font-weight: 800;
-      border: none;
-      border-radius: 999px;
-      color: #000;
-      cursor: pointer;
-      background: radial-gradient(120% 120% at 20% 20%, #fff 0%, var(--accent) 40%, hsl(93, 83%, 75%) 100%);
-      box-shadow: 0 10px 24px rgba(0, 0, 0, .35), 0 0 0 4px rgba(255, 255, 255, 0.1) inset;
-      transform: translateZ(0);
-      transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
-      animation: start-bounce 2.2s ease-in-out infinite;
-    }
-
-    .start-button:hover {
-      filter: brightness(1.06);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, .45), 0 0 0 6px rgba(215, 253, 211, 0.12) inset;
-    }
-
-    .start-button:active {
-      transform: scale(0.96);
-    }
-
-    .start-button:focus-visible {
-      outline: 3px solid var(--accent2);
-      outline-offset: 4px;
-    }
-
-    .start-button::before,
-    .start-button::after {
-      content: '';
-      position: absolute;
-      inset: auto;
-      bottom: 8px;
-      left: 16px;
-      width: 10px;
-      height: 10px;
-      background: rgba(255, 255, 255, 0.85);
-      border-radius: 50%;
-      filter: blur(0.5px);
-      animation: bubble 3.2s ease-in infinite;
-      pointer-events: none;
-    }
-
-    .start-button::after {
-      left: auto;
-      right: 18px;
-      animation-delay: 1.2s;
-      width: 8px;
-      height: 8px;
-      opacity: .9;
-    }
-
-    @keyframes start-bounce {
-
-      0%,
-      100% {
-        transform: translateY(0);
-      }
-
-      50% {
-        transform: translateY(-4px);
-      }
-    }
-
-    @keyframes bubble {
-      0% {
-        transform: translate(0, 0) scale(1);
-        opacity: .9;
-      }
-
-      70% {
-        transform: translate(0, -28px) scale(1.4);
-        opacity: .5;
-      }
-
-      100% {
-        transform: translate(0, -42px) scale(0.8);
-        opacity: 0;
-      }
-    }
-
-    /* Big round start button */
-    .start-button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: clamp(150px, 22vw, 280px);
       height: clamp(150px, 22vw, 280px);
+      padding: 0 28px;
       border-radius: 50%;
-      background: radial-gradient(120% 120% at 35% 30%, #aae470 0%, #52ca3f 35%, hsl(126, 69%, 38%) 70%, #054704 100%);
       border: 8px solid #fff;
       outline: 6px solid #222;
+      background: radial-gradient(120% 120% at 35% 30%, #aae470 0%, #52ca3f 35%, hsl(126, 69%, 38%) 70%, #054704 100%);
       color: #000;
+      font-family: 'Bangers', cursive;
+      font-size: clamp(1.2rem, 2.6vw, 2.2rem);
       font-weight: 900;
       letter-spacing: .5px;
       text-transform: none;
-      font-family: 'Bangers', cursive;
-      font-size: clamp(1.2rem, 2.6vw, 2.2rem);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, .55), inset 0 2px 10px rgba(255, 255, 255, .45);
       cursor: pointer;
       user-select: none;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .55), inset 0 2px 10px rgba(255, 255, 255, .45);
+      transition: transform 140ms ease, box-shadow 200ms ease, filter 200ms ease;
       animation: pulse 1.6s infinite;
     }
 
     .start-button:hover {
       transform: translateY(-1px);
+      filter: brightness(1.06);
+      box-shadow: 0 20px 44px rgba(0, 0, 0, .6), inset 0 2px 12px rgba(255, 255, 255, .5);
     }
 
     .start-button:active {
-      transform: translateY(0);
+      transform: translateY(0) scale(0.96);
       box-shadow: 0 8px 18px rgba(0, 0, 0, .5), inset 0 2px 10px rgba(0, 0, 0, .25);
+    }
+
+    .start-button:focus-visible {
+      outline: 3px solid var(--accent2);
+      outline-offset: 4px;
     }
 
     @keyframes pulse {
@@ -1720,6 +1697,17 @@
               <input type="checkbox" id="allowRetakes" checked>
               Allow Retakes
             </label>
+            <div class="mode-duration-settings">
+              <label for="boomerangDuration">
+                Boomerang Duration (sec)
+                <input type="number" id="boomerangDuration" min="1" max="300" step="1" placeholder="6">
+              </label>
+              <label for="video360Duration">
+                360 Video Duration (sec)
+                <input type="number" id="video360Duration" min="1" max="600" step="1" placeholder="12">
+              </label>
+            </div>
+            <p class="mode-duration-note">Displayed to guests so they know how long each capture mode runs.</p>
             <div class="btn-row">
               <button id="startCameraButton" class="primary">Start Camera</button>
               <button id="startBoothButton">Start Booth</button>
@@ -2008,7 +1996,7 @@
       <div id="videoWrap" class="view-landscape">
         <div id="videoContainer"><video id="video" class="hidden" autoplay playsinline muted></video><img
             id="lastShot" /><img id="liveOverlay" /></div>
-        <button id="captureBtn" class="primary" onclick="handleCapture()">Take Photo</button>
+        <button id="captureBtn" class="primary">Take Photo</button>
       </div>
       <div id="controls">
         <button class="mode-btn" onclick="setMode('photo')">
@@ -2046,7 +2034,7 @@
     <div id="finalPreview">
       <div id="finalPreviewContent">
         <img id="finalStrip" />
-        <video id="finalVideo" class="hidden" playsinline muted loop></video>
+        <video id="finalVideo" class="hidden" playsinline loop muted controls></video>
         <div id="finalPreviewActions">
           <div id="qrCodeContainer" class="hidden">
             <h2 style="display:flex; align-items:center; gap:10px;">Scan to Download <span id="shareStatus"
@@ -2059,7 +2047,7 @@
                 style="color: var(--accent2); word-break: break-all;"></a>
               <button type="button" onclick="openShareLink()">Open</button>
               <button type="button" onclick="copyShareLink()">Copy</button>
-              <button type="button" onclick="downloadShareImage()">Download</button>
+              <button type="button" onclick="downloadShareAsset()">Download</button>
             </div>
             <form id="emailForm" onsubmit="sendEmail(event)">
               <input type="email" id="emailInput" placeholder="your@email.com" required onfocus="cancelHideTimer()"
