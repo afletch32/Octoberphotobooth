@@ -699,12 +699,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (initialKey) {
     loadTheme(initialKey);
   }
-  goAdmin(); // Start on admin screen
   ["click", "mousemove", "keydown", "touchstart"].forEach((evt) =>
     document.addEventListener(evt, resetIdleTimer),
   );
   resetIdleTimer();
   init();
+  requestAnimationFrame(() => startBoothFlow());
   if (DOM.headingFontSelect && DOM.bodyFontSelect) {
     setupDualFontPicker({
       headingSelect: DOM.headingFontSelect,
@@ -2013,26 +2013,18 @@ function showWelcome() {
   }
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.add("faded");
-
-  // Ensure the live video element is available before toggling visibility.
-  const videoEl = DOM.video || document.getElementById("video");
-  if (videoEl) {
-    DOM.video = videoEl;
-    videoEl.classList.remove("hidden");
-    videoEl.classList.add("active");
   const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
   DOM.welcomeScreen = ws;
+
+  ws.classList.add("faded");
+
   setBoothControlsVisible(true);
   if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
   setAdminMode(false);
-  ws.classList.add("faded");
-  // show the video smoothly
-  let video = DOM.video || document.getElementById("video");
+
+  const video = DOM.video || document.getElementById("video");
   if (video) {
     DOM.video = video;
     video.classList.remove("hidden");
@@ -2044,18 +2036,15 @@ function hideWelcome() {
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
-      const optionsContainer = DOM.options || document.getElementById("options");
-      if (optionsContainer) {
-        DOM.options = optionsContainer;
-        const firstThumb = optionsContainer.querySelector(".thumb");
+      const options = DOM.options || document.getElementById("options");
+      if (options) {
+        DOM.options = options;
+        const firstThumb = options.querySelector(".thumb");
         if (firstThumb) firstThumb.click();
       }
-      let options = DOM.options || document.getElementById("options");
-      if (options) DOM.options = options;
-      const firstThumb = options && options.querySelector(".thumb");
-      if (firstThumb) firstThumb.click();
     }
   }
+
   resetIdleTimer(); // Start the idle timer now that the booth is active.
 }
 
@@ -2167,10 +2156,24 @@ function startBooth() {
 }
 
 function startBoothFlow() {
-  // Theme is now pre-loaded by startCamera()
+  // Refresh cached DOM references in case the module executed before the
+  // booth markup was parsed (older browsers can behave this way).
+  const adminScreen =
+    DOM.adminScreen || document.getElementById("adminScreen");
+  const boothScreen =
+    DOM.boothScreen || document.getElementById("boothScreen");
+  DOM.adminScreen = adminScreen;
+  DOM.boothScreen = boothScreen;
+
+  if (!boothScreen) {
+    console.warn("Booth screen not found; falling back to admin view.");
+    goAdmin();
+    return;
+  }
+
   allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
-  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
-  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  boothScreen.classList.remove("hidden");
+  if (adminScreen) adminScreen.classList.add("hidden");
   setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
