@@ -2033,8 +2033,9 @@ function showWelcome() {
   }
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
+  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
+  DOM.welcomeScreen = ws;
   ws.classList.add("faded");
 
   // Ensure the live video element is available before toggling visibility.
@@ -2043,21 +2044,12 @@ function hideWelcome() {
     DOM.video = videoEl;
     videoEl.classList.remove("hidden");
     videoEl.classList.add("active");
-  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
-  if (!ws) return;
-  DOM.welcomeScreen = ws;
+  }
+
   setBoothControlsVisible(true);
   if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
   setAdminMode(false);
-  ws.classList.add("faded");
-  // show the video smoothly
-  let video = DOM.video || document.getElementById("video");
-  if (video) {
-    DOM.video = video;
-    video.classList.remove("hidden");
-    video.classList.add("active");
-  }
 
   // After the welcome screen is hidden, select the first option if in photo mode.
   // This ensures the UI is visible and ready for interaction.
@@ -2070,10 +2062,6 @@ function hideWelcome() {
         const firstThumb = optionsContainer.querySelector(".thumb");
         if (firstThumb) firstThumb.click();
       }
-      let options = DOM.options || document.getElementById("options");
-      if (options) DOM.options = options;
-      const firstThumb = options && options.querySelector(".thumb");
-      if (firstThumb) firstThumb.click();
     }
   }
   resetIdleTimer(); // Start the idle timer now that the booth is active.
