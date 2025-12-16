@@ -1986,36 +1986,70 @@ function showWelcome() {
   const welcome = theme.welcome || {};
   const fallbackTitle =
     (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
+  const screen = DOM.welcomeScreen || document.getElementById("welcomeScreen");
+  if (!screen) return;
+
+  DOM.welcomeScreen = screen;
+
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  setAdminMode(false);
+
   if (DOM.welcomeTitle) {
     DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
     DOM.welcomeTitle.style.fontFamily =
       theme.fontHeading || theme.fontBody || theme.font || "";
   }
-  if (DOM.startButton)
-    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
   // Mirror the booth background behind the welcome overlay and hide image slot
   const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
-  if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
+  screen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
     DOM.welcomeImg.src = "";
     DOM.welcomeImg.classList.add("hidden");
   }
 
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.remove("faded");
-  const dismiss = () => hideWelcome();
-  if (DOM.startButton) {
-    DOM.startButton.onclick = dismiss;
-  } else {
-    ws.onclick = dismiss;
+  const overlay = document.getElementById("welcomeOverlay");
+  if (overlay) overlay.classList.remove("hidden");
+
+  let startButton = DOM.startButton || document.getElementById("startButton");
+  if (!startButton && overlay) {
+    startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.id = "startButton";
+    startButton.className = "start-button";
+    overlay.appendChild(startButton);
   }
+
+  const promptText = welcome.prompt || "Touch to start";
+  if (startButton) {
+    DOM.startButton = startButton;
+    startButton.textContent = promptText;
+    startButton.disabled = false;
+    startButton.classList.remove("hidden");
+    startButton.onclick = () => hideWelcome();
+    screen.onclick = null;
+  } else {
+    screen.onclick = () => hideWelcome();
+  }
+
+  screen.classList.remove("hidden");
+  screen.classList.remove("faded");
+  screen.style.opacity = "";
+  screen.style.pointerEvents = "";
+
+  setBoothControlsVisible(false);
 }
 function hideWelcome() {
-  const ws = DOM.welcomeScreen;
-  if (!ws) return;
-  ws.classList.add("faded");
+  const screen = DOM.welcomeScreen || document.getElementById("welcomeScreen");
+  if (!screen) return;
+  DOM.welcomeScreen = screen;
+  screen.classList.add("faded");
+
+  setBoothControlsVisible(true);
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  setAdminMode(false);
 
   // Ensure the live video element is available before toggling visibility.
   const videoEl = DOM.video || document.getElementById("video");
@@ -2023,20 +2057,6 @@ function hideWelcome() {
     DOM.video = videoEl;
     videoEl.classList.remove("hidden");
     videoEl.classList.add("active");
-  const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
-  if (!ws) return;
-  DOM.welcomeScreen = ws;
-  setBoothControlsVisible(true);
-  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
-  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
-  setAdminMode(false);
-  ws.classList.add("faded");
-  // show the video smoothly
-  let video = DOM.video || document.getElementById("video");
-  if (video) {
-    DOM.video = video;
-    video.classList.remove("hidden");
-    video.classList.add("active");
   }
 
   // After the welcome screen is hidden, select the first option if in photo mode.
@@ -2050,12 +2070,9 @@ function hideWelcome() {
         const firstThumb = optionsContainer.querySelector(".thumb");
         if (firstThumb) firstThumb.click();
       }
-      let options = DOM.options || document.getElementById("options");
-      if (options) DOM.options = options;
-      const firstThumb = options && options.querySelector(".thumb");
-      if (firstThumb) firstThumb.click();
     }
   }
+
   resetIdleTimer(); // Start the idle timer now that the booth is active.
 }
 
