@@ -197,6 +197,26 @@ const DOM = {
   installBtn: document.getElementById("installBtn"),
 };
 
+function setupShareLinkRowVisibilitySync() {
+  const row = DOM.shareLinkRow;
+  const container = DOM.qrCodeContainer;
+  if (!row || !container || typeof window === "undefined") return;
+  const revealContainerIfRowVisible = () => {
+    if (row.classList.contains("hidden")) return;
+    const display = window.getComputedStyle(row).display;
+    if (display && display !== "none") {
+      container.classList.remove("hidden");
+    }
+  };
+  if (typeof MutationObserver === "function") {
+    const observer = new MutationObserver(revealContainerIfRowVisible);
+    observer.observe(row, { attributes: true, attributeFilter: ["style", "class"] });
+  }
+  revealContainerIfRowVisible();
+}
+
+setupShareLinkRowVisibilitySync();
+
 function setBoothControlsVisible(show) {
   const hidden = !show;
   if (DOM.options) DOM.options.classList.toggle("hidden", hidden);
