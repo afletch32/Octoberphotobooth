@@ -3185,19 +3185,58 @@ async function publishShareAsset(assetOrUrl) {
     }
   }
 
-  const isVideo = asset.type === 'video' || (blob.type && blob.type.startsWith('video/'));
+  const isVideo =
+    asset.type === 'video' ||
+    (blob.type && blob.type.startsWith('video/')) ||
+    (asset.mimeType && asset.mimeType.startsWith('video/'));
   const inferShareExtension = () => {
-    const clean = (value) => (value || '').toLowerCase().split(/[;+]/)[0].replace(/[^a-z0-9]/g, '');
-    if (blob.type) {
-      const parts = blob.type.split('/');
+    const clean = (value) => (value || '').toLowerCase().split(/[;+]/)[0].split('+')[0].replace(/[^a-z0-9]/g, '');
+    const cleanFromName = (value) => {
+      const name = (value || '').split('?')[0];
+      const match = name.match(/\.([a-z0-9]+)$/i);
+      if (match && match[1]) return clean(match[1]);
+      return '';
+    };
+    const extFromMime = (mimeValue) => {
+      const parts = (mimeValue || '').split('/');
       if (parts[1]) {
         const subtype = clean(parts[1]);
-        if (subtype) return subtype;
+        if (subtype) {
+          if (subtype === 'quicktime') return 'mov';
+          if (subtype === 'x-m4v') return 'm4v';
+          if (subtype === 'x-msvideo') return 'avi';
+          return subtype;
+        }
       }
-    }
+      return '';
+    };
+
+    const fromAssetName = cleanFromName(asset.fileName || asset.filename || asset.name || '');
+    if (fromAssetName) return fromAssetName;
+
+    const fromUrl = cleanFromName(asset.url || '');
+    if (fromUrl) return fromUrl;
+
+    const fromBlobMime = extFromMime(blob.type);
+    if (fromBlobMime) return fromBlobMime;
+
+    const fromAssetMime = extFromMime(asset.mimeType);
+    if (fromAssetMime) return fromAssetMime;
+
     return isVideo ? 'webm' : 'png';
   };
   const shareExt = inferShareExtension();
+  const shareMime = (() => {
+    if (blob.type) return blob.type;
+    if (asset.mimeType) return asset.mimeType;
+    if (shareExt === 'webm') return 'video/webm';
+    if (shareExt === 'mp4') return 'video/mp4';
+    if (shareExt === 'mov') return 'video/quicktime';
+    if (shareExt === 'gif') return 'image/gif';
+    if (shareExt === 'jpg' || shareExt === 'jpeg') return 'image/jpeg';
+    if (shareExt === 'png') return 'image/png';
+    return isVideo ? 'video/webm' : 'image/png';
+  })();
   const cfg = getCloudinaryConfig();
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
