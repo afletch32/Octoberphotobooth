@@ -66,6 +66,8 @@ const DOM = {
   boothControls: document.getElementById("controls"),
   eventSelect: document.getElementById("eventSelect"),
   allowRetakes: document.getElementById("allowRetakes"),
+  boomerangDurationInput: document.getElementById("boomerangDuration"),
+  video360DurationInput: document.getElementById("video360Duration"),
   analyticsData: document.getElementById("analyticsData"),
   logo: document.getElementById("logo"),
   eventTitle: document.getElementById("eventTitle"),
@@ -79,6 +81,7 @@ const DOM = {
   zoomValue: document.getElementById("zoomValue"),
   zoomHint: document.getElementById("zoomHint"),
   captureBtn: document.getElementById("captureBtn"),
+  modeDurationHint: document.getElementById("modeDurationHint"),
   countdownOverlay: document.getElementById("countdownOverlay"),
   flashOverlay: document.getElementById("flashOverlay"),
   finalPreview: document.getElementById("finalPreview"),
@@ -229,6 +232,15 @@ let zoomState = {
   step: 0.01,
   value: DEFAULT_ZOOM_VALUE,
 };
+const MODE_DURATION_STORAGE_KEY = "photoboothModeDurations";
+const DEFAULT_MODE_DURATIONS = { boomerang: 6, video360: 12 };
+const MODE_LABELS = {
+  photo: "Single Photo",
+  strip: "Photo Strip",
+  boomerang: "Boomerang",
+  video360: "360 Video",
+};
+let modeDurations = loadModeDurations();
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
 function withBust(src) {
@@ -651,6 +663,7 @@ function init() {
   setupFolderPickers();
   setupCustomPairingControls();
   setupEventNameInput();
+  setupModeDurationControls();
   loadCloudinarySettings();
   setThemeEditorMode(
     DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit",
@@ -1810,9 +1823,10 @@ function applyThemeBackground(theme) {
 function setMode(m) {
   mode = m;
   DOM.videoWrap.className = "view-landscape"; // Default to landscape
-  // In photo mode, show capture button; strip mode hides it (auto flow)
-  DOM.captureBtn.style.display = mode === "photo" ? "inline-block" : "none";
-  if (mode === "photo") {
+  const showCaptureBtn = mode !== "strip";
+  if (DOM.captureBtn)
+    DOM.captureBtn.style.display = showCaptureBtn ? "inline-block" : "none";
+  if (mode === "photo" || mode === "boomerang" || mode === "video360") {
     setCaptureAspect(null);
   }
   // In strip mode, ensure no photo overlay is shown over the template preview
@@ -1821,15 +1835,17 @@ function setMode(m) {
     if (DOM.liveOverlay) DOM.liveOverlay.src = "";
   }
   renderOptions();
+  updateModeDurationHint();
 }
 function renderOptions() {
-  const isPhoto = mode === "photo";
-  const templates = isPhoto ? [] : getTemplateList(activeTheme);
-  const list = isPhoto ? getOverlayList(activeTheme) : templates;
+  const overlayModes =
+    mode === "photo" || mode === "boomerang" || mode === "video360";
+  const templates = overlayModes ? [] : getTemplateList(activeTheme);
+  const list = overlayModes ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
   container.innerHTML = "";
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
-  if (isPhoto) {
+  if (overlayModes) {
     const wrap = document.createElement("div");
     wrap.className = "thumb";
     const img = document.createElement("img");
@@ -1851,7 +1867,7 @@ function renderOptions() {
     container.appendChild(wrap);
   }
   list.forEach((srcOrObj, idx) => {
-    const src = isPhoto
+    const src = overlayModes
       ? typeof srcOrObj === "string"
         ? srcOrObj
         : srcOrObj.src
@@ -1870,7 +1886,7 @@ function renderOptions() {
         .querySelectorAll(".thumb")
         .forEach((t) => t.classList.remove("selected"));
       wrap.classList.add("selected");
-      if (isPhoto) {
+      if (overlayModes) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
         setViewOrientation(src, getPreviewContext());
@@ -6484,6 +6500,7 @@ Object.assign(window, {
   sendPendingNow,
   sendTestEmail,
   setMode,
+  setModeDuration,
   syncNow,
   toggleAnalytics,
   triggerDeployHook,
