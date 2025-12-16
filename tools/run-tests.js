@@ -8,6 +8,12 @@ const JSON_IGNORE = new Set([
   'update.json'
 ]);
 
+const DIR_EXCLUDE = new Set([
+  'node_modules',
+  'bower_components',
+  'vendor'
+]);
+
 async function findJsonFiles(dir) {
   const entries = await fs.promises.readdir(dir, { withFileTypes: true });
   const files = [];
@@ -15,6 +21,7 @@ async function findJsonFiles(dir) {
     if (entry.name.startsWith('.')) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (DIR_EXCLUDE.has(entry.name)) continue;
       files.push(...await findJsonFiles(fullPath));
     } else if (entry.isFile() && entry.name.endsWith('.json')) {
       if (!JSON_IGNORE.has(entry.name)) {
