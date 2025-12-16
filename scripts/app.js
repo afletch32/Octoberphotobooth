@@ -1,3 +1,48 @@
+import {
+  themes,
+  BUILTIN_THEMES,
+  BUILTIN_THEME_LOCATIONS,
+  DEFAULT_THEME_KEY,
+  DEFAULT_EVENT_TITLE_SIZE,
+  DEFAULT_WELCOME_TITLE_SIZE,
+  setThemes,
+} from "./themes.js";
+import {
+  configureThemeStorage,
+  saveThemesToStorage,
+  loadThemesFromStorage,
+  ensureBuiltinThemes,
+  fixBuiltinThemePlacements,
+  mergeStoredThemes,
+  cloneThemeValue,
+  mergePlainObject,
+  resetThemesToBuiltins,
+  hasCoreBuiltins,
+  applyGlobalLogoToAllThemes,
+  applyGlobalLogoToTheme,
+  getGlobalLogo,
+  setGlobalLogoValue,
+} from "./theme-storage.js";
+import {
+  configureUploads,
+  uploadAsset,
+  normalizeAllThemes,
+  normalizeThemeObject,
+  normalizeSizeValue,
+} from "./uploads.js";
+import {
+  loadImage,
+  orientationFromTemplate,
+  setViewOrientation,
+  applyPreviewOrientation,
+  capturePreviewState,
+  restorePreviewState,
+  getStripTemplateMetrics,
+  detectDoubleColumnSlots,
+  toNumber,
+  getStripTemplatePercents,
+} from "./preview.js";
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
@@ -14,213 +59,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-let themes = {
-  general: {
-    name: "🎉 General",
-    themes: {
-      basic: {
-        name: "✨ Basic",
-        accent: "#3f51b5",
-        accent2: "#ffffff",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/basic/backgrounds/",
-        backgroundFolder: "assets/general/basic/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/basic/overlays/",
-        templatesFolder: "assets/general/basic/templates/",
-        welcome: {
-          title: "Welcome!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-      birthday: {
-        name: "🎂 Birthday",
-        accent: "pink",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/general/birthday/backgrounds/",
-        backgroundFolder: "assets/general/birthday/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/general/birthday/overlays/",
-        templatesFolder: "assets/general/birthday/templates/",
-        welcome: {
-          title: "Happy Birthday!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  school: {
-    name: "🏫 School",
-    themes: {
-      hawks: {
-        name: "🦅 Hawks",
-        accent: "#041E42",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/Hawks/backgrounds/",
-        background: "",
-        logo: "",
-        overlaysFolder: "assets/Hawks/overlays/",
-        templatesFolder: "assets/Hawks/templates/",
-        welcome: {
-          title: "Go Hawks!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-      ane: {
-        name: "🏫 ANE",
-        accent: "#041E42",
-        accent2: "#FFB81C",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/school/ANE/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/school/ANE/overlays",
-        templatesFolder: "assets/school/ANE/templates",
-        welcome: {
-          title: "ANE",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  fall: {
-    name: "🍂 Fall",
-    holidays: {
-      halloween: {
-        name: "🎃 Halloween",
-        accent: "orange",
-        accent2: "white",
-        font: "'Creepster', cursive",
-        // Use folder-based background auto-detect (any background.* in this folder)
-        backgroundFolder: "assets/holidays/fall/halloween/backgrounds/",
-        overlaysFolder: "assets/holidays/fall/halloween/overlays/",
-        logo: "",
-        templatesFolder: "assets/holidays/fall/halloween/templates/",
-        welcome: {
-          title: "Happy Halloween!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-  winter: {
-    name: "❄️ Winter",
-    holidays: {
-      christmas: {
-        name: "🎄 Christmas",
-        accent: "#c41e3a",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background: "assets/holidays/winter/christmas/backgrounds/",
-        logo: "",
-        overlaysFolder: "assets/holidays/winter/christmas/overlays/",
-        templatesFolder: "assets/holidays/winter/christmas/templates/",
-        welcome: {
-          title: "Merry Christmas!",
-          portrait:
-            "assets/holidays/winter/christmas/welcome/welcome-portrait.jpg",
-          landscape:
-            "assets/holidays/winter/christmas/welcome/welcome-landscape.jpg",
-          prompt: "Touch to start the fun!",
-        },
-      },
-      newyear: {
-        name: "🎉 New Year",
-        accent: "#FFD700",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        background:
-          "assets/holidays/winter/newyear/backgrounds/fireworks-background.jpg",
-        logo: "assets/holidays/winter/newyear/logo/newyear-logo.png",
-        overlays: [
-          "assets/holidays/winter/newyear/overlays/newyear-frame-1.png",
-        ],
-        templates: [
-          {
-            src: "assets/holidays/winter/newyear/templates/photostrip-1.png",
-            layout: "double_column",
-          },
-        ],
-        welcome: {
-          title: "Happy New Year!",
-          portrait:
-            "assets/holidays/winter/newyear/welcome/welcome-portrait.jpg",
-          landscape:
-            "assets/holidays/winter/newyear/welcome/welcome-landscape.jpg",
-          prompt: "Start the countdown!",
-        },
-      },
-      valentines: {
-        name: "💕 Valentine's Day",
-        accent: "#ff5e91",
-        accent2: "white",
-        font: "'Comic Neue', cursive",
-        backgroundFolder: "assets/holidays/winter/Valentines/backgrounds/",
-        templatesFolder: "assets/holidays/winter/Valentines/templates/",
-        welcome: {
-          title: "Happy Valentine's Day!",
-          portrait: "",
-          landscape: "",
-          prompt: "Touch to start",
-        },
-      },
-    },
-  },
-};
-
-themes.spring = {
-  name: "🌸 Spring",
-  holidays: {
-    stpatricksday: {
-      name: "🍀 St. Patrick's Day",
-      accent: "#0f6d2f",
-      accent2: "white",
-      font: "'Comic Neue', cursive",
-      backgroundFolder: "assets/holidays/spring/st.patricksday/backgrounds/",
-      overlaysFolder: "assets/holidays/spring/st.patricksday/overlays/",
-      templatesFolder: "assets/holidays/spring/st.patricksday/templates/",
-      welcome: {
-        title: "Happy St. Patrick's Day!",
-        portrait: "",
-        landscape: "",
-        prompt: "Touch to start",
-      },
-    },
-  },
-};
-
-const DEFAULT_EVENT_TITLE_SIZE = 1.8;
-const DEFAULT_WELCOME_TITLE_SIZE = 3.4;
-
-const BUILTIN_THEMES = JSON.parse(JSON.stringify(themes));
-const DEFAULT_THEME_KEY = "general:basic";
-const BUILTIN_THEME_LOCATIONS = (() => {
-  const map = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const group = BUILTIN_THEMES[rootKey];
-    if (!group || typeof group !== "object") continue;
-    for (const bucket of ["themes", "holidays"]) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== "object") continue;
-      for (const subKey of Object.keys(sub)) {
-        map[subKey] = { root: rootKey, bucket };
-      }
-    }
-  }
-  return map;
-})();
-
 // --- DOM Element Cache ---
 const DOM = {
   adminScreen: document.getElementById("adminScreen"),
@@ -229,6 +67,8 @@ const DOM = {
   boothControls: document.getElementById("controls"),
   eventSelect: document.getElementById("eventSelect"),
   allowRetakes: document.getElementById("allowRetakes"),
+  boomerangDurationInput: document.getElementById("boomerangDuration"),
+  video360DurationInput: document.getElementById("video360Duration"),
   analyticsData: document.getElementById("analyticsData"),
   logo: document.getElementById("logo"),
   eventTitle: document.getElementById("eventTitle"),
@@ -242,11 +82,13 @@ const DOM = {
   zoomValue: document.getElementById("zoomValue"),
   zoomHint: document.getElementById("zoomHint"),
   captureBtn: document.getElementById("captureBtn"),
+  modeDurationHint: document.getElementById("modeDurationHint"),
   countdownOverlay: document.getElementById("countdownOverlay"),
   flashOverlay: document.getElementById("flashOverlay"),
   finalPreview: document.getElementById("finalPreview"),
   finalPreviewContent: document.getElementById("finalPreviewContent"),
   finalStrip: document.getElementById("finalStrip"),
+  finalVideo: document.getElementById("finalVideo"),
   qrCodeContainer: document.getElementById("qrCodeContainer"),
   qrCode: document.getElementById("qrCode"),
   lastShot: document.getElementById("lastShot"),
@@ -255,6 +97,7 @@ const DOM = {
   shareLinkRow: document.getElementById("shareLinkRow"),
   shareLink: document.getElementById("shareLink"),
   emailInput: document.getElementById("emailInput"),
+  emailForm: document.getElementById("emailForm"),
   sendBtn: document.getElementById("sendBtn"),
   retakeBtn: document.getElementById("retakeBtn"),
   closePreviewBtn: document.getElementById("closePreviewBtn"),
@@ -374,6 +217,8 @@ function setBoothControlsVisible(show) {
 let activeTheme = null; // Default theme
 let mode = "photo";
 let stream;
+let finalMedia = null;
+let finalPreviewUrl = null;
 let selectedOverlay = null;
 let pendingTemplate = null;
 let hidePreviewTimer = null;
@@ -396,6 +241,15 @@ let zoomState = {
   step: 0.01,
   value: DEFAULT_ZOOM_VALUE,
 };
+const MODE_DURATION_STORAGE_KEY = "photoboothModeDurations";
+const DEFAULT_MODE_DURATIONS = { boomerang: 6, video360: 12 };
+const MODE_LABELS = {
+  photo: "Single Photo",
+  strip: "Photo Strip",
+  boomerang: "Boomerang",
+  video360: "360 Video",
+};
+let modeDurations = loadModeDurations();
 // Cache-busting stamp for this session to avoid stale images during editing
 const SESSION_BUST = Date.now();
 function withBust(src) {
@@ -407,7 +261,30 @@ function withBust(src) {
   }
 }
 
-const GLOBAL_LOGO_STORAGE_KEY = "photoboothGlobalLogo";
+function getPreviewContext(overrides = {}) {
+  return {
+    videoWrap: DOM.videoWrap,
+    mode,
+    activeTheme,
+    pendingTemplate,
+    selectedOverlay,
+    setCaptureAspect,
+    updateCaptureAspect,
+    getTemplateList,
+    getOverlayList,
+    ...overrides,
+  };
+}
+
+configureUploads({
+  getCloudinaryConfig,
+  getCurrentEventSlug,
+});
+
+configureThemeStorage({
+  syncRemote: syncThemesRemote,
+  loadRemote: loadThemesRemote,
+});
 
 function renderMissingThumbnail(container, src) {
   if (!container) return;
@@ -490,7 +367,7 @@ function setupVideoListeners() {
   if (DOM.video) {
     DOM.video.addEventListener("loadedmetadata", () => {
       updateCaptureAspect();
-      applyPreviewOrientation();
+      applyPreviewOrientation(getPreviewContext());
     });
   }
 }
@@ -777,58 +654,14 @@ function setupEventNameInput() {
   });
 }
 
-function setupEventGalleryNameInput() {
-  if (!DOM.eventGalleryNameInput) return;
-  const input = DOM.eventGalleryNameInput;
-  input.dataset.autoGenerated =
-    input.dataset.autoGenerated || (input.value ? "false" : "true");
-  input.addEventListener("blur", () => {
-    const trimmed = input.value.trim();
-    if (input.value !== trimmed) input.value = trimmed;
-  });
-  input.addEventListener("input", () => {
-    const key = DOM.eventSelect && DOM.eventSelect.value;
-    if (!key) return;
-    const trimmed = input.value.trim();
-    if (input.value !== trimmed) input.value = trimmed;
-    if (trimmed) {
-      input.dataset.autoGenerated = "false";
-      saveStoredGalleryName(key, trimmed);
-    } else {
-      input.dataset.autoGenerated = "true";
-      saveStoredGalleryName(key, "");
-    }
-    if (persistCurrentGalleryToHistory(key)) {
-      const slug = getStoredEventSlug(key);
-      if (slug) refreshGalleryHistoryUI(slug);
-    }
-  });
-}
-
-function setupEventSlugInput() {
-  if (!DOM.eventSlugInput) return;
-  DOM.eventSlugInput.dataset.autoGenerated =
-    DOM.eventSlugInput.dataset.autoGenerated ||
-    (DOM.eventSlugInput.value ? "false" : "true");
-  DOM.eventSlugInput.addEventListener("input", () => {
-    const key = DOM.eventSelect && DOM.eventSelect.value;
-    if (!key) return;
-    const sanitized = slugifyEventIdentifier(DOM.eventSlugInput.value);
-    if (DOM.eventSlugInput.value !== sanitized)
-      DOM.eventSlugInput.value = sanitized;
-    if (sanitized) {
-      DOM.eventSlugInput.dataset.autoGenerated = "false";
-      saveStoredEventSlug(key, sanitized);
-    } else {
-      DOM.eventSlugInput.dataset.autoGenerated = "true";
-      saveStoredEventSlug(key, "");
-    }
-    if (sanitized) {
-      if (persistCurrentGalleryToHistory(key)) refreshGalleryHistoryUI(sanitized);
-    } else {
-      refreshGalleryHistoryUI();
-    }
-  });
+function enhanceCapturedCanvas(canvas) {
+  try {
+    const enhanced = applyEnhancements(canvas);
+    return enhanced || canvas;
+  } catch (err) {
+    console.warn('Enhancement pipeline failed', err);
+    return canvas;
+  }
 }
 
 function init() {
@@ -842,17 +675,14 @@ function init() {
   setupFolderPickers();
   setupCustomPairingControls();
   setupEventNameInput();
-  setupEventGalleryNameInput();
-  setupEventSlugInput();
-  setupGalleryHistoryControls();
-  refreshGalleryHistoryUI();
+  setupModeDurationControls();
   loadCloudinarySettings();
   setThemeEditorMode(
     DOM.themeEditorModeSelect ? DOM.themeEditorModeSelect.value : "edit",
   );
   loadEmailJsSettings();
   updatePendingUI();
-  applyPreviewOrientation();
+  applyPreviewOrientation(getPreviewContext());
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1593,6 +1423,9 @@ function loadTheme(themeKey) {
   refreshOverlaysFromFolder(theme);
   refreshTemplatesFromFolder(theme);
   syncAdminUiWithTheme(themeKey, theme);
+  if (DOM.boothScreen && !DOM.boothScreen.classList.contains("hidden")) {
+    showWelcome();
+  }
 }
 
 // Convert any CSS color string to hex (#rrggbb); returns '' on failure
@@ -2011,26 +1844,41 @@ function applyThemeBackground(theme) {
 function setMode(m) {
   mode = m;
   DOM.videoWrap.className = "view-landscape"; // Default to landscape
-  // In photo mode, show capture button; strip mode hides it (auto flow)
-  DOM.captureBtn.style.display = mode === "photo" ? "inline-block" : "none";
-  if (mode === "photo") {
+  const showCaptureBtn = mode !== "strip";
+  if (DOM.captureBtn)
+    DOM.captureBtn.style.display = showCaptureBtn ? "inline-block" : "none";
+  if (mode === "photo" || mode === "boomerang" || mode === "video360") {
     setCaptureAspect(null);
   }
   // In strip mode, ensure no photo overlay is shown over the template preview
   if (mode === "strip") {
     selectedOverlay = null;
     if (DOM.liveOverlay) DOM.liveOverlay.src = "";
+  } else if (mode === "video360") {
+    selectedOverlay = null;
+    if (DOM.liveOverlay) DOM.liveOverlay.src = "";
+    setCaptureAspect(null);
   }
   renderOptions();
+  updateModeDurationHint();
 }
 function renderOptions() {
-  const isPhoto = mode === "photo";
-  const templates = isPhoto ? [] : getTemplateList(activeTheme);
-  const list = isPhoto ? getOverlayList(activeTheme) : templates;
+  const overlayModes =
+    mode === "photo" || mode === "boomerang" || mode === "video360";
+  const templates = overlayModes ? [] : getTemplateList(activeTheme);
+  const list = overlayModes ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
   container.innerHTML = "";
+  if (isVideo360) {
+    const note = document.createElement("div");
+    note.className = "video360-note";
+    note.textContent =
+      "Speed-ramped 360 clips capture automatically. No overlay selection needed.";
+    container.appendChild(note);
+    return;
+  }
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
-  if (isPhoto) {
+  if (overlayModes) {
     const wrap = document.createElement("div");
     wrap.className = "thumb";
     const img = document.createElement("img");
@@ -2052,7 +1900,7 @@ function renderOptions() {
     container.appendChild(wrap);
   }
   list.forEach((srcOrObj, idx) => {
-    const src = isPhoto
+    const src = overlayModes
       ? typeof srcOrObj === "string"
         ? srcOrObj
         : srcOrObj.src
@@ -2071,10 +1919,10 @@ function renderOptions() {
         .querySelectorAll(".thumb")
         .forEach((t) => t.classList.remove("selected"));
       wrap.classList.add("selected");
-      if (isPhoto) {
+      if (overlayModes) {
         selectedOverlay = src;
         DOM.liveOverlay.src = withBust(selectedOverlay);
-        setViewOrientation(src);
+        setViewOrientation(src, getPreviewContext());
       } else {
         // open confirm with larger preview
         // Photo strips are assumed to be landscape for preview purposes
@@ -2091,131 +1939,11 @@ function renderOptions() {
   });
 }
 
-async function setViewOrientation(imgSrc) {
-  const aspect = await getAspectRatioFromImage(imgSrc);
-  if (aspect) {
-    const orientation = aspect > 1 ? "landscape" : "portrait";
-    DOM.videoWrap.className = `view-${orientation}`;
-    setCaptureAspect(aspect);
-  } else {
-    // fallback to default
-    DOM.videoWrap.className = "view-landscape";
-    setCaptureAspect(null);
-    updateCaptureAspect();
-  }
-}
-
-function orientationFromTemplate(template) {
-  const layout = (
-    template && template.layout ? template.layout : ""
-  ).toLowerCase();
-  if (
-    layout === "double_column" ||
-    layout === "double-column" ||
-    layout === "vertical"
-  )
-    return "view-portrait";
-  return "view-landscape";
-}
-
-function applyPreviewOrientation() {
-  if (!DOM.videoWrap) return;
-  if (mode === "strip") {
-    const templates = getTemplateList(activeTheme);
-    const template =
-      pendingTemplate || (Array.isArray(templates) ? templates[0] : null);
-    DOM.videoWrap.className = orientationFromTemplate(template);
-    return;
-  }
-  const overlays = getOverlayList(activeTheme);
-  const firstOverlay =
-    Array.isArray(overlays) && overlays.length ? overlays[0] : null;
-  const overlaySrc =
-    selectedOverlay ||
-    (firstOverlay &&
-      (typeof firstOverlay === "string" ? firstOverlay : firstOverlay.src));
-  if (overlaySrc) {
-    setViewOrientation(overlaySrc).catch(() => {
-      DOM.videoWrap.className = "view-landscape";
-      setCaptureAspect(null);
-      updateCaptureAspect();
-    });
-  } else {
-    DOM.videoWrap.className = "view-landscape";
-    setCaptureAspect(null);
-    updateCaptureAspect();
-  }
-}
-
-function capturePreviewState() {
-  return {
-    overlaySrc: DOM.liveOverlay ? DOM.liveOverlay.src : "",
-    overlayOpacity: DOM.liveOverlay ? DOM.liveOverlay.style.opacity : "",
-    overlayDisplay: DOM.liveOverlay ? DOM.liveOverlay.style.display : "",
-    videoClass: DOM.videoWrap ? DOM.videoWrap.className : "view-landscape",
-  };
-}
-
-function restorePreviewState(state) {
-  if (!state) return;
-  if (DOM.liveOverlay) {
-    DOM.liveOverlay.src = state.overlaySrc || "";
-    DOM.liveOverlay.style.opacity = state.overlayOpacity || "";
-    DOM.liveOverlay.style.display = state.overlayDisplay || "";
-    DOM.liveOverlay.style.filter = "";
-  }
-  if (DOM.videoWrap)
-    DOM.videoWrap.className = state.videoClass || "view-landscape";
-}
-
-async function getStripTemplateMetrics(template) {
-  if (!template || !template.src) return null;
-  if (template.__slotMetrics) return template.__slotMetrics;
-  const metrics = {};
-  const img = await loadImage(template.src);
-  const slots = detectDoubleColumnSlots(img, 3);
-  if (slots) metrics.slots = slots;
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
-  metrics.headerPct = headerPct;
-  metrics.columnPadPct = columnPadPct;
-  metrics.slotSpacingPct = slotSpacingPct;
-  metrics.footerPct = footerPct;
-  if (slots && slots[0] && slots[0][0]) {
-    metrics.aspect = Math.max(0.1, slots[0][0].w / slots[0][0].h);
-  } else {
-    const cols = 2;
-    const columnW = 1 / cols;
-    const slotWRel = columnW - columnPadPct * columnW * 2;
-    const slotHRel = (1 - headerPct - footerPct - slotSpacingPct * (3 + 1)) / 3;
-    metrics.aspect = Math.max(0.1, slotWRel / slotHRel);
-  }
-  template.__slotMetrics = metrics;
-  return metrics;
-}
-
 async function prepareStripCapture(template) {
-  const state = capturePreviewState();
+  const state = capturePreviewState({
+    liveOverlay: DOM.liveOverlay,
+    videoWrap: DOM.videoWrap,
+  });
   if (DOM.liveOverlay) {
     DOM.liveOverlay.src = "";
     DOM.liveOverlay.style.display = "none";
@@ -2254,19 +1982,19 @@ function confirmTemplate() {
 
 // Welcome control
 function showWelcome() {
-  if (!activeTheme) return;
-  // Title + prompt
-  DOM.welcomeTitle.textContent =
-    (activeTheme.welcome && activeTheme.welcome.title) ||
-    (DOM.eventTitle && DOM.eventTitle.textContent) ||
-    "";
-  DOM.welcomeTitle.style.fontFamily =
-    activeTheme.fontHeading || activeTheme.fontBody || activeTheme.font || "";
+  const theme = activeTheme || {};
+  const welcome = theme.welcome || {};
+  const fallbackTitle =
+    (DOM.eventTitle && DOM.eventTitle.textContent) || welcome.title || "Welcome!";
+  if (DOM.welcomeTitle) {
+    DOM.welcomeTitle.textContent = welcome.title || fallbackTitle;
+    DOM.welcomeTitle.style.fontFamily =
+      theme.fontHeading || theme.fontBody || theme.font || "";
+  }
   if (DOM.startButton)
-    DOM.startButton.textContent =
-      (activeTheme.welcome && activeTheme.welcome.prompt) || "Touch to start";
+    DOM.startButton.textContent = welcome.prompt || "Touch to start";
 
-  //  the booth background on the welcome screen and hide standalone images
+  // Mirror the booth background behind the welcome overlay and hide image slot
   const boothBg = DOM.boothScreen ? DOM.boothScreen.style.backgroundImage : "";
   if (DOM.welcomeScreen) DOM.welcomeScreen.style.backgroundImage = boothBg;
   if (DOM.welcomeImg) {
@@ -2277,13 +2005,24 @@ function showWelcome() {
   const ws = DOM.welcomeScreen;
   if (!ws) return;
   ws.classList.remove("faded");
+  const dismiss = () => hideWelcome();
   if (DOM.startButton) {
-    DOM.startButton.onclick = () => hideWelcome();
+    DOM.startButton.onclick = dismiss;
   } else {
-    ws.onclick = () => hideWelcome();
+    ws.onclick = dismiss;
   }
 }
 function hideWelcome() {
+  const ws = DOM.welcomeScreen;
+  if (!ws) return;
+  ws.classList.add("faded");
+
+  // Ensure the live video element is available before toggling visibility.
+  const videoEl = DOM.video || document.getElementById("video");
+  if (videoEl) {
+    DOM.video = videoEl;
+    videoEl.classList.remove("hidden");
+    videoEl.classList.add("active");
   const ws = DOM.welcomeScreen || document.getElementById("welcomeScreen");
   if (!ws) return;
   DOM.welcomeScreen = ws;
@@ -2305,6 +2044,12 @@ function hideWelcome() {
   if (mode === "photo") {
     const overlays = getOverlayList(activeTheme);
     if (Array.isArray(overlays) && overlays.length > 0) {
+      const optionsContainer = DOM.options || document.getElementById("options");
+      if (optionsContainer) {
+        DOM.options = optionsContainer;
+        const firstThumb = optionsContainer.querySelector(".thumb");
+        if (firstThumb) firstThumb.click();
+      }
       let options = DOM.options || document.getElementById("options");
       if (options) DOM.options = options;
       const firstThumb = options && options.querySelector(".thumb");
@@ -2392,10 +2137,21 @@ async function startCamera(autoStartBooth = false) {
       })
       .catch((err) => {
         console.error("Camera Error:", err);
-        alert(
-          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\nError: " +
-            err.message,
+        const detail = err && err.message ? err.message : "Unknown error";
+        const useDemo = confirm(
+          "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+            `Error: ${detail}\n\nEnable Demo Mode instead?`,
         );
+        if (useDemo) {
+          demoMode = true;
+          if (autoStartBooth) startBoothFlow();
+          else showToast("Demo mode enabled");
+        } else {
+          alert(
+            "Could not access the camera. Please ensure it is not in use by another application and that you have granted permission.\n\n" +
+              `Error: ${detail}`,
+          );
+        }
       })
       .finally(() => {
         isStartingCamera = false;
@@ -2412,9 +2168,9 @@ function startBooth() {
 
 function startBoothFlow() {
   // Theme is now pre-loaded by startCamera()
-  allowRetake = DOM.allowRetakes.checked;
-  DOM.adminScreen.classList.add("hidden");
-  DOM.boothScreen.classList.remove("hidden");
+  allowRetake = DOM.allowRetakes ? DOM.allowRetakes.checked : true;
+  if (DOM.adminScreen) DOM.adminScreen.classList.add("hidden");
+  if (DOM.boothScreen) DOM.boothScreen.classList.remove("hidden");
   setAdminMode(false);
   setBoothControlsVisible(true);
   setCaptureAspect(null);
@@ -2616,10 +2372,105 @@ async function capturePhotoFlow() {
   lastCaptureFlow = capturePhotoFlow; // Store this function for retake
   setBoothControlsVisible(false);
   const photo = await countdownAndSnap();
-  const finalUrl = await finalizeToPrint(photo, selectedOverlay);
+  const enhancedPhoto = enhanceCapturedCanvas(photo);
+  const finalUrl = await finalizeToPrint(enhancedPhoto, selectedOverlay);
   showFinal(finalUrl);
   recordAnalytics("photo", selectedOverlay);
   addToGallery(finalUrl);
+}
+
+async function captureBoomerangFlow() {
+  lastCaptureFlow = captureBoomerangFlow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const captureFrame = async () => {
+        const frame = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+        return frame;
+      };
+      const clip = await captureBoomerang({ captureFrame });
+      const poster = clip.poster || ((clip.url || '').startsWith('data:') ? clip.url : '');
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster: poster || '',
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('boomerang', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('Boomerang capture failed', e);
+    showToast('Boomerang capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
+}
+
+async function captureVideo360Flow() {
+  lastCaptureFlow = captureVideo360Flow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode || !stream) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const clip = await captureStitched360({ stream });
+      let poster = '';
+      try {
+        const thumb = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(thumb, selectedOverlay);
+        poster = thumb.toDataURL('image/png');
+      } catch (posterErr) {
+        console.warn('Failed to capture poster frame', posterErr);
+      }
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster,
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('video360', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('360 capture failed', e);
+    showToast('Video capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
 }
 function drawToCanvasFromVideo() {
   const v = DOM.video;
@@ -2727,29 +2578,6 @@ function setCaptureAspect(aspect) {
   }
   updateCaptureAspect();
 }
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    try {
-      if (location.protocol.startsWith("http")) img.crossOrigin = "anonymous";
-    } catch (_) {}
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-async function getAspectRatioFromImage(imgSrc) {
-  try {
-    const img = await loadImage(imgSrc);
-    if (img.naturalWidth && img.naturalHeight) {
-      return img.naturalWidth / img.naturalHeight;
-    }
-  } catch (e) {
-    console.error("Failed to get aspect ratio from image", imgSrc, e);
-  }
-  return null; // or a default value
-}
-
 async function applyOverlay(canvas, overlaySrc) {
   if (!overlaySrc) return canvas;
   try {
@@ -2791,110 +2619,15 @@ function drawImageContain(ctx, img, dx, dy, dw, dh) {
   ctx.drawImage(img, rx, ry, rw, rh);
 }
 
-function toNumber(val, fallback) {
-  const num = Number(val);
-  return Number.isFinite(num) ? num : fallback;
-}
-
 function clamp(val, min, max) {
   if (!Number.isFinite(val)) return min;
   return Math.min(Math.max(val, min), max);
-}
-
-function normalizeSizeValue(raw, fallback) {
-  if (typeof raw === "string") {
-    const cleaned = raw.replace(/[^0-9.]/g, "");
-    if (cleaned) raw = Number(cleaned);
-    else raw = NaN;
-  }
-  const num = Number(raw);
-  return Number.isFinite(num) && num > 0 ? num : fallback;
 }
 
 function formatSizeValue(num) {
   if (!Number.isFinite(num) || num <= 0) return "";
   const trimmed = num.toFixed(2).replace(/\.?0+$/, "");
   return trimmed;
-}
-
-function detectDoubleColumnSlots(img, rows) {
-  try {
-    const w = img.naturalWidth || img.width;
-    const h = img.naturalHeight || img.height;
-    if (!w || !h) return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const data = ctx.getImageData(0, 0, w, h).data;
-    const cols = 2;
-    const colWidth = w / cols;
-    const marginX = Math.max(2, Math.floor(colWidth * 0.08));
-    const stepX = Math.max(1, Math.floor(colWidth / 80));
-    const alphaThreshold = 32;
-    const minSlotHeight = Math.max(10, Math.floor(h * 0.08));
-    const expandY = Math.floor(h * 0.005);
-    const results = Array.from({ length: cols }, () => []);
-
-    for (let col = 0; col < cols; col++) {
-      const xStart = Math.max(0, Math.floor(col * colWidth + marginX));
-      const xEnd = Math.min(w - 1, Math.floor((col + 1) * colWidth - marginX));
-      let inSlot = false;
-      let slotStart = 0;
-      for (let y = 0; y < h; y++) {
-        let alphaSum = 0;
-        let count = 0;
-        for (let x = xStart; x <= xEnd; x += stepX) {
-          alphaSum += data[(y * w + x) * 4 + 3];
-          count++;
-        }
-        const avgAlpha = alphaSum / (count || 1);
-        if (!inSlot && avgAlpha < alphaThreshold) {
-          inSlot = true;
-          slotStart = y;
-        } else if (inSlot && avgAlpha >= alphaThreshold) {
-          const slotHeight = y - slotStart;
-          if (slotHeight >= minSlotHeight) {
-            const y1 = Math.max(0, slotStart - expandY);
-            const y2 = Math.min(h, y + expandY);
-            results[col].push({
-              x: col * colWidth + marginX,
-              y: y1,
-              w: colWidth - marginX * 2,
-              h: Math.max(1, y2 - y1),
-            });
-          }
-          inSlot = false;
-        }
-      }
-      if (inSlot) {
-        const slotHeight = h - slotStart;
-        if (slotHeight >= minSlotHeight) {
-          const y1 = Math.max(0, slotStart - expandY);
-          const y2 = h;
-          results[col].push({
-            x: col * colWidth + marginX,
-            y: y1,
-            w: colWidth - marginX * 2,
-            h: Math.max(1, y2 - y1),
-          });
-        }
-      }
-      results[col].sort((a, b) => a.y - b.y);
-      if (results[col].length > rows) {
-        results[col] = results[col].slice(0, rows);
-      }
-    }
-
-    if (results.every((arr) => arr.length === rows)) {
-      return results;
-    }
-    return null;
-  } catch (e) {
-    console.warn("Slot detection failed", e);
-    return null;
-  }
 }
 
 // Convert hex like #rrggbb to {r,g,b}
@@ -2946,7 +2679,8 @@ async function runStripSequence(template) {
   for (let i = 0; i < 3; i++) {
     if (lastShotImg) lastShotImg.style.display = "none";
     const snap = await countdownAndSnap();
-    shots.push(snap);
+    const enhancedSnap = enhanceCapturedCanvas(snap);
+    shots.push(enhancedSnap);
     if (i < 2) {
       try {
         if (lastShotImg) {
@@ -2962,14 +2696,21 @@ async function runStripSequence(template) {
   }
   try {
     const stripUrl = await composeStrip(template, shots);
-    restorePreviewState(previewState);
+    restorePreviewState(previewState, {
+      liveOverlay: DOM.liveOverlay,
+      videoWrap: DOM.videoWrap,
+    });
     previewRestored = true;
     if (DOM.liveOverlay)
       DOM.liveOverlay.style.opacity = previewState.overlayOpacity || "";
     showFinal(stripUrl);
     recordAnalytics("strip", template.src);
   } finally {
-    if (!previewRestored) restorePreviewState(previewState);
+    if (!previewRestored)
+      restorePreviewState(previewState, {
+        liveOverlay: DOM.liveOverlay,
+        videoWrap: DOM.videoWrap,
+      });
     setCaptureAspect(prevAspect);
   }
 }
@@ -2984,13 +2725,367 @@ async function showCountdown(text) {
   co.classList.remove("show");
   await delay(200);
 }
+async function runCaptureCountdown() {
+  for (let n = 3; n > 0; n--) {
+    // eslint-disable-next-line no-await-in-loop
+    await showCountdown(n);
+  }
+}
 async function countdownAndSnap() {
   for (let n = 3; n > 0; n--) {
     await showCountdown(n);
   }
+  if (options && options.flash) triggerFlash();
+}
+async function countdownAndSnap() {
+  await runCountdown(3, { flash: true });
   const shot = drawToCanvasFromVideo();
-  triggerFlash();
   return shot;
+}
+
+async function capture360Flow() {
+  lastCaptureFlow = capture360Flow;
+  setBoothControlsVisible(false);
+  let success = false;
+  try {
+    await runCountdown(3);
+    const rawClip = await record360Clip(VIDEO_360_RECORD_MS);
+    if (!rawClip || !rawClip.size) {
+      throw new Error("No video captured");
+    }
+    showToast("Processing 360 clip…");
+    const processed = await applySpeedRampTo360(rawClip);
+    if (!processed || !processed.size) {
+      throw new Error("Processing failed");
+    }
+    const previewUrl = URL.createObjectURL(processed);
+    showFinal({
+      type: "video",
+      url: previewUrl,
+      blob: processed,
+      filename: VIDEO_360_FILENAME,
+      revokeOnHide: true,
+    });
+    recordAnalytics("video360", "speed-ramp");
+    addToGallery({ type: "video", blob: processed });
+    success = true;
+  } catch (err) {
+    console.error("360 capture failed", err);
+    alert(
+      "Could not record 360 clip: " +
+        (err && err.message ? err.message : String(err || "unknown error")),
+    );
+  } finally {
+    if (!success) setBoothControlsVisible(true);
+  }
+}
+
+function pickMediaRecorderMimeType() {
+  if (
+    typeof MediaRecorder === "undefined" ||
+    typeof MediaRecorder.isTypeSupported !== "function"
+  )
+    return null;
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4",
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(candidate)) return candidate;
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function record360Clip(durationMs = VIDEO_360_RECORD_MS) {
+  const ms = Math.max(1000, Number(durationMs) || VIDEO_360_RECORD_MS);
+  if (
+    demoMode ||
+    !stream ||
+    typeof MediaRecorder === "undefined" ||
+    !stream.getVideoTracks ||
+    stream.getVideoTracks().length === 0
+  ) {
+    return createDemo360Clip(ms);
+  }
+  const mimeType = pickMediaRecorderMimeType();
+  const options = mimeType ? { mimeType } : undefined;
+  return new Promise((resolve, reject) => {
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, options);
+    } catch (err) {
+      console.warn("MediaRecorder init failed, using demo clip", err);
+      createDemo360Clip(ms).then(resolve).catch(reject);
+      return;
+    }
+    const chunks = [];
+    recorder.addEventListener("dataavailable", (ev) => {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    });
+    recorder.addEventListener("stop", () => {
+      if (!chunks.length) {
+        reject(new Error("No video data captured"));
+        return;
+      }
+      resolve(
+        new Blob(chunks, {
+          type: recorder.mimeType || mimeType || "video/webm",
+        }),
+      );
+    });
+    recorder.addEventListener("error", (ev) => {
+      reject(ev.error || ev);
+    });
+    try {
+      recorder.start();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    setTimeout(() => {
+      try {
+        if (recorder.state !== "inactive") recorder.stop();
+      } catch (_) {}
+    }, ms);
+  });
+}
+
+async function createDemo360Clip(durationMs) {
+  if (typeof document === "undefined") {
+    throw new Error("Demo clip not supported in this environment");
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 1280;
+  canvas.height = 720;
+  if (typeof canvas.captureStream !== "function") {
+    throw new Error("Canvas captureStream not supported");
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas context unavailable");
+  const stream = canvas.captureStream(VIDEO_360_FRAME_RATE);
+  const mimeType = pickMediaRecorderMimeType();
+  const options = mimeType ? { mimeType } : undefined;
+  return new Promise((resolve, reject) => {
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, options);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const chunks = [];
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    };
+    recorder.onerror = (ev) => reject(ev.error || ev);
+    recorder.onstop = () => {
+      resolve(
+        new Blob(chunks, {
+          type: recorder.mimeType || mimeType || "video/webm",
+        }),
+      );
+    };
+    const start = performance.now();
+    function draw(now) {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / durationMs);
+      ctx.fillStyle = `hsl(${Math.floor(progress * 360)}, 70%, 45%)`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const radius = 120 + Math.sin(progress * Math.PI * 2) * 40;
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height / 2, Math.abs(radius), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "64px 'Comic Neue', 'Comic Sans MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Demo 360", canvas.width / 2, canvas.height / 2 + 24);
+      if (progress < 1) {
+        requestAnimationFrame(draw);
+      } else {
+        try {
+          if (recorder.state !== "inactive") recorder.stop();
+        } catch (_) {}
+      }
+    }
+    try {
+      recorder.start();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    requestAnimationFrame(draw);
+    setTimeout(() => {
+      try {
+        if (recorder.state !== "inactive") recorder.stop();
+      } catch (_) {}
+    }, durationMs + 200);
+  });
+}
+
+function easeInOutCubic(t) {
+  const clamped = clamp(Number(t) || 0, 0, 1);
+  return clamped < 0.5
+    ? 4 * clamped * clamped * clamped
+    : 1 - Math.pow(-2 * clamped + 2, 3) / 2;
+}
+
+function buildSpeedRampSegments(duration) {
+  const d = Number(duration) && duration > 0 ? duration : 6;
+  const profile = VIDEO_360_SPEED_RAMP;
+  const intro = computeRampDuration(d, profile.introPortion, profile.introMaxDuration);
+  const outro = computeRampDuration(d, profile.outroPortion, profile.outroMaxDuration);
+  const midStart = intro;
+  const rawMidEnd = Math.max(d - outro, midStart + (profile.minMidDuration || 0.2));
+  const midEnd = Math.min(rawMidEnd, Math.max(d, midStart));
+  const tailStart = Math.min(Math.max(midStart, midEnd), d);
+  const introFrom = Number.isFinite(profile.introFrom) ? profile.introFrom : 0.55;
+  const introTo = Number.isFinite(profile.introTo) ? profile.introTo : 1.0;
+  const midTo = Number.isFinite(profile.midTo) ? profile.midTo : 1.85;
+  const outroTo = Number.isFinite(profile.outroTo) ? profile.outroTo : 0.75;
+  return [
+    { start: 0, end: midStart, from: introFrom, to: introTo },
+    { start: midStart, end: tailStart, from: introTo, to: midTo },
+    { start: tailStart, end: Math.max(d, tailStart), from: midTo, to: outroTo },
+  ];
+}
+
+function computeRampDuration(total, portion, maxDuration) {
+  const ratio = clamp(Number(portion) || 0.2, 0.05, 0.9);
+  const scaled = total * ratio;
+  if (Number.isFinite(maxDuration) && maxDuration > 0) {
+    return Math.min(scaled, maxDuration);
+  }
+  return scaled;
+}
+
+function rateForTime(time, segments) {
+  if (!Array.isArray(segments) || !segments.length) return 1;
+  const t = Math.max(0, Number(time) || 0);
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg || !Number.isFinite(seg.start) || !Number.isFinite(seg.end)) continue;
+    if (t <= seg.end || i === segments.length - 1) {
+      const span = Math.max(0.001, seg.end - seg.start);
+      const pct = Math.min(1, Math.max(0, (t - seg.start) / span));
+      const eased = easeInOutCubic(pct);
+      return seg.from + (seg.to - seg.from) * eased;
+    }
+  }
+  const last = segments[segments.length - 1];
+  return last && Number.isFinite(last.to) ? last.to : 1;
+}
+
+function waitForEvent(target, event) {
+  return new Promise((resolve, reject) => {
+    if (!target || typeof target.addEventListener !== "function") {
+      reject(new Error("Invalid event target"));
+      return;
+    }
+    const cleanup = () => {
+      target.removeEventListener(event, onEvent);
+      target.removeEventListener("error", onError);
+    };
+    const onEvent = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err) => {
+      cleanup();
+      reject(err);
+    };
+    target.addEventListener(event, onEvent, { once: true });
+    target.addEventListener("error", onError, { once: true });
+  });
+}
+
+async function applySpeedRampTo360(blob) {
+  if (!blob || !(blob instanceof Blob)) return blob;
+  if (typeof document === "undefined") return blob;
+  const canvas = document.createElement("canvas");
+  if (typeof canvas.captureStream !== "function") return blob;
+  if (typeof MediaRecorder === "undefined") return blob;
+  const mimeType = pickMediaRecorderMimeType();
+  const url = URL.createObjectURL(blob);
+  try {
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    await waitForEvent(video, "loadedmetadata");
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return blob;
+    const stream = canvas.captureStream(VIDEO_360_FRAME_RATE);
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch (err) {
+      console.warn("MediaRecorder unavailable for processing", err);
+      return blob;
+    }
+    const chunks = [];
+    const recorded = new Promise((resolve, reject) => {
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size) chunks.push(ev.data);
+      };
+      recorder.onerror = (ev) => reject(ev.error || ev);
+      recorder.onstop = () => {
+        resolve(
+          new Blob(chunks, {
+            type: recorder.mimeType || mimeType || blob.type || "video/webm",
+          }),
+        );
+      };
+    });
+    const segments = buildSpeedRampSegments(video.duration);
+    if (!segments.length) return blob;
+    if (Number.isFinite(segments[0].from)) {
+      video.playbackRate = segments[0].from;
+    }
+    video.currentTime = 0;
+    let drawing = true;
+    function drawFrame() {
+      if (!drawing) return;
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch (_) {}
+      if (!video.ended) requestAnimationFrame(drawFrame);
+    }
+    function updateRate() {
+      if (!drawing) return;
+      const rate = rateForTime(video.currentTime, segments);
+      if (Number.isFinite(rate) && rate > 0) {
+        video.playbackRate = rate;
+      }
+      if (!video.paused && !video.ended) requestAnimationFrame(updateRate);
+    }
+    recorder.start();
+    try {
+      await video.play();
+    } catch (_) {}
+    requestAnimationFrame(drawFrame);
+    requestAnimationFrame(updateRate);
+    try {
+      await waitForEvent(video, "ended");
+    } catch (_) {}
+    drawing = false;
+    if (recorder.state !== "inactive") recorder.stop();
+    const processed = await recorded;
+    return processed && processed.size ? processed : blob;
+  } catch (err) {
+    console.warn("Speed ramp processing failed", err);
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function triggerFlash() {
@@ -3131,29 +3226,9 @@ function renderDoubleColumn(canvas, photos, overlayImage, template) {
   const ctx = canvas.getContext("2d");
   const cols = 2; // duplicate columns
   const rows = 3; // three slots
-  // Reserve a header area at the top for graphics/logo on the template
-  const headerPct = Math.max(
-    0,
-    Math.min(
-      0.5,
-      toNumber(
-        template && (template.headerPct || template.header_percent),
-        0.2,
-      ),
-    ),
-  );
-  const columnPadPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.columnPadPct, 0.055)),
-  );
-  const slotSpacingPct = Math.max(
-    0,
-    Math.min(0.2, toNumber(template && template.slotSpacingPct, 0.022)),
-  );
-  const footerPct = Math.max(
-    0,
-    Math.min(0.3, toNumber(template && template.footerPct, 0.03)),
-  );
+  // Reserve header/footer/spacing using shared template metrics helpers
+  const { headerPct, columnPadPct, slotSpacingPct, footerPct } =
+    getStripTemplatePercents(template);
 
   const columnW = canvas.width / cols;
   const columnPad = columnPadPct * columnW;
@@ -3281,31 +3356,57 @@ async function detectMaskRegions(img, hexColor, tolerance) {
 }
 
 // Final preview
-function showFinal(url) {
+function normalizeFinalAsset(input) {
+  if (!input) return null;
+  if (typeof input === 'string') {
+    const mime = input.startsWith('data:') ? input.slice(5, input.indexOf(';') > -1 ? input.indexOf(';') : undefined) : 'image/png';
+    return { type: 'image', url: input, poster: input, mimeType: mime };
+  }
+  const asset = { ...input };
+  if (!asset.type) {
+    asset.type = (asset.mimeType && asset.mimeType.startsWith('video/')) ? 'video' : 'image';
+  }
+  if (asset.type === 'image' && !asset.poster) {
+    asset.poster = asset.url;
+  }
+  return asset;
+}
+
+function showFinal(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset) return;
+  currentFinalAsset = asset;
   clearTimeout(hidePreviewTimer); // Clear any existing timer
   const img = DOM.finalStrip;
-  const prevFit = img ? img.style.objectFit : "";
-  if (img) img.style.objectFit = "contain";
+  const video = DOM.finalVideo;
   const qrContainer = DOM.qrCodeContainer;
   const qrCanvas = DOM.qrCode;
-  const panel = DOM.finalPreview;
 
   if (panel) panel.classList.remove("qr-ready");
-  // Reset form from previous use
-  DOM.emailInput.value = "";
-  const sendBtn = DOM.sendBtn;
-  sendBtn.textContent = "Send";
-  sendBtn.disabled = false;
 
-  DOM.retakeBtn.style.display = allowRetake ? "block" : "none";
-  DOM.retakeBtn.disabled = !lastCaptureFlow;
+  if (DOM.emailInput) DOM.emailInput.value = "";
+  if (DOM.sendBtn) {
+    DOM.sendBtn.textContent = "Send";
+    DOM.sendBtn.disabled = normalized.type === "video";
+  }
+  if (DOM.emailForm)
+    DOM.emailForm.style.display =
+      normalized.type === "video" ? "none" : "block";
+
+  if (DOM.retakeBtn) {
+    DOM.retakeBtn.style.display = allowRetake ? "block" : "none";
+    DOM.retakeBtn.disabled = !lastCaptureFlow;
+  }
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "block";
 
-  img.src = url;
   const offline = offlineModeActive();
-  // Default: hide QR/link until we have a public URL
   if (qrContainer) qrContainer.classList.add("hidden");
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
+  if (DOM.shareLink) {
+    DOM.shareLink.textContent = "";
+    DOM.shareLink.removeAttribute("href");
+    DOM.shareLink.style.display = "none";
+  }
   if (DOM.qrHint) {
     DOM.qrHint.style.display = "none";
     DOM.qrHint.textContent = "";
@@ -3313,30 +3414,44 @@ function showFinal(url) {
   if (DOM.shareStatus) {
     DOM.shareStatus.style.display = "none";
   }
-  if (!offline && cloudinaryEnabled()) {
-    // Prepare a public Cloudinary link, then show QR when ready
-    lastShareUrl = null;
-    if (DOM.shareStatus) {
-      DOM.shareStatus.textContent = "Preparing link…";
-      DOM.shareStatus.style.display = "inline-flex";
-    }
-    publishShareImage(url)
-      .then((publicUrl) => {
-        lastShareUrl =
-          publicUrl && /^https?:/i.test(publicUrl) ? publicUrl : null;
-        if (lastShareUrl) {
-          renderQrCode(qrCanvas, lastShareUrl);
-          if (DOM.shareLink) {
-            DOM.shareLink.href = lastShareUrl;
-            DOM.shareLink.textContent = lastShareUrl;
+  lastShareUrl = null;
+
+  if (normalized.type === "image") {
+    if (!offline && cloudinaryEnabled()) {
+      if (DOM.shareStatus) {
+        DOM.shareStatus.textContent = "Preparing link…";
+        DOM.shareStatus.style.display = "inline-flex";
+      }
+      publishShareImage(normalized.url)
+        .then((publicUrl) => {
+          lastShareUrl =
+            publicUrl && /^https?:/i.test(publicUrl) ? publicUrl : null;
+          if (lastShareUrl) {
+            renderQrCode(qrCanvas, lastShareUrl);
+            if (DOM.shareLink) {
+              DOM.shareLink.href = lastShareUrl;
+              DOM.shareLink.textContent = lastShareUrl;
+              DOM.shareLink.style.display = "inline";
+            }
+            if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+            if (DOM.shareLink) DOM.shareLink.style.display = "inline";
+            if (qrContainer) qrContainer.classList.remove("hidden");
+            if (panel) panel.classList.add("qr-ready");
+            if (DOM.shareStatus) {
+              DOM.shareStatus.textContent = "Link ready";
+            }
+          } else {
+            if (DOM.qrHint) {
+              DOM.qrHint.textContent =
+                "QR disabled: Cloudinary link not available.";
+              DOM.qrHint.style.display = "block";
+            }
+            if (DOM.shareStatus) {
+              DOM.shareStatus.textContent = "Upload failed";
+            }
           }
-          if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
-          if (qrContainer) qrContainer.classList.remove("hidden");
-          if (panel) panel.classList.add("qr-ready");
-          if (DOM.shareStatus) {
-            DOM.shareStatus.textContent = "Link ready";
-          }
-        } else {
+        })
+        .catch(() => {
           if (DOM.qrHint) {
             DOM.qrHint.textContent =
               "QR disabled: Cloudinary link not available.";
@@ -3345,41 +3460,38 @@ function showFinal(url) {
           if (DOM.shareStatus) {
             DOM.shareStatus.textContent = "Upload failed";
           }
-        }
-      })
-      .catch(() => {
-        if (DOM.qrHint) {
-          DOM.qrHint.textContent =
-            "QR disabled: Cloudinary link not available.";
-          DOM.qrHint.style.display = "block";
-        }
-        if (DOM.shareStatus) {
-          DOM.shareStatus.textContent = "Upload failed";
-        }
-      });
-  } else {
-    // No internet or Cloudinary disabled
-    if (offline && DOM.qrHint) {
-      DOM.qrHint.textContent = "Offline: QR disabled";
-      DOM.qrHint.style.display = "block";
+        });
+    } else {
+      if (offline && DOM.qrHint) {
+        DOM.qrHint.textContent = "Offline: QR disabled";
+        DOM.qrHint.style.display = "block";
+      }
+      if (!cloudinaryEnabled() && DOM.qrHint) {
+        DOM.qrHint.textContent = "Enable Cloudinary in Admin to show QR";
+        DOM.qrHint.style.display = "block";
+      }
     }
-    if (!cloudinaryEnabled() && DOM.qrHint) {
-      DOM.qrHint.textContent = "Enable Cloudinary in Admin to show QR";
+  } else {
+    if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+    if (DOM.qrHint) {
+      DOM.qrHint.textContent =
+        "QR and email sharing are available for photos. Use Download to share this video clip.";
       DOM.qrHint.style.display = "block";
     }
   }
-  panel.classList.add("show");
+
+  if (panel) panel.classList.add("show");
   resetIdleTimer();
   hidePreviewTimer = setTimeout(hideFinal, 15000);
 
-  if (img) {
+  if (img && normalized.type === "image" && panel) {
     panel.addEventListener("transitionend", function once() {
-      img.style.objectFit = prevFit || "";
+      const prevFit = img.dataset.prevFit || "";
+      img.style.objectFit = prevFit;
+      delete img.dataset.prevFit;
       panel.removeEventListener("transitionend", once);
     });
   }
-
-  // No local-QR fallback: only show QR when a public link is ready (handled above)
 }
 
 function renderQrCode(canvas, text) {
@@ -3829,12 +3941,72 @@ function exportCurrentEvent() {
   showToast("Event exported");
 }
 
-async function publishShareImage(dataUrl) {
-  // Convert data URL to Blob once
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
+async function publishShareAsset(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return null;
+  let blob = asset.blob || null;
+  if (!blob) {
+    try {
+      const response = await fetch(asset.url);
+      blob = await response.blob();
+    } catch (e) {
+      console.warn('Failed to fetch asset for sharing', e);
+      return null;
+    }
+  }
 
-  // 1) Prefer Cloudinary if configured (cross-device HTTPS link)
+  const isVideo =
+    asset.type === 'video' ||
+    (blob.type && blob.type.startsWith('video/')) ||
+    (asset.mimeType && asset.mimeType.startsWith('video/'));
+  const inferShareExtension = () => {
+    const clean = (value) => (value || '').toLowerCase().split(/[;+]/)[0].split('+')[0].replace(/[^a-z0-9]/g, '');
+    const cleanFromName = (value) => {
+      const name = (value || '').split('?')[0];
+      const match = name.match(/\.([a-z0-9]+)$/i);
+      if (match && match[1]) return clean(match[1]);
+      return '';
+    };
+    const extFromMime = (mimeValue) => {
+      const parts = (mimeValue || '').split('/');
+      if (parts[1]) {
+        const subtype = clean(parts[1]);
+        if (subtype) {
+          if (subtype === 'quicktime') return 'mov';
+          if (subtype === 'x-m4v') return 'm4v';
+          if (subtype === 'x-msvideo') return 'avi';
+          return subtype;
+        }
+      }
+      return '';
+    };
+
+    const fromAssetName = cleanFromName(asset.fileName || asset.filename || asset.name || '');
+    if (fromAssetName) return fromAssetName;
+
+    const fromUrl = cleanFromName(asset.url || '');
+    if (fromUrl) return fromUrl;
+
+    const fromBlobMime = extFromMime(blob.type);
+    if (fromBlobMime) return fromBlobMime;
+
+    const fromAssetMime = extFromMime(asset.mimeType);
+    if (fromAssetMime) return fromAssetMime;
+
+    return isVideo ? 'webm' : 'png';
+  };
+  const shareExt = inferShareExtension();
+  const shareMime = (() => {
+    if (blob.type) return blob.type;
+    if (asset.mimeType) return asset.mimeType;
+    if (shareExt === 'webm') return 'video/webm';
+    if (shareExt === 'mp4') return 'video/mp4';
+    if (shareExt === 'mov') return 'video/quicktime';
+    if (shareExt === 'gif') return 'image/gif';
+    if (shareExt === 'jpg' || shareExt === 'jpeg') return 'image/jpeg';
+    if (shareExt === 'png') return 'image/png';
+    return isVideo ? 'video/webm' : 'image/png';
+  })();
   const cfg = getCloudinaryConfig();
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
@@ -3892,12 +4064,17 @@ async function publishShareImage(dataUrl) {
   return null;
 }
 
+function getActiveAsset() {
+  return normalizeFinalAsset(currentFinalAsset);
+}
+
 async function openShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
     // Ensure the asset is retrievable (esp. right after SW publish) and open a stable blob URL
-    const resp = await fetch(url, { cache: "reload" });
+    const resp = await fetch(directUrl, { cache: "reload" });
     if (!resp.ok) throw new Error("Link not ready");
     const blob = await resp.blob();
     const objUrl = URL.createObjectURL(blob);
@@ -3907,14 +4084,19 @@ async function openShareLink() {
   } catch (e) {
     // Fallback to opening the original URL
     try {
-      window.open(url, "_blank", "noopener");
+      window.open(directUrl, "_blank", "noopener");
     } catch (_) {
-      location.href = url;
+      location.href = directUrl;
     }
   }
 }
 async function copyShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
+  if (!url) {
+    showToast('No link available');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(url);
     showToast("Link copied");
@@ -3922,17 +4104,28 @@ async function copyShareLink() {
     showToast("Copy failed");
   }
 }
-async function downloadShareImage() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+async function downloadShareAsset() {
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
-    const resp = await fetch(url, { cache: "reload" });
-    if (!resp.ok) throw new Error("Link not ready");
-    const blob = await resp.blob();
+    const isBlobDirect =
+      typeof directUrl === "string" && directUrl.startsWith("blob:");
+    if (directUrl && !isBlobDirect) {
+      const resp = await fetch(directUrl, { cache: "reload" });
+      if (!resp.ok) throw new Error("Link not ready");
+      blob = await resp.blob();
+    } else if (finalMedia && finalMedia.blob) {
+      blob = finalMedia.blob;
+    }
+    if (!blob) throw new Error("No downloadable media");
     const objUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = objUrl;
-    a.download = "photobooth.png";
+    a.download =
+      finalMedia && finalMedia.type === "video"
+        ? finalMedia.filename || VIDEO_360_FILENAME
+        : "photobooth.png";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -3940,25 +4133,43 @@ async function downloadShareImage() {
   } catch (e) {
     // Fallback: open in new tab; user can save manually
     try {
-      window.open(url, "_blank", "noopener");
+      const fallbackUrl = directUrl || (finalMedia && finalMedia.url);
+      if (fallbackUrl) window.open(fallbackUrl, "_blank", "noopener");
     } catch (_) {
-      location.href = url;
+      if (directUrl) location.href = directUrl;
     }
   }
 }
 
 function hideFinal() {
-  DOM.finalPreview.classList.remove("show");
-  DOM.finalPreview.classList.remove("qr-ready");
-  DOM.qrCodeContainer.classList.add("hidden");
+  if (DOM.finalPreview) {
+    DOM.finalPreview.classList.remove("show");
+    DOM.finalPreview.classList.remove("qr-ready");
+  }
+  if (DOM.qrCodeContainer) DOM.qrCodeContainer.classList.add("hidden");
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
   if (DOM.shareStatus) DOM.shareStatus.style.display = "none";
-  DOM.retakeBtn.style.display = "none";
+  if (DOM.retakeBtn) DOM.retakeBtn.style.display = "none";
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "none";
+  if (DOM.finalVideo) {
+    DOM.finalVideo.pause();
+    DOM.finalVideo.classList.add("hidden");
+    DOM.finalVideo.removeAttribute("src");
+    DOM.finalVideo.load();
+  }
+  if (finalPreviewUrl) {
+    try {
+      URL.revokeObjectURL(finalPreviewUrl);
+    } catch (_) {}
+    finalPreviewUrl = null;
+  }
+  finalMedia = null;
+  lastShareUrl = null;
   lastCaptureFlow = null; // Clear the stored flow
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
   resetIdleTimer();
+  currentFinalAsset = null;
 }
 
 function retakePhoto() {
@@ -3970,10 +4181,26 @@ function retakePhoto() {
 function exitFinalPreview() {
   hideFinal();
 }
-function addToGallery(url) {
-  const img = new Image();
-  img.src = url;
-  DOM.gallery.appendChild(img);
+function addToGallery(assetOrUrl) {
+  if (!DOM.gallery) return;
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return;
+  if (asset.type === 'video') {
+    const video = document.createElement('video');
+    video.src = asset.url;
+    if (asset.poster) video.poster = asset.poster;
+    video.muted = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.controls = false;
+    video.className = 'gallery-video';
+    DOM.gallery.appendChild(video);
+  } else {
+    const img = new Image();
+    img.src = asset.url;
+    DOM.gallery.appendChild(img);
+  }
 }
 
 function cancelHideTimer() {
@@ -3994,12 +4221,13 @@ function sendEmail(event) {
   cancelHideTimer();
   const email = DOM.emailInput.value;
   const sendBtn = DOM.sendBtn;
-  const imgUrl = DOM.finalStrip && DOM.finalStrip.src;
+  const asset = getActiveAsset();
+  const imgUrl = asset ? (asset.poster || (asset.type === 'image' ? asset.url : '')) : '';
   const offline = offlineModeActive();
 
   if (offline) {
     // Queue locally for later sending
-    const ok = queuePendingEmail(email, imgUrl);
+    const ok = queuePendingEmail(email, asset);
     if (ok) {
       sendBtn.textContent = "Queued";
       updatePendingUI();
@@ -4063,7 +4291,12 @@ function appendEmailText(text) {
 
 // --- Analytics ---
 function getAnalytics() {
-  const defaults = { total_sessions: 0, overlay_usage: {}, emails: [] };
+  const defaults = {
+    total_sessions: 0,
+    overlay_usage: {},
+    emails: [],
+    video360_sessions: 0,
+  };
   try {
     const data = localStorage.getItem("photoboothAnalytics");
     return data ? JSON.parse(data) : defaults;
@@ -4239,6 +4472,9 @@ function recordAnalytics(type, value) {
   if (type === "photo" || type === "strip") {
     data.total_sessions = (data.total_sessions || 0) + 1;
     data.overlay_usage[value] = (data.overlay_usage[value] || 0) + 1;
+  } else if (type === "video360") {
+    data.total_sessions = (data.total_sessions || 0) + 1;
+    data.video360_sessions = (data.video360_sessions || 0) + 1;
   } else if (type === "email") {
     if (!data.emails.includes(value)) {
       data.emails.push(value);
@@ -4382,463 +4618,9 @@ function saveTheme() {
   });
 }
 
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function getAssetIndex() {
-  if (!themes._meta) themes._meta = {};
-  if (!themes._meta.assetIndex) themes._meta.assetIndex = {};
-  return themes._meta.assetIndex;
-}
-async function fileSha256Hex(file) {
-  const buf = await file.arrayBuffer();
-  const hash = await crypto.subtle.digest("SHA-256", buf);
-  const bytes = new Uint8Array(hash);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-function extFromName(name, fallback) {
-  const m = (name || "").match(/\.([a-z0-9]+)$/i);
-  return m ? m[1].toLowerCase() : fallback || "png";
-}
+async // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Upload an asset. If Cloudinary is configured, upload there and return its secure URL.
 // Otherwise, fall back to a local data URL.
-async function uploadAsset(file, kind) {
-  try {
-    const index = getAssetIndex();
-    const hash = await fileSha256Hex(file);
-    if (index[hash]) return index[hash];
-    const cfg = getCloudinaryConfig();
-    if (cfg.use && cfg.cloud && cfg.preset) {
-      const form = new FormData();
-      const evSlug =
-        typeof getCurrentEventSlug === "function"
-          ? getCurrentEventSlug()
-          : "event";
-      const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const base = (cfg.folderBase || "photobooth/events").replace(/\/$/, "");
-      const folder = `${base}/${evSlug}/${kind || "misc"}`;
-      const fname = `${kind || "file"}-${hash}.${extFromName(
-        file && file.name,
-        "png",
-      )}`;
-      const wrapped = new File([file], fname, {
-        type: file.type || "application/octet-stream",
-      });
-      form.append("file", wrapped);
-      form.append("upload_preset", cfg.preset);
-      form.append("folder", folder);
-      const resp = await fetch(
-        `https://api.cloudinary.com/v1_1/${cfg.cloud}/image/upload`,
-        { method: "POST", body: form },
-      );
-      const json = await resp.json();
-      if (json && json.secure_url) {
-        index[hash] = json.secure_url;
-        saveThemesToStorage();
-        return json.secure_url;
-      }
-    }
-  } catch (_) {}
-  // Fallback to local embedding
-  try {
-    return await readFileAsDataURL(file);
-  } catch (_) {
-    return "";
-  }
-}
-
-function saveThemesToStorage() {
-  // Normalize to avoid duplicates across overlays/templates, and strip empties
-  ensureBuiltinThemes();
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins("core themes missing before save");
-  }
-  try {
-    normalizeAllThemes();
-  } catch (_e) {}
-  localStorage.setItem("photoboothThemes", JSON.stringify(themes));
-  // Best-effort remote sync
-  syncThemesRemote().catch(() => {});
-}
-
-function cloneThemeValue(val) {
-  if (Array.isArray(val)) return val.map(cloneThemeValue);
-  if (val && typeof val === "object") {
-    const out = {};
-    for (const key of Object.keys(val)) {
-      out[key] = cloneThemeValue(val[key]);
-    }
-    return out;
-  }
-  return val;
-}
-
-function addMissingDefaults(target, source) {
-  if (!source || typeof source !== "object") return;
-  if (!target || typeof target !== "object") return;
-  for (const key of Object.keys(source)) {
-    const src = source[key];
-    const tgt = target ? target[key] : undefined;
-    if (Array.isArray(src)) {
-      if (!Array.isArray(tgt) || tgt.length === 0) {
-        target[key] = src.slice();
-      }
-    } else if (src && typeof src === "object") {
-      if (!tgt || typeof tgt !== "object") {
-        target[key] = cloneThemeValue(src);
-      } else {
-        addMissingDefaults(tgt, src);
-      }
-    } else {
-      const needs =
-        tgt === undefined ||
-        tgt === null ||
-        (typeof tgt === "string" && tgt.trim() === "");
-      if (needs) {
-        target[key] = src;
-      }
-    }
-  }
-}
-
-function pruneMisplacedBuiltinThemes(target) {
-  if (!target || typeof target !== "object") return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== "object") continue;
-    if (BUILTIN_THEMES[rootKey] && BUILTIN_THEMES[rootKey].name) {
-      group.name = BUILTIN_THEMES[rootKey].name;
-    }
-    for (const extraKey of Object.keys(group)) {
-      if (!["name", "themes", "holidays"].includes(extraKey)) {
-        delete group[extraKey];
-      }
-    }
-    for (const bucket of ["themes", "holidays"]) {
-      if (!group[bucket] || typeof group[bucket] !== "object") continue;
-      for (const key of Object.keys(group[bucket])) {
-        const loc = BUILTIN_THEME_LOCATIONS[key];
-        if (loc && (loc.root !== rootKey || loc.bucket !== bucket)) {
-          delete group[bucket][key];
-        }
-      }
-    }
-  }
-}
-
-function ensureBuiltinThemes() {
-  if (!themes || typeof themes !== "object") themes = {};
-  for (const rootKey of Object.keys(BUILTIN_THEMES)) {
-    const builtinGroup = BUILTIN_THEMES[rootKey];
-    if (!builtinGroup || typeof builtinGroup !== "object") continue;
-    if (!themes[rootKey] || typeof themes[rootKey] !== "object") {
-      themes[rootKey] = cloneThemeValue(builtinGroup);
-      continue;
-    }
-    const targetGroup = themes[rootKey];
-    // Ensure optgroup metadata like name exists
-    addMissingDefaults(targetGroup, builtinGroup);
-    for (const bucket of ["themes", "holidays"]) {
-      if (!builtinGroup[bucket] || typeof builtinGroup[bucket] !== "object")
-        continue;
-      if (!targetGroup[bucket] || typeof targetGroup[bucket] !== "object") {
-        targetGroup[bucket] = {};
-      }
-      const targetBucket = targetGroup[bucket];
-      for (const subKey of Object.keys(builtinGroup[bucket])) {
-        const builtinTheme = builtinGroup[bucket][subKey];
-        if (!targetBucket[subKey] || typeof targetBucket[subKey] !== "object") {
-          targetBucket[subKey] = cloneThemeValue(builtinTheme);
-        } else {
-          addMissingDefaults(targetBucket[subKey], builtinTheme);
-        }
-      }
-    }
-  }
-  pruneMisplacedBuiltinThemes(themes);
-}
-
-function hasCoreBuiltins(obj) {
-  try {
-    return !!(
-      obj &&
-      obj.general &&
-      obj.general.themes &&
-      obj.general.themes.birthday &&
-      obj.fall &&
-      obj.fall.holidays &&
-      obj.fall.holidays.halloween
-    );
-  } catch (_) {
-    return false;
-  }
-}
-
-function resetThemesToBuiltins(reason) {
-  console.warn("Resetting themes to built-ins:", reason || "unknown");
-  themes = cloneThemeValue(BUILTIN_THEMES);
-  try {
-    localStorage.removeItem("photoboothThemes");
-  } catch (_) {}
-}
-
-function mergePlainObject(baseObj, overrideObj) {
-  const baseClone =
-    baseObj && typeof baseObj === "object" && !Array.isArray(baseObj)
-      ? cloneThemeValue(baseObj)
-      : {};
-  if (
-    !overrideObj ||
-    typeof overrideObj !== "object" ||
-    Array.isArray(overrideObj)
-  ) {
-    if (Array.isArray(overrideObj)) return overrideObj.slice();
-    return baseClone;
-  }
-  const out = baseClone || {};
-  for (const key of Object.keys(overrideObj)) {
-    const value = overrideObj[key];
-    if (Array.isArray(value)) out[key] = value.slice();
-    else if (value && typeof value === "object")
-      out[key] = mergePlainObject(out[key], value);
-    else out[key] = value;
-  }
-  return out;
-}
-
-const stringOrEmpty = (val) => (typeof val === "string" ? val.trim() : "");
-const arrayFromMaybeList = (list) =>
-  Array.isArray(list) ? list.filter(Boolean) : [];
-const hasValues = (arr) => Array.isArray(arr) && arr.length > 0;
-
-function applyThemeFallbacks(baseLeaf, merged, storedLeaf) {
-  if (
-    !baseLeaf ||
-    typeof baseLeaf !== "object" ||
-    !merged ||
-    typeof merged !== "object"
-  )
-    return;
-  applyBackgroundFallback(baseLeaf, merged, storedLeaf);
-  applyTemplatesFallback(baseLeaf, merged, storedLeaf);
-  applyOverlaysFallback(baseLeaf, merged, storedLeaf);
-  applyArrayFallback(baseLeaf, merged, "overlaysRemoved");
-  applyArrayFallback(baseLeaf, merged, "templatesRemoved");
-  mergeWelcomeAndMeta(baseLeaf, merged);
-}
-
-function applyBackgroundFallback(baseLeaf, merged, storedLeaf) {
-  const baseList = arrayFromMaybeList(baseLeaf.backgrounds);
-  const baseSingle = stringOrEmpty(baseLeaf.background);
-  const mergedList = arrayFromMaybeList(merged.backgrounds);
-  const mergedSingle = stringOrEmpty(merged.background);
-  const storedList = arrayFromMaybeList(storedLeaf && storedLeaf.backgrounds);
-  const storedSingle = stringOrEmpty(storedLeaf && storedLeaf.background);
-  const storedAllowsFallback =
-    !storedLeaf || (!storedList.length && !storedSingle);
-
-  if (!storedAllowsFallback) return;
-  if (!baseList.length && !baseSingle) return;
-  if (mergedList.length || mergedSingle) return;
-
-  if (baseList.length) merged.backgrounds = baseList.slice();
-  if (baseSingle) merged.background = baseLeaf.background;
-  if (typeof baseLeaf.backgroundIndex === "number") {
-    merged.backgroundIndex = baseLeaf.backgroundIndex;
-  }
-}
-
-function applyTemplatesFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.templatesFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.templates);
-  if (baseLeaf.templatesFolder && !merged.templatesFolder && !storedFolder) {
-    merged.templatesFolder = baseLeaf.templatesFolder;
-  }
-  const baseTemplates = Array.isArray(baseLeaf.templates)
-    ? baseLeaf.templates
-    : null;
-  const mergedTemplates = Array.isArray(merged.templates)
-    ? merged.templates
-    : null;
-  if (
-    baseTemplates &&
-    baseTemplates.length &&
-    (!mergedTemplates || mergedTemplates.length === 0) &&
-    !storedArrayExists
-  ) {
-    merged.templates = baseTemplates.map((tpl) => mergePlainObject(tpl, {}));
-  }
-}
-
-function applyOverlaysFallback(baseLeaf, merged, storedLeaf) {
-  const storedFolder = stringOrEmpty(storedLeaf && storedLeaf.overlaysFolder);
-  const storedArrayExists = Array.isArray(storedLeaf && storedLeaf.overlays);
-  if (baseLeaf.overlaysFolder && !merged.overlaysFolder && !storedFolder) {
-    merged.overlaysFolder = baseLeaf.overlaysFolder;
-  }
-  const baseOverlays = Array.isArray(baseLeaf.overlays)
-    ? baseLeaf.overlays
-    : null;
-  const mergedOverlays = Array.isArray(merged.overlays)
-    ? merged.overlays
-    : null;
-  if (
-    baseOverlays &&
-    baseOverlays.length &&
-    (!mergedOverlays || mergedOverlays.length === 0) &&
-    !storedArrayExists
-  ) {
-    merged.overlays = baseOverlays.slice();
-  }
-}
-
-function applyArrayFallback(baseLeaf, merged, prop) {
-  if (Array.isArray(baseLeaf[prop]) && !Array.isArray(merged[prop])) {
-    merged[prop] = baseLeaf[prop].slice();
-  }
-}
-
-function mergeWelcomeAndMeta(baseLeaf, merged) {
-  if (baseLeaf.welcome)
-    merged.welcome = mergePlainObject(baseLeaf.welcome, merged.welcome);
-  if (baseLeaf.accent && !merged.accent) merged.accent = baseLeaf.accent;
-  if (baseLeaf.accent2 && !merged.accent2) merged.accent2 = baseLeaf.accent2;
-  if (baseLeaf.font && !merged.font) merged.font = baseLeaf.font;
-  if (baseLeaf.fontHeading && !merged.fontHeading)
-    merged.fontHeading = baseLeaf.fontHeading;
-  if (baseLeaf.fontBody && !merged.fontBody)
-    merged.fontBody = baseLeaf.fontBody;
-}
-
-function mergeThemeLeaf(baseLeaf, storedLeaf) {
-  if (storedLeaf === null || storedLeaf === undefined) {
-    return cloneThemeValue(baseLeaf);
-  }
-  if (Array.isArray(storedLeaf)) return storedLeaf.slice();
-  if (typeof storedLeaf !== "object") return storedLeaf;
-  const merged = mergePlainObject(baseLeaf, storedLeaf);
-  applyThemeFallbacks(baseLeaf, merged, storedLeaf);
-  return merged;
-}
-
-function fixBuiltinThemePlacements(target) {
-  if (!target || typeof target !== "object") return;
-  for (const rootKey of Object.keys(target)) {
-    const group = target[rootKey];
-    if (!group || typeof group !== "object") continue;
-    for (const bucket of ["themes", "holidays"]) {
-      const sub = group[bucket];
-      if (!sub || typeof sub !== "object") continue;
-      for (const subKey of Object.keys({ ...sub })) {
-        const loc = BUILTIN_THEME_LOCATIONS[subKey];
-        if (!loc || (loc.root === rootKey && loc.bucket === bucket)) continue;
-        const currentTheme = sub[subKey];
-        delete sub[subKey];
-        if (!target[loc.root])
-          target[loc.root] = cloneThemeValue(
-            BUILTIN_THEMES[loc.root] || { name: loc.root },
-          );
-        if (!target[loc.root][loc.bucket]) target[loc.root][loc.bucket] = {};
-        const base =
-          BUILTIN_THEMES[loc.root] && BUILTIN_THEMES[loc.root][loc.bucket]
-            ? BUILTIN_THEMES[loc.root][loc.bucket][subKey]
-            : null;
-        target[loc.root][loc.bucket][subKey] = mergeThemeLeaf(
-          base,
-          currentTheme,
-        );
-      }
-    }
-  }
-}
-
-function mergeStoredThemes(base, stored) {
-  if (
-    !base ||
-    typeof base !== "object" ||
-    !stored ||
-    typeof stored !== "object"
-  )
-    return;
-  for (const key of Object.keys(stored)) {
-    const storedGroup = stored[key];
-    if (
-      storedGroup &&
-      typeof storedGroup === "object" &&
-      !Array.isArray(storedGroup)
-    ) {
-      const bucketKey = storedGroup.themes
-        ? "themes"
-        : storedGroup.holidays
-          ? "holidays"
-          : null;
-      const baseGroup = base[key];
-      if (bucketKey) {
-        if (!baseGroup || typeof baseGroup !== "object") {
-          base[key] = cloneThemeValue(storedGroup);
-          continue;
-        }
-        if (!baseGroup[bucketKey]) baseGroup[bucketKey] = {};
-        const baseBucket = baseGroup[bucketKey];
-        const storedBucket = storedGroup[bucketKey] || {};
-        for (const subKey of Object.keys(storedBucket)) {
-          baseBucket[subKey] = mergeThemeLeaf(
-            baseBucket[subKey],
-            storedBucket[subKey],
-          );
-        }
-        for (const prop of Object.keys(storedGroup)) {
-          if (prop === "themes" || prop === "holidays") continue;
-          const val = storedGroup[prop];
-          if (Array.isArray(val)) baseGroup[prop] = val.slice();
-          else if (val && typeof val === "object")
-            baseGroup[prop] = mergePlainObject(baseGroup[prop], val);
-          else baseGroup[prop] = val;
-        }
-      } else {
-        base[key] = mergeThemeLeaf(baseGroup, storedGroup);
-      }
-    } else {
-      base[key] = cloneThemeValue(storedGroup);
-    }
-  }
-}
-
-function loadThemesFromStorage() {
-  if (!hasCoreBuiltins(themes)) {
-    resetThemesToBuiltins("missing core themes before storage merge");
-  }
-  const storedThemes = localStorage.getItem("photoboothThemes");
-  if (storedThemes) {
-    try {
-      const parsed = JSON.parse(storedThemes);
-      mergeStoredThemes(themes, parsed);
-      fixBuiltinThemePlacements(themes);
-      ensureBuiltinThemes();
-      try {
-        normalizeAllThemes();
-      } catch (_e) {}
-      if (!hasCoreBuiltins(themes)) {
-        resetThemesToBuiltins("stored themes missing core entries");
-      }
-    } catch (err) {
-      console.warn("Failed to parse stored themes", err);
-    }
-  }
-  const globalLogo = getGlobalLogo();
-  if (globalLogo !== null) applyGlobalLogoToAllThemes(globalLogo);
-  // Attempt remote load and prefer remote if available
-  loadThemesRemote().catch(() => {});
-}
-
 // Folder import (device-only) helpers
 async function handleOverlayFolderPick(e) {
   const key = getSelectedThemeKey();
@@ -6910,144 +6692,9 @@ function clearThemeFileInputs() {
   if (DOM.themeTemplates) DOM.themeTemplates.value = "";
 }
 
-// --- De-duplication helpers ---
-function arrayUniqueStrings(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const v of arr) {
-    const s = (v || "").toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) {
-      seen.add(s);
-      out.push(s);
-    }
-  }
-  return out;
-}
-function arrayUniqueTemplates(arr) {
-  if (!Array.isArray(arr)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const t of arr) {
-    if (!t || !t.src) continue;
-    const s = t.src.toString().trim();
-    if (!s) continue;
-    if (!seen.has(s)) {
-      seen.add(s);
-      out.push({ src: s, layout: t.layout || "double_column", slots: t.slots });
-    }
-  }
-  return out;
-}
-function normalizeThemeObject(t) {
-  if (!t || typeof t !== "object") return;
-  if (Array.isArray(t.overlays)) t.overlays = arrayUniqueStrings(t.overlays);
-  if (Array.isArray(t.templates))
-    t.templates = arrayUniqueTemplates(t.templates);
-  // Background normalization: ensure index in range
-  const list = Array.isArray(t.backgrounds)
-    ? t.backgrounds.filter(Boolean)
-    : t.background
-      ? [t.background]
-      : [];
-  if (Array.isArray(t.backgrounds)) {
-    t.backgrounds = arrayUniqueStrings(list);
-    if (typeof t.backgroundIndex === "number") {
-      t.backgroundIndex = Math.min(
-        Math.max(t.backgroundIndex, 0),
-        Math.max(t.backgrounds.length - 1, 0),
-      );
-    }
-  } else if (
-    t.background &&
-    typeof t.background === "string" &&
-    !t.background.trim()
-  ) {
-    t.background = "";
-  }
-  const baseFont = typeof t.font === "string" && t.font.trim() ? t.font : "";
-  if ((!t.fontHeading || !t.fontHeading.trim()) && baseFont)
-    t.fontHeading = baseFont;
-  if ((!t.fontBody || !t.fontBody.trim()) && baseFont) t.fontBody = baseFont;
-  if (!t.fontHeading && t.fontBody) t.fontHeading = t.fontBody;
-  if (!t.fontBody && t.fontHeading) t.fontBody = t.fontHeading;
-  if (!t.font || !t.font.trim())
-    t.font = t.fontBody || t.fontHeading || "'Comic Neue', cursive";
-  t.eventTitleSize = normalizeSizeValue(
-    t.eventTitleSize,
-    DEFAULT_EVENT_TITLE_SIZE,
-  );
-  if (!t.welcome || typeof t.welcome !== "object") t.welcome = {};
-  t.welcome.title = typeof t.welcome.title === "string" ? t.welcome.title : "";
-  t.welcome.prompt =
-    typeof t.welcome.prompt === "string" ? t.welcome.prompt : "";
-  t.welcome.titleSize = normalizeSizeValue(
-    t.welcome.titleSize,
-    DEFAULT_WELCOME_TITLE_SIZE,
-  );
-}
-function normalizeAllThemes() {
-  const keys = Object.keys(themes || {});
-  for (const k of keys) {
-    const group = themes[k];
-    if (!group || typeof group !== "object") continue;
-    if (group.themes || group.holidays) {
-      const dict = group.themes || group.holidays;
-      for (const sk in dict) normalizeThemeObject(dict[sk]);
-    } else {
-      normalizeThemeObject(group);
-    }
-  }
-}
-
-function forEachThemeEntry(callback) {
-  if (!themes || typeof themes !== "object" || typeof callback !== "function")
-    return;
-  const visit = (collection, prefix = "") => {
-    if (!collection || typeof collection !== "object") return;
-    for (const key of Object.keys(collection)) {
-      if (key === "_meta") continue;
-      const value = collection[key];
-      if (!value || typeof value !== "object") continue;
-      const nextKey = prefix ? `${prefix}:${key}` : key;
-      if (value.themes || value.holidays) {
-        if (value.themes) visit(value.themes, nextKey);
-        if (value.holidays) visit(value.holidays, nextKey);
-      } else {
-        callback(value, nextKey);
-      }
-    }
-  };
-  visit(themes);
-}
-
-function applyGlobalLogoToTheme(theme, logo) {
-  if (!theme || typeof theme !== "object") return;
-  if (typeof logo !== "string") return;
-  theme.logo = logo;
-}
-
-function applyGlobalLogoToAllThemes(logo) {
-  if (typeof logo !== "string") return;
-  forEachThemeEntry((theme) => applyGlobalLogoToTheme(theme, logo));
-}
-
-function getGlobalLogo() {
-  try {
-    const value = localStorage.getItem(GLOBAL_LOGO_STORAGE_KEY);
-    return value === null ? null : value;
-  } catch (_) {
-    return null;
-  }
-}
-
 function setGlobalLogo(logo, options = {}) {
   const value = typeof logo === "string" ? logo : "";
-  try {
-    if (value) localStorage.setItem(GLOBAL_LOGO_STORAGE_KEY, value);
-    else localStorage.removeItem(GLOBAL_LOGO_STORAGE_KEY);
-  } catch (_) {}
+  setGlobalLogoValue(value);
   applyGlobalLogoToAllThemes(value);
   if (activeTheme) {
     applyGlobalLogoToTheme(activeTheme, value);
@@ -7508,7 +7155,7 @@ function handleImport() {
   reader.onload = (event) => {
     try {
       const importedThemes = JSON.parse(event.target.result);
-      themes = { ...themes, ...importedThemes };
+      setThemes({ ...themes, ...importedThemes });
       saveThemesToStorage();
       const current = DOM.eventSelect && DOM.eventSelect.value;
       populateThemeSelector(current || DEFAULT_THEME_KEY);
@@ -7670,13 +7317,15 @@ Object.assign(window, {
   appendEmailText,
   cancelHideTimer,
   capturePhotoFlow,
+  captureBoomerangFlow,
+  captureVideo360Flow,
   clearAnalytics,
   closeConfirm,
   confirmTemplate,
   copyBuildCmd,
   copyShareLink,
   copyShipCmd,
-  downloadShareImage,
+  downloadShareAsset,
   exitFinalPreview,
   exportCurrentEvent,
   exportThemes,
@@ -7692,6 +7341,7 @@ Object.assign(window, {
   listSavedGalleries,
   selectGalleryBySlug,
   rebuildManifestsUI,
+  handleCapture,
   retakePhoto,
   saveCloudinarySettings,
   saveDeploySettings,
@@ -7701,6 +7351,7 @@ Object.assign(window, {
   sendPendingNow,
   sendTestEmail,
   setMode,
+  setModeDuration,
   syncNow,
   toggleAnalytics,
   triggerDeployHook,
