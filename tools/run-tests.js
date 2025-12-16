@@ -19,6 +19,7 @@ async function findJsonFiles(dir) {
   const files = [];
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (DIR_IGNORE.has(entry.name)) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (DIR_EXCLUDE.has(entry.name)) continue;
