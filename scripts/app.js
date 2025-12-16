@@ -2318,6 +2318,100 @@ async function capturePhotoFlow() {
   recordAnalytics("photo", selectedOverlay);
   addToGallery(finalUrl);
 }
+
+async function captureBoomerangFlow() {
+  lastCaptureFlow = captureBoomerangFlow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const captureFrame = async () => {
+        const frame = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+        return frame;
+      };
+      const clip = await captureBoomerang({ captureFrame });
+      const poster = clip.poster || ((clip.url || '').startsWith('data:') ? clip.url : '');
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster: poster || '',
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('boomerang', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('Boomerang capture failed', e);
+    showToast('Boomerang capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
+}
+
+async function captureVideo360Flow() {
+  lastCaptureFlow = captureVideo360Flow;
+  if (!mediaRecorderSupported() && !demoMode) {
+    showToast('Video capture not supported');
+    return;
+  }
+  setBoothControlsVisible(false);
+  let asset = null;
+  try {
+    await runCaptureCountdown();
+    triggerFlash();
+    if (demoMode || !stream) {
+      const frame = drawToCanvasFromVideo();
+      if (selectedOverlay) await applyOverlay(frame, selectedOverlay);
+      const url = frame.toDataURL('image/png');
+      asset = { type: 'image', url, mimeType: 'image/png', poster: url };
+    } else {
+      const clip = await captureStitched360({ stream });
+      let poster = '';
+      try {
+        const thumb = drawToCanvasFromVideo();
+        if (selectedOverlay) await applyOverlay(thumb, selectedOverlay);
+        poster = thumb.toDataURL('image/png');
+      } catch (posterErr) {
+        console.warn('Failed to capture poster frame', posterErr);
+      }
+      asset = {
+        type: 'video',
+        url: clip.url,
+        blob: clip.blob,
+        mimeType: clip.mimeType,
+        poster,
+        revocable: clip.revocable
+      };
+    }
+    showFinal(asset);
+    recordAnalytics('video360', selectedOverlay);
+    addToGallery(asset);
+  } catch (e) {
+    console.error('360 capture failed', e);
+    showToast('Video capture failed');
+  } finally {
+    if (!DOM.finalPreview.classList.contains('show')) {
+      setBoothControlsVisible(true);
+    }
+  }
+}
 function drawToCanvasFromVideo() {
   const v = DOM.video;
   const c = document.createElement("canvas");
@@ -2569,6 +2663,12 @@ async function showCountdown(text) {
   await delay(800);
   co.classList.remove("show");
   await delay(200);
+}
+async function runCaptureCountdown() {
+  for (let n = 3; n > 0; n--) {
+    // eslint-disable-next-line no-await-in-loop
+    await showCountdown(n);
+  }
 }
 async function countdownAndSnap() {
   for (let n = 3; n > 0; n--) {
@@ -2847,7 +2947,26 @@ async function detectMaskRegions(img, hexColor, tolerance) {
 }
 
 // Final preview
-function showFinal(url) {
+function normalizeFinalAsset(input) {
+  if (!input) return null;
+  if (typeof input === 'string') {
+    const mime = input.startsWith('data:') ? input.slice(5, input.indexOf(';') > -1 ? input.indexOf(';') : undefined) : 'image/png';
+    return { type: 'image', url: input, poster: input, mimeType: mime };
+  }
+  const asset = { ...input };
+  if (!asset.type) {
+    asset.type = (asset.mimeType && asset.mimeType.startsWith('video/')) ? 'video' : 'image';
+  }
+  if (asset.type === 'image' && !asset.poster) {
+    asset.poster = asset.url;
+  }
+  return asset;
+}
+
+function showFinal(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset) return;
+  currentFinalAsset = asset;
   clearTimeout(hidePreviewTimer); // Clear any existing timer
   const img = DOM.finalStrip;
   const prevFit = img ? img.style.objectFit : "";
@@ -2867,7 +2986,6 @@ function showFinal(url) {
   DOM.retakeBtn.disabled = !lastCaptureFlow;
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "block";
 
-  img.src = url;
   const offline = offlineModeActive();
   // Default: hide QR/link until we have a public URL
   if (qrContainer) qrContainer.classList.add("hidden");
@@ -3025,12 +3143,33 @@ function exportCurrentEvent() {
   showToast("Event exported");
 }
 
-async function publishShareImage(dataUrl) {
-  // Convert data URL to Blob once
-  const res = await fetch(dataUrl);
-  const blob = await res.blob();
+async function publishShareAsset(assetOrUrl) {
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return null;
+  let blob = asset.blob || null;
+  if (!blob) {
+    try {
+      const response = await fetch(asset.url);
+      blob = await response.blob();
+    } catch (e) {
+      console.warn('Failed to fetch asset for sharing', e);
+      return null;
+    }
+  }
 
-  // 1) Prefer Cloudinary if configured (cross-device HTTPS link)
+  const isVideo = asset.type === 'video' || (blob.type && blob.type.startsWith('video/'));
+  const inferShareExtension = () => {
+    const clean = (value) => (value || '').toLowerCase().split(/[;+]/)[0].replace(/[^a-z0-9]/g, '');
+    if (blob.type) {
+      const parts = blob.type.split('/');
+      if (parts[1]) {
+        const subtype = clean(parts[1]);
+        if (subtype) return subtype;
+      }
+    }
+    return isVideo ? 'webm' : 'png';
+  };
+  const shareExt = inferShareExtension();
   const cfg = getCloudinaryConfig();
   if (cfg.use && cfg.cloud && cfg.preset) {
     try {
@@ -3088,8 +3227,13 @@ async function publishShareImage(dataUrl) {
   return null;
 }
 
+function getActiveAsset() {
+  return normalizeFinalAsset(currentFinalAsset);
+}
+
 async function openShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
     // Ensure the asset is retrievable (esp. right after SW publish) and open a stable blob URL
@@ -3110,7 +3254,12 @@ async function openShareLink() {
   }
 }
 async function copyShareLink() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
+  if (!url) {
+    showToast('No link available');
+    return;
+  }
   try {
     await navigator.clipboard.writeText(url);
     showToast("Link copied");
@@ -3118,8 +3267,9 @@ async function copyShareLink() {
     showToast("Copy failed");
   }
 }
-async function downloadShareImage() {
-  const url = lastShareUrl || (DOM.finalStrip && DOM.finalStrip.src);
+async function downloadShareAsset() {
+  const asset = getActiveAsset();
+  const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
     const resp = await fetch(url, { cache: "reload" });
@@ -3155,6 +3305,7 @@ function hideFinal() {
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
   resetIdleTimer();
+  currentFinalAsset = null;
 }
 
 function retakePhoto() {
@@ -3166,10 +3317,26 @@ function retakePhoto() {
 function exitFinalPreview() {
   hideFinal();
 }
-function addToGallery(url) {
-  const img = new Image();
-  img.src = url;
-  DOM.gallery.appendChild(img);
+function addToGallery(assetOrUrl) {
+  if (!DOM.gallery) return;
+  const asset = normalizeFinalAsset(assetOrUrl);
+  if (!asset || !asset.url) return;
+  if (asset.type === 'video') {
+    const video = document.createElement('video');
+    video.src = asset.url;
+    if (asset.poster) video.poster = asset.poster;
+    video.muted = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.controls = false;
+    video.className = 'gallery-video';
+    DOM.gallery.appendChild(video);
+  } else {
+    const img = new Image();
+    img.src = asset.url;
+    DOM.gallery.appendChild(img);
+  }
 }
 
 function cancelHideTimer() {
@@ -3190,12 +3357,13 @@ function sendEmail(event) {
   cancelHideTimer();
   const email = DOM.emailInput.value;
   const sendBtn = DOM.sendBtn;
-  const imgUrl = DOM.finalStrip && DOM.finalStrip.src;
+  const asset = getActiveAsset();
+  const imgUrl = asset ? (asset.poster || (asset.type === 'image' ? asset.url : '')) : '';
   const offline = offlineModeActive();
 
   if (offline) {
     // Queue locally for later sending
-    const ok = queuePendingEmail(email, imgUrl);
+    const ok = queuePendingEmail(email, asset);
     if (ok) {
       sendBtn.textContent = "Queued";
       updatePendingUI();
@@ -6275,13 +6443,15 @@ Object.assign(window, {
   appendEmailText,
   cancelHideTimer,
   capturePhotoFlow,
+  captureBoomerangFlow,
+  captureVideo360Flow,
   clearAnalytics,
   closeConfirm,
   confirmTemplate,
   copyBuildCmd,
   copyShareLink,
   copyShipCmd,
-  downloadShareImage,
+  downloadShareAsset,
   exitFinalPreview,
   exportCurrentEvent,
   exportThemes,
