@@ -3414,6 +3414,7 @@ function showFinal(assetOrUrl) {
             if (DOM.shareLink) {
               DOM.shareLink.href = lastShareUrl;
               DOM.shareLink.textContent = lastShareUrl;
+              DOM.shareLink.style.display = "inline";
             }
             if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
             if (DOM.shareLink) DOM.shareLink.style.display = "inline";
