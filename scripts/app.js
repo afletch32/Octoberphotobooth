@@ -87,6 +87,7 @@ const DOM = {
   finalPreview: document.getElementById("finalPreview"),
   finalPreviewContent: document.getElementById("finalPreviewContent"),
   finalStrip: document.getElementById("finalStrip"),
+  finalVideo: document.getElementById("finalVideo"),
   qrCodeContainer: document.getElementById("qrCodeContainer"),
   qrCode: document.getElementById("qrCode"),
   lastShot: document.getElementById("lastShot"),
@@ -95,6 +96,7 @@ const DOM = {
   shareLinkRow: document.getElementById("shareLinkRow"),
   shareLink: document.getElementById("shareLink"),
   emailInput: document.getElementById("emailInput"),
+  emailForm: document.getElementById("emailForm"),
   sendBtn: document.getElementById("sendBtn"),
   retakeBtn: document.getElementById("retakeBtn"),
   closePreviewBtn: document.getElementById("closePreviewBtn"),
@@ -210,6 +212,8 @@ function setBoothControlsVisible(show) {
 let activeTheme = null; // Default theme
 let mode = "photo";
 let stream;
+let finalMedia = null;
+let finalPreviewUrl = null;
 let selectedOverlay = null;
 let pendingTemplate = null;
 let hidePreviewTimer = null;
@@ -1833,6 +1837,10 @@ function setMode(m) {
   if (mode === "strip") {
     selectedOverlay = null;
     if (DOM.liveOverlay) DOM.liveOverlay.src = "";
+  } else if (mode === "video360") {
+    selectedOverlay = null;
+    if (DOM.liveOverlay) DOM.liveOverlay.src = "";
+    setCaptureAspect(null);
   }
   renderOptions();
   updateModeDurationHint();
@@ -1844,6 +1852,14 @@ function renderOptions() {
   const list = overlayModes ? getOverlayList(activeTheme) : templates;
   const container = DOM.options;
   container.innerHTML = "";
+  if (isVideo360) {
+    const note = document.createElement("div");
+    note.className = "video360-note";
+    note.textContent =
+      "Speed-ramped 360 clips capture automatically. No overlay selection needed.";
+    container.appendChild(note);
+    return;
+  }
   // Add a "No Overlay" option for Photo mode to quickly clear stuck overlays
   if (overlayModes) {
     const wrap = document.createElement("div");
@@ -2702,9 +2718,357 @@ async function countdownAndSnap() {
   for (let n = 3; n > 0; n--) {
     await showCountdown(n);
   }
+  if (options && options.flash) triggerFlash();
+}
+async function countdownAndSnap() {
+  await runCountdown(3, { flash: true });
   const shot = drawToCanvasFromVideo();
-  triggerFlash();
   return shot;
+}
+
+async function capture360Flow() {
+  lastCaptureFlow = capture360Flow;
+  setBoothControlsVisible(false);
+  let success = false;
+  try {
+    await runCountdown(3);
+    const rawClip = await record360Clip(VIDEO_360_RECORD_MS);
+    if (!rawClip || !rawClip.size) {
+      throw new Error("No video captured");
+    }
+    showToast("Processing 360 clip…");
+    const processed = await applySpeedRampTo360(rawClip);
+    if (!processed || !processed.size) {
+      throw new Error("Processing failed");
+    }
+    const previewUrl = URL.createObjectURL(processed);
+    showFinal({
+      type: "video",
+      url: previewUrl,
+      blob: processed,
+      filename: VIDEO_360_FILENAME,
+      revokeOnHide: true,
+    });
+    recordAnalytics("video360", "speed-ramp");
+    addToGallery({ type: "video", blob: processed });
+    success = true;
+  } catch (err) {
+    console.error("360 capture failed", err);
+    alert(
+      "Could not record 360 clip: " +
+        (err && err.message ? err.message : String(err || "unknown error")),
+    );
+  } finally {
+    if (!success) setBoothControlsVisible(true);
+  }
+}
+
+function pickMediaRecorderMimeType() {
+  if (
+    typeof MediaRecorder === "undefined" ||
+    typeof MediaRecorder.isTypeSupported !== "function"
+  )
+    return null;
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4",
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(candidate)) return candidate;
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function record360Clip(durationMs = VIDEO_360_RECORD_MS) {
+  const ms = Math.max(1000, Number(durationMs) || VIDEO_360_RECORD_MS);
+  if (
+    demoMode ||
+    !stream ||
+    typeof MediaRecorder === "undefined" ||
+    !stream.getVideoTracks ||
+    stream.getVideoTracks().length === 0
+  ) {
+    return createDemo360Clip(ms);
+  }
+  const mimeType = pickMediaRecorderMimeType();
+  const options = mimeType ? { mimeType } : undefined;
+  return new Promise((resolve, reject) => {
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, options);
+    } catch (err) {
+      console.warn("MediaRecorder init failed, using demo clip", err);
+      createDemo360Clip(ms).then(resolve).catch(reject);
+      return;
+    }
+    const chunks = [];
+    recorder.addEventListener("dataavailable", (ev) => {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    });
+    recorder.addEventListener("stop", () => {
+      if (!chunks.length) {
+        reject(new Error("No video data captured"));
+        return;
+      }
+      resolve(
+        new Blob(chunks, {
+          type: recorder.mimeType || mimeType || "video/webm",
+        }),
+      );
+    });
+    recorder.addEventListener("error", (ev) => {
+      reject(ev.error || ev);
+    });
+    try {
+      recorder.start();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    setTimeout(() => {
+      try {
+        if (recorder.state !== "inactive") recorder.stop();
+      } catch (_) {}
+    }, ms);
+  });
+}
+
+async function createDemo360Clip(durationMs) {
+  if (typeof document === "undefined") {
+    throw new Error("Demo clip not supported in this environment");
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 1280;
+  canvas.height = 720;
+  if (typeof canvas.captureStream !== "function") {
+    throw new Error("Canvas captureStream not supported");
+  }
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas context unavailable");
+  const stream = canvas.captureStream(VIDEO_360_FRAME_RATE);
+  const mimeType = pickMediaRecorderMimeType();
+  const options = mimeType ? { mimeType } : undefined;
+  return new Promise((resolve, reject) => {
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, options);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const chunks = [];
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    };
+    recorder.onerror = (ev) => reject(ev.error || ev);
+    recorder.onstop = () => {
+      resolve(
+        new Blob(chunks, {
+          type: recorder.mimeType || mimeType || "video/webm",
+        }),
+      );
+    };
+    const start = performance.now();
+    function draw(now) {
+      const elapsed = now - start;
+      const progress = Math.min(1, elapsed / durationMs);
+      ctx.fillStyle = `hsl(${Math.floor(progress * 360)}, 70%, 45%)`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const radius = 120 + Math.sin(progress * Math.PI * 2) * 40;
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height / 2, Math.abs(radius), 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "64px 'Comic Neue', 'Comic Sans MS', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Demo 360", canvas.width / 2, canvas.height / 2 + 24);
+      if (progress < 1) {
+        requestAnimationFrame(draw);
+      } else {
+        try {
+          if (recorder.state !== "inactive") recorder.stop();
+        } catch (_) {}
+      }
+    }
+    try {
+      recorder.start();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    requestAnimationFrame(draw);
+    setTimeout(() => {
+      try {
+        if (recorder.state !== "inactive") recorder.stop();
+      } catch (_) {}
+    }, durationMs + 200);
+  });
+}
+
+function easeInOutCubic(t) {
+  const clamped = clamp(Number(t) || 0, 0, 1);
+  return clamped < 0.5
+    ? 4 * clamped * clamped * clamped
+    : 1 - Math.pow(-2 * clamped + 2, 3) / 2;
+}
+
+function buildSpeedRampSegments(duration) {
+  const d = Number(duration) && duration > 0 ? duration : 6;
+  const profile = VIDEO_360_SPEED_RAMP;
+  const intro = computeRampDuration(d, profile.introPortion, profile.introMaxDuration);
+  const outro = computeRampDuration(d, profile.outroPortion, profile.outroMaxDuration);
+  const midStart = intro;
+  const rawMidEnd = Math.max(d - outro, midStart + (profile.minMidDuration || 0.2));
+  const midEnd = Math.min(rawMidEnd, Math.max(d, midStart));
+  const tailStart = Math.min(Math.max(midStart, midEnd), d);
+  const introFrom = Number.isFinite(profile.introFrom) ? profile.introFrom : 0.55;
+  const introTo = Number.isFinite(profile.introTo) ? profile.introTo : 1.0;
+  const midTo = Number.isFinite(profile.midTo) ? profile.midTo : 1.85;
+  const outroTo = Number.isFinite(profile.outroTo) ? profile.outroTo : 0.75;
+  return [
+    { start: 0, end: midStart, from: introFrom, to: introTo },
+    { start: midStart, end: tailStart, from: introTo, to: midTo },
+    { start: tailStart, end: Math.max(d, tailStart), from: midTo, to: outroTo },
+  ];
+}
+
+function computeRampDuration(total, portion, maxDuration) {
+  const ratio = clamp(Number(portion) || 0.2, 0.05, 0.9);
+  const scaled = total * ratio;
+  if (Number.isFinite(maxDuration) && maxDuration > 0) {
+    return Math.min(scaled, maxDuration);
+  }
+  return scaled;
+}
+
+function rateForTime(time, segments) {
+  if (!Array.isArray(segments) || !segments.length) return 1;
+  const t = Math.max(0, Number(time) || 0);
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg || !Number.isFinite(seg.start) || !Number.isFinite(seg.end)) continue;
+    if (t <= seg.end || i === segments.length - 1) {
+      const span = Math.max(0.001, seg.end - seg.start);
+      const pct = Math.min(1, Math.max(0, (t - seg.start) / span));
+      const eased = easeInOutCubic(pct);
+      return seg.from + (seg.to - seg.from) * eased;
+    }
+  }
+  const last = segments[segments.length - 1];
+  return last && Number.isFinite(last.to) ? last.to : 1;
+}
+
+function waitForEvent(target, event) {
+  return new Promise((resolve, reject) => {
+    if (!target || typeof target.addEventListener !== "function") {
+      reject(new Error("Invalid event target"));
+      return;
+    }
+    const cleanup = () => {
+      target.removeEventListener(event, onEvent);
+      target.removeEventListener("error", onError);
+    };
+    const onEvent = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err) => {
+      cleanup();
+      reject(err);
+    };
+    target.addEventListener(event, onEvent, { once: true });
+    target.addEventListener("error", onError, { once: true });
+  });
+}
+
+async function applySpeedRampTo360(blob) {
+  if (!blob || !(blob instanceof Blob)) return blob;
+  if (typeof document === "undefined") return blob;
+  const canvas = document.createElement("canvas");
+  if (typeof canvas.captureStream !== "function") return blob;
+  if (typeof MediaRecorder === "undefined") return blob;
+  const mimeType = pickMediaRecorderMimeType();
+  const url = URL.createObjectURL(blob);
+  try {
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    await waitForEvent(video, "loadedmetadata");
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return blob;
+    const stream = canvas.captureStream(VIDEO_360_FRAME_RATE);
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    } catch (err) {
+      console.warn("MediaRecorder unavailable for processing", err);
+      return blob;
+    }
+    const chunks = [];
+    const recorded = new Promise((resolve, reject) => {
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size) chunks.push(ev.data);
+      };
+      recorder.onerror = (ev) => reject(ev.error || ev);
+      recorder.onstop = () => {
+        resolve(
+          new Blob(chunks, {
+            type: recorder.mimeType || mimeType || blob.type || "video/webm",
+          }),
+        );
+      };
+    });
+    const segments = buildSpeedRampSegments(video.duration);
+    if (!segments.length) return blob;
+    if (Number.isFinite(segments[0].from)) {
+      video.playbackRate = segments[0].from;
+    }
+    video.currentTime = 0;
+    let drawing = true;
+    function drawFrame() {
+      if (!drawing) return;
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } catch (_) {}
+      if (!video.ended) requestAnimationFrame(drawFrame);
+    }
+    function updateRate() {
+      if (!drawing) return;
+      const rate = rateForTime(video.currentTime, segments);
+      if (Number.isFinite(rate) && rate > 0) {
+        video.playbackRate = rate;
+      }
+      if (!video.paused && !video.ended) requestAnimationFrame(updateRate);
+    }
+    recorder.start();
+    try {
+      await video.play();
+    } catch (_) {}
+    requestAnimationFrame(drawFrame);
+    requestAnimationFrame(updateRate);
+    try {
+      await waitForEvent(video, "ended");
+    } catch (_) {}
+    drawing = false;
+    if (recorder.state !== "inactive") recorder.stop();
+    const processed = await recorded;
+    return processed && processed.size ? processed : blob;
+  } catch (err) {
+    console.warn("Speed ramp processing failed", err);
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function triggerFlash() {
@@ -2997,27 +3361,35 @@ function showFinal(assetOrUrl) {
   currentFinalAsset = asset;
   clearTimeout(hidePreviewTimer); // Clear any existing timer
   const img = DOM.finalStrip;
-  const prevFit = img ? img.style.objectFit : "";
-  if (img) img.style.objectFit = "contain";
+  const video = DOM.finalVideo;
   const qrContainer = DOM.qrCodeContainer;
   const qrCanvas = DOM.qrCode;
-  const panel = DOM.finalPreview;
 
   if (panel) panel.classList.remove("qr-ready");
-  // Reset form from previous use
-  DOM.emailInput.value = "";
-  const sendBtn = DOM.sendBtn;
-  sendBtn.textContent = "Send";
-  sendBtn.disabled = false;
 
-  DOM.retakeBtn.style.display = allowRetake ? "block" : "none";
-  DOM.retakeBtn.disabled = !lastCaptureFlow;
+  if (DOM.emailInput) DOM.emailInput.value = "";
+  if (DOM.sendBtn) {
+    DOM.sendBtn.textContent = "Send";
+    DOM.sendBtn.disabled = normalized.type === "video";
+  }
+  if (DOM.emailForm)
+    DOM.emailForm.style.display =
+      normalized.type === "video" ? "none" : "block";
+
+  if (DOM.retakeBtn) {
+    DOM.retakeBtn.style.display = allowRetake ? "block" : "none";
+    DOM.retakeBtn.disabled = !lastCaptureFlow;
+  }
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "block";
 
   const offline = offlineModeActive();
-  // Default: hide QR/link until we have a public URL
   if (qrContainer) qrContainer.classList.add("hidden");
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
+  if (DOM.shareLink) {
+    DOM.shareLink.textContent = "";
+    DOM.shareLink.removeAttribute("href");
+    DOM.shareLink.style.display = "none";
+  }
   if (DOM.qrHint) {
     DOM.qrHint.style.display = "none";
     DOM.qrHint.textContent = "";
@@ -3025,30 +3397,43 @@ function showFinal(assetOrUrl) {
   if (DOM.shareStatus) {
     DOM.shareStatus.style.display = "none";
   }
-  if (!offline && cloudinaryEnabled()) {
-    // Prepare a public Cloudinary link, then show QR when ready
-    lastShareUrl = null;
-    if (DOM.shareStatus) {
-      DOM.shareStatus.textContent = "Preparing link…";
-      DOM.shareStatus.style.display = "inline-flex";
-    }
-    publishShareImage(url)
-      .then((publicUrl) => {
-        lastShareUrl =
-          publicUrl && /^https?:/i.test(publicUrl) ? publicUrl : null;
-        if (lastShareUrl) {
-          renderQrCode(qrCanvas, lastShareUrl);
-          if (DOM.shareLink) {
-            DOM.shareLink.href = lastShareUrl;
-            DOM.shareLink.textContent = lastShareUrl;
+  lastShareUrl = null;
+
+  if (normalized.type === "image") {
+    if (!offline && cloudinaryEnabled()) {
+      if (DOM.shareStatus) {
+        DOM.shareStatus.textContent = "Preparing link…";
+        DOM.shareStatus.style.display = "inline-flex";
+      }
+      publishShareImage(normalized.url)
+        .then((publicUrl) => {
+          lastShareUrl =
+            publicUrl && /^https?:/i.test(publicUrl) ? publicUrl : null;
+          if (lastShareUrl) {
+            renderQrCode(qrCanvas, lastShareUrl);
+            if (DOM.shareLink) {
+              DOM.shareLink.href = lastShareUrl;
+              DOM.shareLink.textContent = lastShareUrl;
+            }
+            if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+            if (DOM.shareLink) DOM.shareLink.style.display = "inline";
+            if (qrContainer) qrContainer.classList.remove("hidden");
+            if (panel) panel.classList.add("qr-ready");
+            if (DOM.shareStatus) {
+              DOM.shareStatus.textContent = "Link ready";
+            }
+          } else {
+            if (DOM.qrHint) {
+              DOM.qrHint.textContent =
+                "QR disabled: Cloudinary link not available.";
+              DOM.qrHint.style.display = "block";
+            }
+            if (DOM.shareStatus) {
+              DOM.shareStatus.textContent = "Upload failed";
+            }
           }
-          if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
-          if (qrContainer) qrContainer.classList.remove("hidden");
-          if (panel) panel.classList.add("qr-ready");
-          if (DOM.shareStatus) {
-            DOM.shareStatus.textContent = "Link ready";
-          }
-        } else {
+        })
+        .catch(() => {
           if (DOM.qrHint) {
             DOM.qrHint.textContent =
               "QR disabled: Cloudinary link not available.";
@@ -3057,41 +3442,38 @@ function showFinal(assetOrUrl) {
           if (DOM.shareStatus) {
             DOM.shareStatus.textContent = "Upload failed";
           }
-        }
-      })
-      .catch(() => {
-        if (DOM.qrHint) {
-          DOM.qrHint.textContent =
-            "QR disabled: Cloudinary link not available.";
-          DOM.qrHint.style.display = "block";
-        }
-        if (DOM.shareStatus) {
-          DOM.shareStatus.textContent = "Upload failed";
-        }
-      });
-  } else {
-    // No internet or Cloudinary disabled
-    if (offline && DOM.qrHint) {
-      DOM.qrHint.textContent = "Offline: QR disabled";
-      DOM.qrHint.style.display = "block";
+        });
+    } else {
+      if (offline && DOM.qrHint) {
+        DOM.qrHint.textContent = "Offline: QR disabled";
+        DOM.qrHint.style.display = "block";
+      }
+      if (!cloudinaryEnabled() && DOM.qrHint) {
+        DOM.qrHint.textContent = "Enable Cloudinary in Admin to show QR";
+        DOM.qrHint.style.display = "block";
+      }
     }
-    if (!cloudinaryEnabled() && DOM.qrHint) {
-      DOM.qrHint.textContent = "Enable Cloudinary in Admin to show QR";
+  } else {
+    if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "flex";
+    if (DOM.qrHint) {
+      DOM.qrHint.textContent =
+        "QR and email sharing are available for photos. Use Download to share this video clip.";
       DOM.qrHint.style.display = "block";
     }
   }
-  panel.classList.add("show");
+
+  if (panel) panel.classList.add("show");
   resetIdleTimer();
   hidePreviewTimer = setTimeout(hideFinal, 15000);
 
-  if (img) {
+  if (img && normalized.type === "image" && panel) {
     panel.addEventListener("transitionend", function once() {
-      img.style.objectFit = prevFit || "";
+      const prevFit = img.dataset.prevFit || "";
+      img.style.objectFit = prevFit;
+      delete img.dataset.prevFit;
       panel.removeEventListener("transitionend", once);
     });
   }
-
-  // No local-QR fallback: only show QR when a public link is ready (handled above)
 }
 
 function renderQrCode(canvas, text) {
@@ -3304,7 +3686,7 @@ async function openShareLink() {
   if (!url) return;
   try {
     // Ensure the asset is retrievable (esp. right after SW publish) and open a stable blob URL
-    const resp = await fetch(url, { cache: "reload" });
+    const resp = await fetch(directUrl, { cache: "reload" });
     if (!resp.ok) throw new Error("Link not ready");
     const blob = await resp.blob();
     const objUrl = URL.createObjectURL(blob);
@@ -3314,9 +3696,9 @@ async function openShareLink() {
   } catch (e) {
     // Fallback to opening the original URL
     try {
-      window.open(url, "_blank", "noopener");
+      window.open(directUrl, "_blank", "noopener");
     } catch (_) {
-      location.href = url;
+      location.href = directUrl;
     }
   }
 }
@@ -3339,13 +3721,23 @@ async function downloadShareAsset() {
   const url = lastShareUrl || (asset && asset.url);
   if (!url) return;
   try {
-    const resp = await fetch(url, { cache: "reload" });
-    if (!resp.ok) throw new Error("Link not ready");
-    const blob = await resp.blob();
+    const isBlobDirect =
+      typeof directUrl === "string" && directUrl.startsWith("blob:");
+    if (directUrl && !isBlobDirect) {
+      const resp = await fetch(directUrl, { cache: "reload" });
+      if (!resp.ok) throw new Error("Link not ready");
+      blob = await resp.blob();
+    } else if (finalMedia && finalMedia.blob) {
+      blob = finalMedia.blob;
+    }
+    if (!blob) throw new Error("No downloadable media");
     const objUrl = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = objUrl;
-    a.download = "photobooth.png";
+    a.download =
+      finalMedia && finalMedia.type === "video"
+        ? finalMedia.filename || VIDEO_360_FILENAME
+        : "photobooth.png";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -3353,21 +3745,38 @@ async function downloadShareAsset() {
   } catch (e) {
     // Fallback: open in new tab; user can save manually
     try {
-      window.open(url, "_blank", "noopener");
+      const fallbackUrl = directUrl || (finalMedia && finalMedia.url);
+      if (fallbackUrl) window.open(fallbackUrl, "_blank", "noopener");
     } catch (_) {
-      location.href = url;
+      if (directUrl) location.href = directUrl;
     }
   }
 }
 
 function hideFinal() {
-  DOM.finalPreview.classList.remove("show");
-  DOM.finalPreview.classList.remove("qr-ready");
-  DOM.qrCodeContainer.classList.add("hidden");
+  if (DOM.finalPreview) {
+    DOM.finalPreview.classList.remove("show");
+    DOM.finalPreview.classList.remove("qr-ready");
+  }
+  if (DOM.qrCodeContainer) DOM.qrCodeContainer.classList.add("hidden");
   if (DOM.shareLinkRow) DOM.shareLinkRow.style.display = "none";
   if (DOM.shareStatus) DOM.shareStatus.style.display = "none";
-  DOM.retakeBtn.style.display = "none";
+  if (DOM.retakeBtn) DOM.retakeBtn.style.display = "none";
   if (DOM.closePreviewBtn) DOM.closePreviewBtn.style.display = "none";
+  if (DOM.finalVideo) {
+    DOM.finalVideo.pause();
+    DOM.finalVideo.classList.add("hidden");
+    DOM.finalVideo.removeAttribute("src");
+    DOM.finalVideo.load();
+  }
+  if (finalPreviewUrl) {
+    try {
+      URL.revokeObjectURL(finalPreviewUrl);
+    } catch (_) {}
+    finalPreviewUrl = null;
+  }
+  finalMedia = null;
+  lastShareUrl = null;
   lastCaptureFlow = null; // Clear the stored flow
   clearTimeout(hidePreviewTimer);
   setBoothControlsVisible(true);
@@ -3494,7 +3903,12 @@ function appendEmailText(text) {
 
 // --- Analytics ---
 function getAnalytics() {
-  const defaults = { total_sessions: 0, overlay_usage: {}, emails: [] };
+  const defaults = {
+    total_sessions: 0,
+    overlay_usage: {},
+    emails: [],
+    video360_sessions: 0,
+  };
   try {
     const data = localStorage.getItem("photoboothAnalytics");
     return data ? JSON.parse(data) : defaults;
@@ -3670,6 +4084,9 @@ function recordAnalytics(type, value) {
   if (type === "photo" || type === "strip") {
     data.total_sessions = (data.total_sessions || 0) + 1;
     data.overlay_usage[value] = (data.overlay_usage[value] || 0) + 1;
+  } else if (type === "video360") {
+    data.total_sessions = (data.total_sessions || 0) + 1;
+    data.video360_sessions = (data.video360_sessions || 0) + 1;
   } else if (type === "email") {
     if (!data.emails.includes(value)) {
       data.emails.push(value);
@@ -6530,6 +6947,7 @@ Object.assign(window, {
   makeAvailableOffline,
   openShareLink,
   rebuildManifestsUI,
+  handleCapture,
   retakePhoto,
   saveCloudinarySettings,
   saveDeploySettings,
