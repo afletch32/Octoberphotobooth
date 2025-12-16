@@ -1,6 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
-    if (!env.ASSETS) return new Response(JSON.stringify({ error: 'R2 bucket not bound (ASSETS)' }), { status: 500 });
+    const bucket = env.ASSETS || env.PHOTOS_BUCKET;
+    if (!bucket) return new Response(JSON.stringify({ error: 'R2 bucket not bound (expecting ASSETS or PHOTOS_BUCKET)' }), { status: 500 });
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.includes('multipart/form-data')) {
       return new Response('Expected multipart/form-data', { status: 400 });
@@ -15,7 +16,7 @@ export async function onRequestPost({ request, env }) {
     }
     const buf = await file.arrayBuffer();
     const key = `assets/${theme}/${kind}/${Date.now()}-${name}`;
-    await env.ASSETS.put(key, buf, {
+    await bucket.put(key, buf, {
       httpMetadata: { contentType: file.type || 'application/octet-stream', cacheControl: 'public, max-age=31536000, immutable' }
     });
     const url = `/files/${encodeURIComponent(key)}`;
@@ -24,4 +25,3 @@ export async function onRequestPost({ request, env }) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }
-

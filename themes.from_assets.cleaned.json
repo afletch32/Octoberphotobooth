@@ -22,9 +22,7 @@
       "/themes/general/Hawks/Hawks/overlays/hawks-frame-helmets.png",
       "/themes/general/Hawks/Hawks/overlays/hawks-frame-players.png"
     ],
-    "templates": [
-      "/themes/general/Hawks/Hawks/templates/go hawks.png"
-    ]
+    "templates": ["/themes/general/Hawks/Hawks/templates/go hawks.png"]
   },
   {
     "id": "basic-basic",
@@ -125,7 +123,7 @@
     ]
   },
   {
-    "id": "holidays-winter",
+    "id": "holidays-winter-valentines",
     "name": "winter",
     "category": "holidays",
     "background": "/themes/general/holidays/winter/backgrounds/valentines-background-1.png",
@@ -140,7 +138,7 @@
     ]
   },
   {
-    "id": "holidays-winter",
+    "id": "holidays-winter-christmas",
     "name": "winter",
     "category": "holidays",
     "background": "/themes/general/holidays/winter/backgrounds/christmas-background-1.png",

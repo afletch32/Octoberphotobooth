@@ -3,7 +3,7 @@ export async function onRequestGet({ env }) {
   try {
     // Test THEMES_KV
     if (!env.THEMES_KV) {
-      // Allow fallback to FONTS_KV for themes
+      // Allow fallback to FONTS_KV for themes checks when THEMES_KV is missing
       if (env.FONTS_KV) {
         const k = `diag:themes:${Date.now()}`;
         try {
@@ -48,11 +48,12 @@ export async function onRequestGet({ env }) {
     }
 
     // Test R2 (ASSETS) with a head/list call if possible
-    if (!env.ASSETS) {
-      out.ASSETS = { ok: false, error: 'Missing binding ASSETS (R2)' };
+    const assetsBinding = env.ASSETS || env.PHOTOS_BUCKET;
+    if (!assetsBinding) {
+      out.ASSETS = { ok: false, error: 'Missing binding for R2 (expected ASSETS or PHOTOS_BUCKET)' };
     } else {
       try {
-        const list = await env.ASSETS.list({ prefix: '' , limit: 1 });
+        const list = await assetsBinding.list({ prefix: '' , limit: 1 });
         out.ASSETS = { ok: true, listed: Array.isArray(list.objects) };
       } catch (e) {
         out.ASSETS = { ok: false, error: String(e) };
